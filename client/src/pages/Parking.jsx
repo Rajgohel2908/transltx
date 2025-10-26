@@ -5,8 +5,8 @@ import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
 
 // Use environment variable for API base URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const API_URL = `${API_BASE_URL}/parking`;
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+const API_URL = `${VITE_BACKEND_BASE_URL}/parking`;
 
 // --- Skeleton Loader Card ---
 const SkeletonCard = () => (

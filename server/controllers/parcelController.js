@@ -23,81 +23,52 @@ function deg2rad(deg) {
 // --- calculateFare (no changes) ---
 export const calculateFare = async (req, res) => {
   try {
-    const { source, destination, weight } = req.body;
-    if (!source || !destination || !weight) {
+    const { source, destination, weight, length, width, height } = req.body;
+    if (!source || !destination || !weight || !source.postalCode || !destination.postalCode) {
       return res
       .status(400)
-      .json({ message: "Source, destination, and weight are required." });
+      .json({ message: "Source, destination, weight, and postal codes are required." });
     }
-    const routes = await Route.find({}).lean();
-    let sourceStop, destinationStop;
-    for (const route of routes) {
-      if (!sourceStop) {
-        sourceStop = route.stops.find(
-          (stop) =>
-            stop.name.trim().toLowerCase() === source.trim().toLowerCase()
-        );
-      }
-      if (!destinationStop) {
-        destinationStop = route.stops.find(
-          (stop) =>
-            stop.name.trim().toLowerCase() === destination.trim().toLowerCase()
-        );
-      }
-      if (sourceStop && destinationStop) break;
-    }
-    if (!sourceStop || !destinationStop) {
-      return res
-      .status(404)
-      .json({
-        message: "Could not find one or both locations on our routes.",
-      });
-    }
-    const distance = getDistanceFromLatLonInKm(
-      sourceStop.latitude,
-      sourceStop.longitude,
-      destinationStop.latitude,
-      destinationStop.longitude
-    );
-    console.log(sourceStop);
-    console.log(destinationStop);
-    console.log(distance);
 
-    const calculatedFareInUSD = 5 + distance * 1.5 + parseFloat(weight) * 2;
-    const calculatedFareInINR = calculatedFareInUSD * 80;
-    if (isNaN(calculatedFareInINR)) {
+    // More realistic fare calculation based on weight and dimensions
+    const baseFare = 500; // Base rate in INR
+    const weightCharge = parseFloat(weight) * 20; // ₹20 per kg
+
+    // Optional: Add dimensional weight calculation
+    const volume = (parseFloat(length) || 1) * (parseFloat(width) || 1) * (parseFloat(height) || 1);
+    const dimensionalWeight = volume / 5000; // Standard dimensional weight factor
+    const chargeableWeight = Math.max(parseFloat(weight), dimensionalWeight);
+    const dimensionalCharge = chargeableWeight > parseFloat(weight) ? (chargeableWeight - parseFloat(weight)) * 10 : 0;
+
+    const totalFare = baseFare + weightCharge + dimensionalCharge;
+
+    if (isNaN(totalFare)) {
       return res
         .status(500)
         .json({ message: "Fare calculation resulted in an error." });
     }
-    res.status(200).json({ fare: calculatedFareInINR.toFixed(2) });
+    res.status(200).json({ fare: totalFare.toFixed(2) });
   } catch (error) {
     console.error("Fare Calculation Error:", error);
     res.status(500).json({ message: "Server error during fare calculation." });
   }
 };
 
-// --- createBooking (UPDATED WITH DEBUGGING) ---
+// --- createBooking (UPDATED TO MATCH NEW SCHEMA) ---
 export const createBooking = async (req, res) => {
   try {
     const {
       user,
-      senderName,
-      senderPhone,
-      source,
-      destination,
-      packageType,
-      weight,
+      sender,
+      recipient,
+      parcel,
       fare,
     } = req.body;
     if (
       !user ||
-      !senderName ||
-      !senderPhone ||
-      !source ||
-      !destination ||
-      !packageType ||
-      !weight ||
+      !sender ||
+      !recipient ||
+      !parcel ||
       !fare
     ) {
       return res
@@ -105,27 +76,14 @@ export const createBooking = async (req, res) => {
         .json({ message: "Missing required fields for booking." });
     }
 
-    console.log(
-      "--- DEBUG (createBooking): Received user from body:",
-      user
-    );
-
     const newParcel = new Parcel({
-      user: user,
-      senderName,
-      senderPhone,
-      source,
-      destination,
-      packageType,
-      weight,
+      user: user._id, // Store only the user's ID
+      sender,
+      recipient,
+      parcel,
       fare,
       status: "pending",
     });
-
-    console.log(
-      "--- DEBUG (createBooking): 'user' field on newParcel instance before save:",
-      newParcel.user
-    );
     
     const savedParcel = await newParcel.save();
     console.log("Parcel saved successfully:", savedParcel);
@@ -138,40 +96,20 @@ export const createBooking = async (req, res) => {
   }
 };
 
-// --- getUserOrders (UPDATED WITH DEEPER DEBUGGING) ---
+// --- getUserOrders (UPDATED TO POPULATE NEW FIELDS) ---
 export const getUserOrders = async (req, res) => {
   try {
     const userId = req.params.userId;
-
-    console.log(
-      "--- DEBUG: Fetching orders for userId from URL parameter:",
-      userId
-    );
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required." });
     }
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    console.log("--- DEBUG: Converted userObjectId for query:", userObjectId);
 
     const orders = await Parcel.find({ user: userObjectId }).sort({
       createdAt: -1,
     });
-
-    // --- NEW DEEPER DEBUGGING ---
-    // This query will fetch EVERYTHING from the collection so we can inspect the data.
-    const allParcelsInDB = await Parcel.find({}).lean();
-    console.log(
-      "--- DEBUG: ALL parcels currently in the database:",
-      JSON.stringify(allParcelsInDB, null, 2)
-    );
-    // --- END NEW DEBUGGING ---
-
-    console.log(
-      "--- DEBUG: Number of orders found for this user:",
-      orders.length
-    );
 
     res.status(200).json(orders);
   } catch (error) {
@@ -180,12 +118,10 @@ export const getUserOrders = async (req, res) => {
   }
 };
 
-
-// --- ADMIN FUNCTION: Get all PENDING parcels ---
-// This now only fetches parcels with a 'pending' status for the admin's to-do list.
+// --- ADMIN FUNCTION: Get all parcels ---
 export const getAllParcels = async (req, res) => {
   try {
-    const allParcels = await Parcel.find({ status: "pending" }) // THE FIX IS HERE
+    const allParcels = await Parcel.find({})
       .populate("user", "name email")
       .sort({ createdAt: -1 });
 

@@ -4,14 +4,22 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { AlertCircle, DollarSign, Users, Package, Map } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import AlertForm from "./forms/AlertForm.jsx";
+import TripForm from "./forms/TripForm.jsx";
+import RouteForm from "./forms/RouteForm.jsx";
+import ParkingForm from "./forms/ParkingForm.jsx";
+import ConfirmationModal from "../components/ConfirmationModal.jsx";
+import Pagination from "../components/Pagination.jsx";
 
 // API Endpoints
-const ALERTS_API_URL = "http://localhost:4000/api/admin/alerts";
-const TRIPS_API_URL = "http://localhost:4000/api/trips";
-const PARCELS_API_URL = "http://localhost:4000/api/parcels";
-const ROUTES_API_URL = "http://localhost:4000/api/routes";
-const RIDES_API_URL = "http://localhost:4000/api/rides";
-const USERS_API_URL = "http://localhost:4000/api/users/admin/users"; // Correct admin endpoint
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/admin/alerts`;
+const TRIPS_API_URL = `${VITE_BACKEND_BASE_URL}/trips`;
+const PARCELS_API_URL = `${VITE_BACKEND_BASE_URL}/parcels`;
+const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
+const RIDES_API_URL = `${VITE_BACKEND_BASE_URL}/rides`;
+const PARKING_API_URL = `${VITE_BACKEND_BASE_URL}/parking`;
+const USERS_API_URL = `${VITE_BACKEND_BASE_URL}/users/admin/users`;
 
 // --- Helper Components ---
 const StatCard = ({ title, value, icon, color }) => (
@@ -25,352 +33,6 @@ const StatCard = ({ title, value, icon, color }) => (
     </div>
   </div>
 );
-
-// --- Form for creating and editing alerts ---
-const AlertForm = ({ onAlertSaved, editingAlert, setEditingAlert }) => {
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [priority, setPriority] = useState("Info");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (editingAlert) {
-      setTitle(editingAlert.title);
-      setMessage(editingAlert.message);
-      setPriority(editingAlert.priority);
-    } else {
-      setTitle("");
-      setMessage("");
-      setPriority("Info");
-    }
-  }, [editingAlert]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    const alertData = { title, message, priority };
-
-    try {
-      if (editingAlert) {
-        await axios.put(`${ALERTS_API_URL}/${editingAlert._id}`, alertData);
-      } else {
-        await axios.post(ALERTS_API_URL, alertData);
-      }
-      onAlertSaved();
-      setEditingAlert(null);
-    } catch (err) {
-      console.error("Alert save error:", err);
-      setError(err.response?.data?.message || "Failed to save alert.");
-    }
-  };
-
-  return (
-    <div className="bg-gray-50 p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">
-        {editingAlert ? "Edit Alert" : "Create New Alert"}
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          placeholder="Alert Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="w-full p-3 border border-gray-300 rounded-lg"
-        />
-        <textarea
-          placeholder="Alert Message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          required
-          className="w-full p-3 border border-gray-300 rounded-lg"
-          rows="3"
-        ></textarea>
-        <select
-          value={priority}
-          onChange={(e) => setPriority(e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg bg-white"
-        >
-          <option value="Info">Info (Blue)</option>
-          <option value="Warning">Warning (Yellow)</option>
-          <option value="Critical">Critical (Red)</option>
-        </select>
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            {editingAlert ? "Save Changes" : "Create Alert"}
-          </button>
-          {editingAlert && (
-            <button
-              type="button"
-              onClick={() => setEditingAlert(null)}
-              className="w-full bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-      </form>
-    </div>
-  );
-};
-
-// --- Form for creating and editing trips ---
-const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState("");
-  const [price, setPrice] = useState("");
-  const [image, setImage] = useState("");
-  const [features, setFeatures] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (editingTrip) {
-      setName(editingTrip.name);
-      setDescription(editingTrip.description);
-      setDuration(editingTrip.duration);
-      // Handle both numeric prices and string prices like "₹500.00"
-      const priceValue = typeof editingTrip.price === 'string' ? editingTrip.price.replace(/[^0-9.]/g, '') : editingTrip.price;
-      setPrice(priceValue);
-      setImage(editingTrip.image);
-      setFeatures(editingTrip.features.join(", "));
-    } else {
-      setName("");
-      setDescription("");
-      setDuration("");
-      setPrice("");
-      setImage("");
-      setFeatures("");
-    }
-  }, [editingTrip]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    const tripData = {
-      name,
-      description,
-      duration,
-      price: parseFloat(price), // Send price as a number
-      image,
-      features: features.split(",").map((f) => f.trim()).filter(f => f),
-    };
-    try {
-      let response;
-      if (editingTrip) {
-        response = await axios.put(`${TRIPS_API_URL}/${editingTrip._id}`, tripData);
-      } else {
-        response = await axios.post(TRIPS_API_URL, tripData);
-      }
-      // Pass the saved trip data from the response back to the parent
-      onTripSaved(response.data.trip);
-      setEditingTrip(null);
-    } catch (err) {
-      console.error("Trip save error:", err);
-      setError(err.response?.data?.message || "Failed to save trip.");
-    }
-  };
-
-  return (
-    <div className="bg-gray-50 p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">
-        {editingTrip ? "Edit Trip" : "Create New Trip"}
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input type="text" placeholder="Trip Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-        <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" rows="2"></textarea>
-        <div className="grid grid-cols-2 gap-4">
-          <input type="text" placeholder="Duration (e.g., 5 Days, 4 Nights)" value={duration} onChange={(e) => setDuration(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-          <input type="text" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-        </div>
-        <input type="text" placeholder="Image URL" value={image} onChange={(e) => setImage(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-        <input type="text" placeholder="Features (comma-separated)" value={features} onChange={(e) => setFeatures(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-        <div className="flex gap-4">
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-            {editingTrip ? "Save Changes" : "Create Trip"}
-          </button>
-          {editingTrip && (
-            <button type="button" onClick={() => setEditingTrip(null)} className="w-full bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
-              Cancel
-            </button>
-          )}
-        </div>
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-      </form>
-    </div>
-  );
-};
-
-// --- Form for creating and editing routes ---
-const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
-  const [id, setId] = useState("");
-  const [name, setName] = useState("");
-  const [type, setType] = useState("bus");
-  const [color, setColor] = useState("#3B82F6");
-  const [startTime, setStartTime] = useState("06:00");
-  const [endTime, setEndTime] = useState("22:00");
-  const [frequency, setFrequency] = useState(15);
-  const [stops, setStops] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (editingRoute) {
-      setId(editingRoute.id);
-      setName(editingRoute.name);
-      setType(editingRoute.type);
-      setColor(editingRoute.color);
-      setStartTime(editingRoute.startTime);
-      setEndTime(editingRoute.endTime);
-      setFrequency(editingRoute.frequency);
-      setStops(JSON.stringify(editingRoute.stops, null, 2));
-    } else {
-      setId("");
-      setName("");
-      setType("bus");
-      setColor("#3B82F6");
-      setStartTime("06:00");
-      setEndTime("22:00");
-      setFrequency(15);
-      setStops("");
-    }
-  }, [editingRoute]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    try {
-      // Attempt to parse the stops JSON string
-      let parsedStops;
-      try {
-        parsedStops = JSON.parse(stops);
-        if (!Array.isArray(parsedStops)) {
-          throw new Error("Stops data must be an array.");
-        }
-      } catch (jsonError) {
-        setError("Invalid JSON format for stops. Please provide a valid JSON array.");
-        return;
-      }
-
-      const routeData = {
-        id, name, type, color, startTime, endTime, frequency,
-        stops: parsedStops, // Send the parsed array
-      };
-
-      let response;
-      if (editingRoute) {
-        response = await axios.put(`${ROUTES_API_URL}/${editingRoute._id}`, routeData);
-      } else {
-        response = await axios.post(ROUTES_API_URL, routeData);
-      }
-      // Pass the saved route data from the response back to the parent
-      onRouteSaved(response.data.route);
-      setEditingRoute(null);
-    } catch (err) {
-      console.error("Route save error:", err);
-      setError(err.response?.data?.message || "Failed to save route.");
-    }
-  };
-
-  return (
-    <div className="bg-gray-50 p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">
-        {editingRoute ? "Edit Route" : "Create New Route"}
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          placeholder="Route ID (e.g., bus-101)"
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-          required
-          className="w-full p-3 border border-gray-300 rounded-lg"
-        />
-        <input
-          type="text"
-          placeholder="Route Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="w-full p-3 border border-gray-300 rounded-lg"
-        />
-        <div className="grid grid-cols-2 gap-4">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg bg-white"
-          >
-            <option value="bus">Bus</option>{" "}
-            <option value="metro">Metro</option>{" "}
-            <option value="car">Car</option>{" "}
-            <option value="cycle">Cycle</option>
-          </select>
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="w-full h-12 border border-gray-300 rounded-lg"
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <input
-            type="text"
-            placeholder="Start Time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            required
-            className="w-full p-3 border border-gray-300 rounded-lg"
-          />
-          <input
-            type="text"
-            placeholder="End Time"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            required
-            className="w-full p-3 border border-gray-300 rounded-lg"
-          />
-          <input
-            type="number"
-            placeholder="Frequency"
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value)}
-            required
-            className="w-full p-3 border border-gray-300 rounded-lg"
-          />
-        </div>
-        <textarea
-          placeholder="Stops (Paste JSON Array here)"
-          value={stops}
-          onChange={(e) => setStops(e.target.value)}
-          required
-          className="w-full p-3 border border-gray-300 rounded-lg font-mono text-sm"
-          rows="5"
-        ></textarea>
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            {editingRoute ? "Save Changes" : "Create Route"}
-          </button>
-          {editingRoute && (
-            <button
-              type="button"
-              onClick={() => setEditingRoute(null)}
-              className="w-full bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-      </form>
-    </div>
-  );
-};
 
 // --- Component to manage a single parcel ---
 const ParcelManagerCard = ({ parcel, onUpdate }) => {
@@ -450,8 +112,22 @@ const AdminDashboard = () => {
   const [parcels, setParcels] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [allUsers, setAllUsers] = useState([]); // State for the user list
+  const [parkingLots, setParkingLots] = useState([]);
+  const [editingParking, setEditingParking] = useState(null);
   const [editingRoute, setEditingRoute] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showTripForm, setShowTripForm] = useState(false);
+  const [showParkingForm, setShowParkingForm] = useState(false);
+  const [showRouteForm, setShowRouteForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For individual actions
+  const [confirmationModal, setConfirmationModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const [bookingsData, setBookingsData] = useState([]); // New state for chart data
   const [error, setError] = useState('');
@@ -500,47 +176,62 @@ const AdminDashboard = () => {
     return Object.keys(bookings).map(day => ({ date: day, ...bookings[day] }));
   };
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async (page = 1) => {
     setLoading(true);
     setError(''); // Clear previous errors
     try {
       const token = localStorage.getItem("token");
       const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-
-      const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, usersRes] = await Promise.all([
+      
+      const results = await Promise.allSettled([
         axios.get(ALERTS_API_URL).catch(() => ({ data: [] })),
         axios.get(TRIPS_API_URL).catch(() => ({ data: [] })),
         axios.get(`${PARCELS_API_URL}/all`).catch(() => ({ data: [] })),
         axios.get(ROUTES_API_URL).catch(() => ({ data: [] })),
         axios.get(RIDES_API_URL).catch(() => ({ data: [] })),
-        // Use the secure admin endpoint for users
-        axios.get(USERS_API_URL, authHeaders).catch(() => ({ data: { users: [], totalUsers: 0 } })),
+        axios.get(PARKING_API_URL).catch(() => ({ data: [] })),
+        axios.get(`${USERS_API_URL}?page=${page}`, authHeaders).catch(() => ({ data: { users: [], totalUsers: 0, currentPage: 1, totalPages: 1 } })),
       ]);
-      setAlerts(Array.isArray(alertsRes.data) ? alertsRes.data : []);
-      // Correctly handle both flat array and nested { data: [...] } responses
-      const tripsData = Array.isArray(tripsRes.data) ? tripsRes.data : tripsRes.data?.data || [];
+
+      const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes] = results;
+
+      const errors = results
+        .filter(r => r.status === 'rejected')
+        .map(r => r.reason.message || 'An unknown error occurred during fetch.');
+      if (errors.length > 0) {
+        setError(errors.join('\n'));
+      }
+
+      setAlerts(alertsRes.status === 'fulfilled' ? (Array.isArray(alertsRes.value.data) ? alertsRes.value.data : []) : []);
+      const tripsData = tripsRes.status === 'fulfilled' ? (Array.isArray(tripsRes.value.data) ? tripsRes.value.data : tripsRes.value.data?.data || []) : [];
       setTrips(tripsData);
-      // Safely set user data from the API response structure
-      const usersData = usersRes.data?.users || [];
+      const usersData = usersRes.status === 'fulfilled' ? usersRes.value.data?.users || [] : [];
       setAllUsers(usersData);
-      setParcels(Array.isArray(parcelsRes.data) ? parcelsRes.data : []);
-      setRoutes(Array.isArray(routesRes.data) ? routesRes.data : []);
+      setCurrentPage(usersRes.status === 'fulfilled' ? usersRes.value.data?.currentPage || 1 : 1);
+      setTotalPages(usersRes.status === 'fulfilled' ? usersRes.value.data?.totalPages || 1 : 1);
+      const parcelsData = parcelsRes.status === 'fulfilled' ? (Array.isArray(parcelsRes.value.data) ? parcelsRes.value.data : []) : [];
+      setParcels(parcelsData);
+      const routesData = routesRes.status === 'fulfilled' ? (Array.isArray(routesRes.value.data) ? routesRes.value.data : []) : [];
+      setRoutes(routesData);
+      const parkingData = parkingRes.status === 'fulfilled' ? (Array.isArray(parkingRes.value.data) ? parkingRes.value.data : []) : [];
+      setParkingLots(parkingData);
+      const ridesData = ridesRes.status === 'fulfilled' ? ridesRes.value.data : [];
 
       // Process and set the real data for the bookings chart
-      setBookingsData(processBookingsData(parcelsRes.data, tripsData, ridesRes.data));
+      setBookingsData(processBookingsData(parcelsData, tripsData, ridesData));
 
       // Calculate stats
-      const parcelRevenue = parcelsRes.data.reduce((sum, p) => sum + (p.fare || 0), 0);
+      const parcelRevenue = parcelsData.reduce((sum, p) => sum + (p.fare || 0), 0);
       // Assuming trip price is a number, not a string like '$149'
       const tripRevenue = 0; // Placeholder until trip booking is implemented
 
       setStats({
         totalRevenue: parcelRevenue + tripRevenue,
-        totalUsers: usersRes.data?.totalUsers || 0,
-        parcelBookings: parcelsRes.data?.length || 0,
+        totalUsers: usersRes.status === 'fulfilled' ? usersRes.value.data?.totalUsers || 0 : 0,
+        parcelBookings: parcelsData.length || 0,
         tripBookings: 0, // Placeholder
-        carpoolRides: ridesRes.data?.length || 0,
-        activeRoutes: routesRes.data?.length || 0,
+        carpoolRides: ridesData?.length || 0,
+        activeRoutes: routesData?.length || 0,
       });
 
     } catch (error) {
@@ -549,36 +240,52 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]); // This will run once on mount with the default page
 
   const handleToggleAlertStatus = useCallback(async (alert) => {
     const newStatus = alert.status === "active" ? "inactive" : "active";
     try {
+      setIsSubmitting(true);
+      setError('');
       await axios.patch(`${ALERTS_API_URL}/${alert._id}/status`, {
         status: newStatus,
       });
       fetchAllData();
     } catch (error) {
       console.error("Failed to toggle alert status:", error);
+      setError(error.response?.data?.message || "Failed to toggle alert status.");
+    } finally {
+      setIsSubmitting(false);
     }
-  }, []);
+  }, [fetchAllData]);
 
-  const handleDeleteAlert = useCallback(async (alertId) => {
-    if (
-      window.confirm("Are you sure you want to permanently delete this alert?")
-    ) {
-      try {
-        await axios.delete(`${ALERTS_API_URL}/${alertId}`);
-        fetchAllData();
-      } catch (error) {
-        console.error("Failed to delete alert:", error);
-      }
-    }
-  }, []);
+  const handleDeleteAlert = useCallback((alertId) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Delete Alert',
+      message: 'Are you sure you want to permanently delete this alert? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          setIsSubmitting(true);
+          setError('');
+          await axios.delete(`${ALERTS_API_URL}/${alertId}`);
+          fetchAllData();
+          setConfirmationModal({ isOpen: false });
+        } catch (error) {
+          console.error("Failed to delete alert:", error);
+          setError(error.response?.data?.message || "Failed to delete alert.");
+          setConfirmationModal({ isOpen: false });
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  }, [fetchAllData]);
+
 
   const handleTripSaved = useCallback((savedTrip) => {
     const isEditing = trips.some(t => t._id === savedTrip._id);
@@ -589,8 +296,9 @@ const AdminDashboard = () => {
       // Add new trip to the local state
       setTrips(currentTrips => [savedTrip, ...currentTrips]);
     }
+    fetchAllData(); // Re-fetch all data to ensure consistency
     setEditingTrip(null);
-  }, [trips]);
+  }, [trips, fetchAllData]);
 
   const handleRouteSaved = useCallback((savedRoute) => {
     const isEditing = routes.some(r => r._id === savedRoute._id);
@@ -601,36 +309,90 @@ const AdminDashboard = () => {
       // Add new route to the local state
       setRoutes(currentRoutes => [savedRoute, ...currentRoutes]);
     }
+    fetchAllData(); // Re-fetch all data to ensure consistency
     setEditingRoute(null);
-  }, [routes]);
+  }, [routes, fetchAllData]);
 
-  const handleDeleteTrip = useCallback(async (tripId) => {
-    if (
-      window.confirm("Are you sure you want to permanently delete this trip?")
-    ) {
-        try {
-            await axios.delete(`${TRIPS_API_URL}/${tripId}`);
-            // Optimistic UI update: remove the trip from the local state
-            setTrips(currentTrips => currentTrips.filter(t => t._id !== tripId));
-        } catch (error) {
-            console.error("Failed to delete trip:", error);
-        }
+  const handleParkingSaved = useCallback((savedParking) => {
+    const isEditing = parkingLots.some(p => p._id === savedParking._id);
+    if (isEditing) {
+      setParkingLots(currentLots => currentLots.map(p => p._id === savedParking._id ? savedParking : p));
+    } else {
+      setParkingLots(currentLots => [savedParking, ...currentLots]);
     }
+    fetchAllData(); // Re-fetch all data to ensure consistency
+    setEditingParking(null);
+  }, [parkingLots, fetchAllData]);
+
+  const handleDeleteTrip = useCallback((tripId) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Delete Trip',
+      message: 'Are you sure you want to permanently delete this trip? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          setIsSubmitting(true);
+          setError('');
+          await axios.delete(`${TRIPS_API_URL}/${tripId}`);
+          setTrips(currentTrips => currentTrips.filter(t => t._id !== tripId));
+          setConfirmationModal({ isOpen: false });
+        } catch (error) {
+          console.error("Failed to delete trip:", error);
+          setError(error.response?.data?.message || "Failed to delete trip.");
+          setConfirmationModal({ isOpen: false });
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   }, []);
 
-  const handleDeleteRoute = useCallback(async (routeId) => {
-    if (
-      window.confirm("Are you sure you want to permanently delete this route?")
-    ) {
+  const handleDeleteRoute = useCallback((routeId) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Delete Route',
+      message: 'Are you sure you want to permanently delete this route? This action cannot be undone.',
+      onConfirm: async () => {
         try {
-            await axios.delete(`${ROUTES_API_URL}/${routeId}`);
-            // Optimistic UI update: remove the route from the local state
-            setRoutes(currentRoutes => currentRoutes.filter(r => r._id !== routeId));
+          setIsSubmitting(true);
+          setError('');
+          await axios.delete(`${ROUTES_API_URL}/${routeId}`);
+          setRoutes(currentRoutes => currentRoutes.filter(r => r._id !== routeId));
+          setConfirmationModal({ isOpen: false });
         } catch (error) {
-            console.error("Failed to delete route:", error);
+          console.error("Failed to delete route:", error);
+          setError(error.response?.data?.message || "Failed to delete route.");
+          setConfirmationModal({ isOpen: false });
+        } finally {
+          setIsSubmitting(false);
         }
-    }
+      },
+    });
   }, []);
+
+  const handleDeleteParkingLot = useCallback((parkingId) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Delete Parking Lot',
+      message: 'Are you sure you want to permanently delete this parking lot? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          setIsSubmitting(true);
+          setError('');
+          await axios.delete(`${PARKING_API_URL}/${parkingId}`);
+          setParkingLots(currentLots => currentLots.filter(p => p._id !== parkingId));
+          setConfirmationModal({ isOpen: false });
+        } catch (error) {
+          console.error("Failed to delete parking lot:", error);
+          setError(error.response?.data?.message || "Failed to delete parking lot.");
+          setConfirmationModal({ isOpen: false });
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  }, []);
+
   const handleUpdateParcel = useCallback(async (parcelId, updateData) => {
     try {
       await axios.patch(`${PARCELS_API_URL}/${parcelId}/admin`, updateData);
@@ -639,7 +401,7 @@ const AdminDashboard = () => {
       console.error("Failed to update parcel:", error);
       throw error;
     }
-  }, []); // Empty dependency array means this function is created once and never changes
+  }, [fetchAllData]); // Empty dependency array means this function is created once and never changes
 
   const handleToggleAdmin = useCallback(async (userToUpdate) => {
     if (window.confirm(`Are you sure you want to ${userToUpdate.is_admin ? 'demote' : 'promote'} ${userToUpdate.name}?`)) {
@@ -647,7 +409,8 @@ const AdminDashboard = () => {
         const token = localStorage.getItem("token");
         const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
         const newAdminStatus = !userToUpdate.is_admin;
-
+        setIsSubmitting(true);
+        setError('');
         await axios.patch(`${USERS_API_URL}/${userToUpdate._id}`, { is_admin: newAdminStatus }, authHeaders);
 
         // Update the user in the local state for an immediate UI update
@@ -657,6 +420,8 @@ const AdminDashboard = () => {
       } catch (error) {
         console.error("Failed to toggle admin status:", error);
         setError(error.response?.data?.error || 'Failed to update user status.');
+      } finally {
+        setIsSubmitting(false);
       }
     }
   }, []);
@@ -681,8 +446,13 @@ const AdminDashboard = () => {
       case 'routes':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Routes</h2>
-            <RouteForm onRouteSaved={handleRouteSaved} editingRoute={editingRoute} setEditingRoute={setEditingRoute} />
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Available Routes</h2>
+              <button onClick={() => setShowRouteForm(!showRouteForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                {showRouteForm ? 'Hide Form' : 'Add New Route'}
+              </button>
+            </div>
+            {showRouteForm && <RouteForm onRouteSaved={handleRouteSaved} editingRoute={editingRoute} setEditingRoute={setEditingRoute} />}
             <div className="space-y-4">
               {routes.map((route) => (
                 <div key={route._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
@@ -690,9 +460,9 @@ const AdminDashboard = () => {
                     <p className="font-bold text-lg" style={{ color: route.color }}>{route.name}</p>
                     <p className="text-gray-600 text-sm">{route.stops.length} stops, every {route.frequency} mins</p>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button onClick={() => setEditingRoute(route)} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm">Edit</button>
-                    <button onClick={() => handleDeleteRoute(route._id)} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm">Delete</button>
+                  <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
+                    <button onClick={() => setEditingRoute(route)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
+                    <button onClick={() => handleDeleteRoute(route._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>
               ))}
@@ -702,15 +472,20 @@ const AdminDashboard = () => {
       case 'trips':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Trips</h2>
-            <TripForm onTripSaved={handleTripSaved} editingTrip={editingTrip} setEditingTrip={setEditingTrip} />
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Available Trips</h2>
+              <button onClick={() => setShowTripForm(!showTripForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                {showTripForm ? 'Hide Form' : 'Add New Trip'}
+              </button>
+            </div>
+            {showTripForm && <TripForm onTripSaved={handleTripSaved} editingTrip={editingTrip} setEditingTrip={setEditingTrip} />}
             <div className="space-y-4">
               {trips.map((trip) => (
                 <div key={trip._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div><p className="font-bold text-lg">{trip.name}</p></div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button onClick={() => setEditingTrip(trip)} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm">Edit</button>
-                    <button onClick={() => handleDeleteTrip(trip._id)} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm">Delete</button>
+                  <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
+                    <button onClick={() => setEditingTrip(trip)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
+                    <button onClick={() => handleDeleteTrip(trip._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>
               ))}
@@ -726,10 +501,10 @@ const AdminDashboard = () => {
               {alerts.map((alert) => (
                 <div key={alert._id} className={`bg-white rounded-lg shadow-md p-4 border-l-4 ${getPriorityColor(alert.priority)}`}>
                   <p className="font-bold">{alert.title} <span className={`text-xs font-semibold ml-2 px-2 py-0.5 rounded-full ${alert.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>{alert.status}</span></p>
-                  <div className="flex gap-2 mt-2">
-                    <button onClick={() => handleToggleAlertStatus(alert)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-lg text-xs">Toggle Status</button>
-                    <button onClick={() => setEditingAlert(alert)} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-1 px-3 rounded-lg text-xs">Edit</button>
-                    <button onClick={() => handleDeleteAlert(alert._id)} className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-xs">Delete</button>
+                  <div className="flex gap-2 mt-2" style={{ minWidth: '250px' }}>
+                    <button onClick={() => handleToggleAlertStatus(alert)} disabled={isSubmitting} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-lg text-xs disabled:opacity-50">{isSubmitting ? '...' : 'Toggle Status'}</button>
+                    <button onClick={() => setEditingAlert(alert)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-1 px-3 rounded-lg text-xs disabled:opacity-50">Edit</button>
+                    <button onClick={() => handleDeleteAlert(alert._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-xs disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>
               ))}
@@ -749,45 +524,67 @@ const AdminDashboard = () => {
             )}
           </div>
         );
+      case 'parking':
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Available Parking Lots</h2>
+              <button onClick={() => setShowParkingForm(!showParkingForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                {showParkingForm ? 'Hide Form' : 'Add New Parking Lot'}
+              </button>
+            </div>
+            {showParkingForm && <ParkingForm onParkingSaved={handleParkingSaved} editingParking={editingParking} setEditingParking={setEditingParking} />}
+            <div className="space-y-4">
+              {parkingLots.map((lot) => (
+                <div key={lot._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-lg">{lot.name}</p>
+                    <p className="text-gray-600 text-sm">{lot.location} - {lot.availableSlots}/{lot.totalSlots} available</p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
+                    <button onClick={() => setEditingParking(lot)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
+                    <button onClick={() => handleDeleteParkingLot(lot._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
       case 'users':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Users</h2>
-            <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-gray-100 border-b">
-                  <tr>
-                    <th className="p-4 font-semibold">Name</th>
-                    <th className="p-4 font-semibold">Email</th>
-                    <th className="p-4 font-semibold">Is Admin</th>
-                    <th className="p-4 font-semibold">Joined On</th>
-                    <th className="p-4 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allUsers.map((user) => (
-                    <tr key={user._id} className="border-b hover:bg-gray-50">
-                      <td className="p-4">{user.name}</td>
-                      <td className="p-4">{user.email}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.is_admin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
-                          {user.is_admin ? 'Yes' : 'No'}
-                        </span>
-                      </td>
-                      <td className="p-4">{new Date(user.createdAt).toLocaleDateString()}</td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => handleToggleAdmin(user)}
-                          className={`font-bold py-1 px-3 rounded-lg text-xs text-white transition-colors ${user.is_admin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
-                        >
-                          {user.is_admin ? 'Demote' : 'Promote'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
+              {/* Placeholder for a search or filter bar */}
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {allUsers.map((user) => (
+                <div key={user._id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-bold text-lg text-gray-900">{user.name}</h3>
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${user.is_admin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                        {user.is_admin ? 'Admin' : 'User'}
+                      </span>
+                    </div>
+                    <p className="text-gray-500 text-sm break-all">{user.email}</p>
+                    <p className="text-xs text-gray-400 mt-2">Joined: {new Date(user.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={() => handleToggleAdmin(user)}
+                      disabled={isSubmitting}
+                      className={`w-full font-bold py-2 px-4 rounded-lg text-sm text-white transition-colors disabled:opacity-50 ${
+                        user.is_admin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+                      }`}
+                    >
+                      {isSubmitting ? 'Updating...' : (user.is_admin ? 'Demote to User' : 'Promote to Admin')}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => fetchAllData(page)} />
           </div>
         );
       default:
@@ -891,6 +688,13 @@ const AdminDashboard = () => {
   return (
     <>
       <Navbar />
+      <ConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={() => setConfirmationModal({ isOpen: false })}
+        onConfirm={confirmationModal.onConfirm}
+        title={confirmationModal.title}
+        message={confirmationModal.message}
+      />
       <div className="bg-gray-50 min-h-screen">
         <main className="container mx-auto px-4 py-12">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-4">Admin Dashboard</h1>
@@ -901,6 +705,7 @@ const AdminDashboard = () => {
             <TabButton tabName="routes" label="Routes" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="trips" label="Trips" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} />
+            <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} />
           </div>

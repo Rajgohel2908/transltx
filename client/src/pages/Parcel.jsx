@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { DataContext } from "../context/Context";
 import { CheckCircle, Package, User, Phone, MapPin, Weight, ArrowRight, Mail, Building, Hash, Globe, Box, DollarSign, Shield, Edit3 } from "lucide-react";
+import { handlePayment } from "../utils/cashfree.js";
 
 // --- Icon Components ---
 const LocationPinIcon = () => (
@@ -49,7 +50,7 @@ const InputField = ({ icon, id, placeholder, value, onChange, type = "text", req
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
       required={required}
       autoComplete={autoComplete}
     />
@@ -57,9 +58,9 @@ const InputField = ({ icon, id, placeholder, value, onChange, type = "text", req
 );
 
 // --- API Base URL ---
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const PARCEL_API_URL = `${API_BASE_URL}/parcels`;
-const ROUTES_API_URL = `${API_BASE_URL}/routes`;
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+const PARCEL_API_URL = `${VITE_BACKEND_BASE_URL}/parcels`;
+const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
 
 const Parcel = () => {
   const { user } = useContext(DataContext);
@@ -93,7 +94,6 @@ const Parcel = () => {
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [description, setDescription] = useState("");
-  const [declaredValue, setDeclaredValue] = useState("");
 
   const [fare, setFare] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -182,21 +182,26 @@ const Parcel = () => {
           postalCode: recipientPostalCode,
           country: recipientCountry,
         },
-        parcel: { weight, length, width, height, description, declaredValue },
+        parcel: { weight, length, width, height, description },
         fare,
       };
       // The handlePayment function from razorpay.js will need to be updated
       // to accept a callback that receives the successful order details.
-      const onPaymentSuccess = (order) => {
-        setBookedOrderDetails(order);
+      const onPaymentSuccess = (paymentResult) => {
+        // The paymentResult from cashfree might have a different structure.
+        // We'll use the data we already have in `bookingDetails`.
+        setBookedOrderDetails(bookingDetails);
         setIsBooked(true);
         setIsLoading(false);
       };
+
+      // Call the generic payment handler
+      await handlePayment({ item: bookingDetails, user, onPaymentSuccess });
+
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Booking failed. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Only set loading to false on error here
     }
   };
 
@@ -213,7 +218,7 @@ const Parcel = () => {
     setDeliveryInstructions("");
 
     setWeight(""); setLength(""); setWidth(""); setHeight("");
-    setDescription(""); setDeclaredValue("");
+    setDescription("");
 
     setFare(null);
     setIsBooked(false); setError("");
@@ -239,12 +244,12 @@ const Parcel = () => {
           </div>
         ) : (
           <div className="bg-white p-8 md:p-12 rounded-2xl shadow-2xl w-full max-w-6xl">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Send a Parcel</h2>
-            <p className="text-gray-500 mb-8">Enter details below for an instant quote.</p>
+            <h2 className="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">Start New Parcel Shipment</h2>
+            <p className="text-lg text-gray-500 mb-10">Please provide the following information to process your request.</p>
 
             <form onSubmit={handleShowFare} className="space-y-6">
               {/* Section 1: Sender Information */}
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">1</span> Sender Information (From)</h3>
+              <h3 className="text-xl font-bold text-gray-800 border-b pb-3 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">1</span> Sender Information (From)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InputField icon={<User />} id="senderName" placeholder="Full Name" value={senderName} onChange={e => setSenderName(e.target.value)} required autoComplete="name" />
                 <InputField icon={<Phone />} id="senderPhone" placeholder="Phone Number" value={senderPhone} onChange={e => setSenderPhone(e.target.value)} type="tel" required autoComplete="tel" />
@@ -258,7 +263,7 @@ const Parcel = () => {
               </div>
 
               {/* Section 2: Recipient Information */}
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">2</span> Recipient Information (To)</h3>
+              <h3 className="text-xl font-bold text-gray-800 border-b pb-3 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">2</span> Recipient Information (To)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InputField icon={<User />} id="recipientName" placeholder="Full Name" value={recipientName} onChange={e => setRecipientName(e.target.value)} required />
                 <InputField icon={<Phone />} id="recipientPhone" placeholder="Phone Number" value={recipientPhone} onChange={e => setRecipientPhone(e.target.value)} type="tel" required />
@@ -275,25 +280,22 @@ const Parcel = () => {
               </div>
 
               {/* Section 3: Parcel Details */}
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">3</span> Parcel Details</h3>
+              <h3 className="text-xl font-bold text-gray-800 border-b pb-3 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">3</span> Parcel Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InputField icon={<Weight />} id="weight" placeholder="Weight (kg)" value={weight} onChange={e => setWeight(e.target.value)} type="number" required />
                 <InputField icon={<Box />} id="length" placeholder="Length (cm)" value={length} onChange={e => setLength(e.target.value)} type="number" />
                 <InputField icon={<Box />} id="width" placeholder="Width (cm)" value={width} onChange={e => setWidth(e.target.value)} type="number" />
                 <InputField icon={<Box />} id="height" placeholder="Height (cm)" value={height} onChange={e => setHeight(e.target.value)} type="number" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputField icon={<Package />} id="description" placeholder="Description of Contents" value={description} onChange={e => setDescription(e.target.value)} required />
-                <InputField icon={<DollarSign />} id="declaredValue" placeholder="Declared Value (₹)" value={declaredValue} onChange={e => setDeclaredValue(e.target.value)} type="number" />
-              </div>
+              <InputField icon={<Package />} id="description" placeholder="Description of Contents" value={description} onChange={e => setDescription(e.target.value)} required />
 
               {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
               <div className="pt-4 space-y-4">
-                {fare && <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg flex justify-between items-center"><p className="font-semibold">Estimated Fare:</p><p className="text-2xl font-bold">₹{Number(fare).toFixed(2)}</p></div>}
+                {fare && <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-900 p-4 rounded-r-lg flex justify-between items-center shadow-sm"><p className="font-semibold text-lg">Estimated Fare:</p><p className="text-3xl font-bold">₹{Number(fare).toFixed(2)}</p></div>}
 
                 {!fare ? (
-                  <button type="submit" disabled={isLoading} className="w-full text-white font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  <button type="submit" disabled={isLoading} className="w-full text-white font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-transform transform hover:scale-105">
                     <Package className="h-5 w-5" />
                     {isLoading ? "Calculating..." : "Show Fare"}
                   </button>

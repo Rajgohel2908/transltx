@@ -1,69 +1,55 @@
 import axios from "axios";
-import { fetchCurrentUser } from "./api"; // Import the user fetching utility
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+const PAYMENT_API_URL = `${VITE_BACKEND_BASE_URL}/payment`;
 
-const loadCashfreeScript = () => {
+let cashfree;
+
+const loadCashfreeSDK = () => {
   return new Promise((resolve) => {
-    if (document.getElementById("cashfree-sdk")) {
-      resolve(true);
+    if (window.cashfree) {
+      resolve(window.cashfree);
       return;
     }
+    const isProd = import.meta.env.PROD;
     const script = document.createElement("script");
-    script.id = "cashfree-sdk";
-    script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+    script.src = isProd
+      ? "https://sdk.cashfree.com/js/v3/cashfree.js"
+      : "https://sdk.testing.cashfree.com/js/v3/cashfree.js";
+    script.onload = () => {
+      if (window.Cashfree) {
+        cashfree = new window.Cashfree();
+        resolve(cashfree);
+      } else {
+        console.error("Cashfree SDK failed to load.");
+        resolve(null);
+      }
+    };
     document.body.appendChild(script);
   });
 };
 
-const handleCashfreePayment = async (bookingDetails) => {
-  const scriptLoaded = await loadCashfreeScript();
-  if (!scriptLoaded) {
-    alert("Could not load payment gateway. Please check your connection.");
-    return;
-  }
-
-  const cashfree = new window.Cashfree();
-
+export const handlePayment = async ({ item, user, onPaymentSuccess }) => {
   try {
-    // Fetch current user details
-    const user = await fetchCurrentUser();
-    if (!user || !user._id) {
-      alert("You must be logged in to make a payment.");
-      // Optional: redirect to login page
-      // window.location.href = '/login';
-      return;
-    }
+    const cashfreeInstance = await loadCashfreeSDK();
+    if (!cashfreeInstance) return;
 
-    // 1. Create an order on your backend
-    const orderRes = await axios.post(
-      `${VITE_BACKEND_BASE_URL}/payment/cashfree-order`,
-      {
-        amount: bookingDetails.fare,
-        orderId: `order_${Date.now()}`, // Generate a unique order ID
-        customerDetails: {
-          id: user._id,
-          phone: user.phone || "9999999999", // Use user's phone or a placeholder
-          email: user.email,
-          name: user.name,
-        },
-      }
-    );
+    const orderDetails = {
+      amount: item.price || item.fare,
+      user,
+      itemName: item.name || `Parcel from ${item.sender.city} to ${item.recipient.city}`,
+      itemId: item._id || `parcel_${Date.now()}`
+    };
 
-    const { payment_session_id } = orderRes.data;
+    const response = await axios.post(`${PAYMENT_API_URL}/create-order`, orderDetails);
+    const { payment_session_id } = response.data;
 
-    // 2. Open the Cashfree checkout modal
-    cashfree.checkout({
-      paymentSessionId: payment_session_id,
-      redirectTarget: "_self", // or '_blank'
+    cashfreeInstance.checkout({ paymentSessionId: payment_session_id }).then((result) => {
+      if (result.error) return alert(result.error.message);
+      if (result.payment.status === "SUCCESS" && onPaymentSuccess) onPaymentSuccess(result.order);
     });
-
-  } catch (err) {
-    console.error("Payment initiation failed:", err);
-    alert("Failed to initiate payment. Please try again.");
+  } catch (error) {
+    console.error("Payment initiation failed:", error);
+    alert("Could not initiate payment. Please try again.");
   }
 };
-
-export { handleCashfreePayment };

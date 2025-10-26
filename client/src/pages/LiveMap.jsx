@@ -6,7 +6,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
-import { handleCashfreePayment } from "../utils/cashfree";
+import { handlePayment } from "../utils/cashfree";
 
 // --- Leaflet Icon Fix ---
 // This is a common issue with React-Leaflet and bundlers like Vite.
@@ -62,6 +62,7 @@ const InteractiveMapWebsite = () => {
   const [to, setTo] = useState("");
   const [matchedRoute, setMatchedRoute] = useState(null);
   const [error, setError] = useState("");
+  const [travelMode, setTravelMode] = useState("driving"); // 'driving', 'train', 'air'
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [routePolyline, setRoutePolyline] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
@@ -168,12 +169,13 @@ const InteractiveMapWebsite = () => {
     const toCoords = parseCoordinates(to);
 
     if (fromCoords && toCoords) {
-      // Both are coordinates, use OSRM for routing
+      // Both are coordinates, use OSRM for routing or draw a straight line
       try {
-        const response = await axios.get(
-          `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`
-        );
-        if (response.data.routes && response.data.routes.length > 0) {
+        if (travelMode === 'driving') {
+          const response = await axios.get(
+            `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`
+          );
+          if (response.data.routes && response.data.routes.length > 0) {
           const route = response.data.routes[0];
           const stopsForRoute = [
             { name: 'Start', lat: fromCoords[0], lng: fromCoords[1], latitude: fromCoords[0], longitude: fromCoords[1] },
@@ -190,12 +192,49 @@ const InteractiveMapWebsite = () => {
             distance: (route.distance / 1000).toFixed(2) + " km",
             duration: formatDurationSec(route.duration)
           });
-        } else {
-          setError(`Route not found for "${from}" to "${to}"`);
+          } else {
+            setError(`Driving route not found for "${from}" to "${to}"`);
+          }
+        } else { // For 'train' or 'air', draw a straight line between coordinates
+          const polyline = [fromCoords, toCoords];
+          setRoutePolyline(polyline);
+          if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
+          setMatchedRoute({
+            name: `Direct ${travelMode.charAt(0).toUpperCase() + travelMode.slice(1)} Route`,
+            type: travelMode,
+            color: travelMode === 'train' ? '#8A2BE2' : '#3498DB', // Blue for air, purple for train
+            stops: [
+              { name: 'Start', lat: fromCoords[0], lng: fromCoords[1], latitude: fromCoords[0], longitude: fromCoords[1] },
+              { name: 'End', lat: toCoords[0], lng: toCoords[1], latitude: toCoords[0], longitude: toCoords[1] }
+            ],
+            distance: getDistanceFromLatLonInKm(fromCoords[0], fromCoords[1], toCoords[0], toCoords[1]).toFixed(2) + " km",
+            duration: "N/A"
+          });
         }
       } catch (err) {
         setError("Failed to fetch route. Please try again.");
         console.error(err);
+      }
+    } else if (travelMode === 'air') {
+      // Air travel between named stops should also be a straight line
+      const allStopsMap = new Map();
+      routes.forEach(route => route.stops.forEach(stop => allStopsMap.set(normalize(stop.name), stop)));
+      const sourceNode = allStopsMap.get(normalize(from));
+      const targetNode = allStopsMap.get(normalize(to));
+      if (sourceNode && targetNode) {
+        const polyline = [[sourceNode.latitude, sourceNode.longitude], [targetNode.latitude, targetNode.longitude]];
+        setRoutePolyline(polyline);
+        if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
+        setMatchedRoute({
+          name: "Direct Air Route",
+          type: "air",
+          color: "#3498DB",
+          stops: [sourceNode, targetNode],
+          distance: getDistanceFromLatLonInKm(sourceNode.latitude, sourceNode.longitude, targetNode.latitude, targetNode.longitude).toFixed(2) + " km",
+          duration: "N/A"
+        });
+      } else {
+        setError(`Could not find coordinates for "${from}" or "${to}".`);
       }
     } else {
       // Use graph-based shortest path across all routes (by stop name)
@@ -205,8 +244,11 @@ const InteractiveMapWebsite = () => {
       const source = normalize(from);
       const target = normalize(to);
 
-      // --- Primary Logic: Find the best predefined route first ---
-      const candidateRoutes = routes.map(route => {
+      // --- Primary Logic: Find the best predefined route that matches the travel mode ---
+      const candidateRoutes = routes
+        .filter(route => travelMode === 'driving' ? ['bus', 'car'].includes(route.type) : route.type === travelMode || (travelMode === 'train' && route.type === 'metro'))
+        .map(route => {
+
         const sourceIndex = route.stops.findIndex(s => normalize(s.name) === source);
         const targetIndex = route.stops.findIndex(s => normalize(s.name) === target);
 
@@ -231,25 +273,25 @@ const InteractiveMapWebsite = () => {
         candidateRoutes.sort((a, b) => a.totalDuration - b.totalDuration);
         const bestRoute = candidateRoutes[0];
 
-        // --- NEW: Fetch road-following polyline from OSRM for the best route's stops ---
-        try {
-          const stopCoords = bestRoute.journeyStops.map(s => `${s.longitude},${s.latitude}`).join(';');
-          const osrmRes = await axios.get(`https://router.project-osrm.org/route/v1/driving/${stopCoords}?overview=full&geometries=geojson`, { timeout: 10000 });
-          
-          if (osrmRes.data?.routes?.length) {
-            const routeObj = osrmRes.data.routes[0];
-            const polyline = normalizePolyline(routeObj.geometry.coordinates.map(c => [c[1], c[0]]));
-            setRoutePolyline(polyline);
-            if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-          } else {
-            // Fallback to straight lines if OSRM fails
-            const polyline = bestRoute.journeyStops.map(s => [s.latitude, s.longitude]);
+        // --- Fetch road-following polyline for driving, but straight lines for train/air ---
+        if (travelMode === 'driving') {
+          try {
+            const stopCoords = bestRoute.journeyStops.map(s => `${s.longitude},${s.latitude}`).join(';');
+            const osrmRes = await axios.get(`https://router.project-osrm.org/route/v1/driving/${stopCoords}?overview=full&geometries=geojson`, { timeout: 10000 });
+            
+            if (osrmRes.data?.routes?.length) {
+              const routeObj = osrmRes.data.routes[0];
+              const polyline = normalizePolyline(routeObj.geometry.coordinates.map(c => [c[1], c[0]]));
+              setRoutePolyline(polyline);
+              if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
+            } else { throw new Error("OSRM returned no routes."); }
+          } catch (err) {
+            console.warn('OSRM polyline fetch failed, falling back to straight lines:', err?.message || err);
+            const polyline = bestRoute.journeyStops.map(s => [s.latitude || s.lat, s.longitude || s.lng]);
             setRoutePolyline(polyline);
             if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
           }
-        } catch (err) {
-          console.warn('OSRM polyline fetch failed, falling back to straight lines:', err?.message || err);
-          // Fallback to straight lines on error
+        } else { // For 'train' mode on a predefined route
           const polyline = bestRoute.journeyStops.map(s => [s.latitude, s.longitude]);
           setRoutePolyline(polyline);
           if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
@@ -351,6 +393,23 @@ const InteractiveMapWebsite = () => {
                 </div>
               </div>
 
+              <div className="mt-2">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Travel Mode</h3>
+                <div className="flex items-center justify-around bg-gray-100 p-1 rounded-lg">
+                  {['driving', 'train', 'air'].map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setTravelMode(mode)}
+                      className={`w-full text-center px-3 py-2 rounded-md text-sm font-semibold transition-all ${
+                        travelMode === mode ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 onClick={handleSearch}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
@@ -403,7 +462,7 @@ const InteractiveMapWebsite = () => {
                         )}
                         {matchedRoute.price && (
                           <div className="mt-4 pt-3 border-t">
-                            <button onClick={() => handleCashfreePayment({ fare: matchedRoute.price, name: matchedRoute.name })} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
+                            <button onClick={() => handlePayment({ item: matchedRoute, user: {} })} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
                               <span>Book Now</span>
                             </button>
                           </div>

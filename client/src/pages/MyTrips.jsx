@@ -5,39 +5,7 @@ import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// --- Sample Data ---
-const sampleTrips = [
-  {
-    _id: "sample1",
-    name: "Mountain Escape to Manali",
-    description: "Experience the breathtaking beauty of the Himalayas with our curated trip to Manali.",
-    duration: "5 Days, 4 Nights",
-    price: "₹15,999",
-    image: "https://images.unsplash.com/photo-1565639942524-71145d5186c2?q=80&w=2070&auto=format&fit=crop",
-    features: ["Guided Treks", "Bonfire Nights", "Local Cuisine"],
-  },
-  {
-    _id: "sample2",
-    name: "Goa Beach Paradise",
-    description: "Relax on the sunny beaches of Goa and enjoy the vibrant nightlife.",
-    duration: "4 Days, 3 Nights",
-    price: "₹12,499",
-    image: "https://images.unsplash.com/photo-1590372720110-33d148a398f5?q=80&w=1932&auto=format&fit=crop",
-    features: ["Beach Parties", "Water Sports", "Seafood Feast"],
-  },
-  {
-    _id: "sample3",
-    name: "Rajasthan Royal Tour",
-    description: "Explore the majestic forts and palaces of Jaipur, Udaipur, and Jodhpur.",
-    duration: "7 Days, 6 Nights",
-    price: "₹25,000",
-    image: "https://images.unsplash.com/photo-1524230507669-3ff942193544?q=80&w=2070&auto=format&fit=crop",
-    features: ["Palace Stays", "Camel Safari", "Cultural Shows"],
-  },
-];
-
+const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
 const MyTripsPage = () => {
   const [trips, setTrips] = useState([]); // State for trips from API
@@ -55,15 +23,11 @@ const MyTripsPage = () => {
         const tripsData = Array.isArray(response.data)
           ? response.data
           : response.data?.data || [];
-        // If API returns no trips, use sample data
-        if (tripsData.length === 0) {
-          setTrips(sampleTrips);
-        } else {
-          setTrips(tripsData);
-        }
+        setTrips(tripsData);
       } catch (err) {
         setError("Could not load trips. Please try again later.");
         console.error("Failed to fetch trips:", err);
+        setTrips([]); // Ensure trips is an empty array on error
       } finally {
         setLoading(false);
       }
@@ -84,40 +48,42 @@ const MyTripsPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 font-sans">
       <Navbar />
-      <section className="py-16 bg-white">
+      <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">
               Choose Your Next Adventure
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
               Select from our collection of amazing trips, each designed to
               provide unforgettable experiences.
             </p>
           </div>
 
-          <div className="mb-12 max-w-lg mx-auto">
+          <div className="mb-16 max-w-lg mx-auto">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                placeholder="Search for your next adventure..."
+                placeholder="Search for an adventure..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full pl-10 pr-4 py-3.5 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm"
               />
             </div>
           </div>
 
-          {loading && <p className="text-center">Loading trips...</p>}
+          {loading && <p className="text-center text-gray-500">Loading trips...</p>}
           {error && <p className="text-center text-red-500">{error}</p>}
 
           {!loading && !error && filteredTrips.length === 0 && (
-            <p className="text-center text-gray-600">{searchTerm ? "No trips match your search." : "No trips available."}</p>
+            <div className="text-center py-12">
+              <p className="text-lg text-gray-600">{searchTerm ? "No trips match your search." : "No trips available at the moment."}</p>
+            </div>
           )}
 
           {!loading && !error && filteredTrips.length > 0 && (
@@ -125,20 +91,21 @@ const MyTripsPage = () => {
               {filteredTrips.map((trip) => (
                 <div
                   key={trip._id}
-                  className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden group"
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group flex flex-col"
                 >
-                  <div className="relative h-48 overflow-hidden">
+                  <div className="relative h-56 overflow-hidden">
                     <img
                       src={trip.image.startsWith('http') 
                         ? trip.image 
                         : `${API_BASE_URL}${trip.image}`}
                       alt={trip.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
                     <div className="absolute top-4 right-4">
                       <button
                         onClick={() => toggleLike(trip._id)}
-                        className="bg-white bg-opacity-90 p-2 rounded-full hover:bg-opacity-100 transition-all"
+                        className="bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-all transform active:scale-90"
                       >
                         <Heart
                           className={`h-5 w-5 ${
@@ -151,19 +118,19 @@ const MyTripsPage = () => {
                     </div>
                   </div>
 
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  <div className="p-6 flex flex-col flex-grow">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
                       {trip.name}
                     </h3>
-                    <p className="text-gray-600 mb-4">{trip.description}</p>
+                    <p className="text-gray-600 mb-4 flex-grow">{trip.description}</p>
 
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-5 text-gray-700">
                       <div className="flex items-center space-x-2 text-gray-500">
                         <Clock className="h-4 w-4" />
                         <span className="text-sm">{trip.duration}</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-green-600 font-bold">
-                        <span>{trip.price}</span>
+                      <div className="text-2xl font-bold text-green-600">
+                        {trip.price}
                       </div>
                     </div>
 
@@ -184,7 +151,7 @@ const MyTripsPage = () => {
 
                     <Link
                       to={`/my-trips/${trip._id}`}
-                      className="w-full bg-blue-900 hover:bg-blue-800 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 transform group-hover:scale-105"
                     >
                       <span>Select Trip</span>
                       <ArrowRight className="h-4 w-4" />
