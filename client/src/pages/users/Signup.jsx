@@ -1,4 +1,4 @@
-const Signup = ({ handleRegister, name, setName, email, setEmail, password, setPassword, onSwitchToLogin }) => {
+const Signup = ({ handleRegister, name, setName, email, setEmail, password, setPassword, confirmPassword, setConfirmPassword, onSwitchToLogin }) => {
   return (
     <div className="h-full flex flex-col items-center justify-center px-10 text-center">
       <h1 className="text-3xl font-bold mb-4" data-aos="fade-up">Create Account</h1>
