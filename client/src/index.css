@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+@theme{
+    --font-inter: 'Inter', 'sans-serif';   /* For headings use inter - jay */
+    --font-roboto: 'Roboto', 'sans-serif'; /* For body text use roboto - jay */
+
+   
+  --color-royalblue: #007BFF;     /* For buttons, links, primary actions */
+  --color-cyan: #00C2CB;          /* For highlights, secondary buttons */
+  --color-lightgray: #F7F9FC;     /* Background */
+  --color-darktext: #1A1A1A;      /* Main text */
+  --color-amber: #FFB400;         /* Accent elements, alerts, CTAs */
+  
+
+
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* for LiveMap.jsx */
+@import "leaflet/dist/leaflet.css";

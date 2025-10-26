@@ -1,0 +1,86 @@
+[
+  {
+    "id": "pedal-park-walk",
+    "name": "City Park Walking Trail",
+    "type": "pedal",
+    "color": "lightgreen",
+    "stops": [
+      { "name": "Lake View Garden", "lat": 21.2189, "lng": 72.7922 },
+      { "name": "Children's Park", "lat": 21.2195, "lng": 72.7944 },
+      { "name": "Jogger’s Stretch", "lat": 21.2210, "lng": 72.7966 },
+      { "name": "Yoga Deck", "lat": 21.2221, "lng": 72.7979 }
+    ]
+  },
+  {
+    "id": "cycle-canal-track",
+    "name": "Canal Side Cycle Track",
+    "type": "cycle",
+    "color": "limegreen",
+    "stops": [
+      { "name": "Sarthana Canal", "lat": 21.2415, "lng": 72.8900 },
+      { "name": "Varachha Garden", "lat": 21.2312, "lng": 72.8734 },
+      { "name": "Kapodra Junction", "lat": 21.2205, "lng": 72.8575 },
+      { "name": "Simada Canal Road", "lat": 21.2055, "lng": 72.8422 }
+    ]
+  },
+  {
+    "id": "scooter-city-connect",
+    "name": "Two-Wheeler City Connect",
+    "type": "two-wheeler",
+    "color": "pink",
+    "stops": [
+      { "name": "SIT College", "lat": 21.1300, "lng": 72.7795 },
+      { "name": "VR Mall", "lat": 21.1495, "lng": 72.7878 },
+      { "name": "Magdalla Circle", "lat": 21.1401, "lng": 72.7912 },
+      { "name": "Dumas Beach", "lat": 21.0833, "lng": 72.7330 }
+    ]
+  },
+  {
+    "id": "private-car-1",
+    "name": "Commuter Car Route A",
+    "type": "car",
+    "color": "black",
+    "stops": [
+      { "name": "Pal Lake", "lat": 21.2155, "lng": 72.7750 },
+      { "name": "Pal RTO Circle", "lat": 21.2202, "lng": 72.7808 },
+      { "name": "Vesu Jakatnaka", "lat": 21.1408, "lng": 72.7811 },
+      { "name": "Surat Airport", "lat": 21.1150, "lng": 72.7414 }
+    ]
+  },
+  {
+    "id": "private-car-2",
+    "name": "City Center Drive",
+    "type": "car",
+    "color": "gray",
+    "stops": [
+      { "name": "Citylight", "lat": 21.1780, "lng": 72.8095 },
+      { "name": "Athwagate", "lat": 21.1940, "lng": 72.8227 },
+      { "name": "Majura Gate", "lat": 21.1867, "lng": 72.8317 },
+      { "name": "LP Savani", "lat": 21.1420, "lng": 72.7955 }
+    ]
+  },
+  {
+    "id": "cycle-campus-link",
+    "name": "SVNIT Campus Cycle Loop",
+    "type": "cycle",
+    "color": "lightblue",
+    "stops": [
+      { "name": "Main Gate", "lat": 21.1645, "lng": 72.7850 },
+      { "name": "Library Block", "lat": 21.1655, "lng": 72.7865 },
+      { "name": "Canteen Area", "lat": 21.1670, "lng": 72.7875 },
+      { "name": "Hostel Zone", "lat": 21.1685, "lng": 72.7882 }
+    ]
+  },
+  {
+    "id": "night-bikers",
+    "name": "Night Ride Track",
+    "type": "two-wheeler",
+    "color": "navy",
+    "stops": [
+      { "name": "Althan Canal", "lat": 21.1561, "lng": 72.8489 },
+      { "name": "VIP Road", "lat": 21.1451, "lng": 72.8145 },
+      { "name": "Piplod", "lat": 21.1531, "lng": 72.8050 },
+      { "name": "Citylight", "lat": 21.1780, "lng": 72.8095 }
+    ]
+  }
+]
