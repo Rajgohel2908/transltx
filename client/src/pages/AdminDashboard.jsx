@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { AlertCircle,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line
-} from 'recharts';
-import { DollarSign, Users, Package, Map } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { AlertCircle, DollarSign, Users, Package, Map } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -522,8 +520,9 @@ const AdminDashboard = () => {
       // Correctly handle both flat array and nested { data: [...] } responses
       const tripsData = Array.isArray(tripsRes.data) ? tripsRes.data : tripsRes.data?.data || [];
       setTrips(tripsData);
-      // Set user data from the correct API response structure
-      setAllUsers(usersRes.data.users || []);
+      // Safely set user data from the API response structure
+      const usersData = usersRes.data?.users || [];
+      setAllUsers(usersData);
       setParcels(Array.isArray(parcelsRes.data) ? parcelsRes.data : []);
       setRoutes(Array.isArray(routesRes.data) ? routesRes.data : []);
 
@@ -537,7 +536,7 @@ const AdminDashboard = () => {
 
       setStats({
         totalRevenue: parcelRevenue + tripRevenue,
-        totalUsers: usersRes.data.totalUsers || 0,
+        totalUsers: usersRes.data?.totalUsers || 0,
         parcelBookings: parcelsRes.data?.length || 0,
         tripBookings: 0, // Placeholder
         carpoolRides: ridesRes.data?.length || 0,
@@ -556,7 +555,7 @@ const AdminDashboard = () => {
     fetchAllData();
   }, []);
 
-  const handleToggleAlertStatus = async (alert) => {
+  const handleToggleAlertStatus = useCallback(async (alert) => {
     const newStatus = alert.status === "active" ? "inactive" : "active";
     try {
       await axios.patch(`${ALERTS_API_URL}/${alert._id}/status`, {
@@ -566,9 +565,9 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error("Failed to toggle alert status:", error);
     }
-  };
+  }, []);
 
-  const handleDeleteAlert = async (alertId) => {
+  const handleDeleteAlert = useCallback(async (alertId) => {
     if (
       window.confirm("Are you sure you want to permanently delete this alert?")
     ) {
@@ -579,9 +578,9 @@ const AdminDashboard = () => {
         console.error("Failed to delete alert:", error);
       }
     }
-  };
+  }, []);
 
-  const handleTripSaved = (savedTrip) => {
+  const handleTripSaved = useCallback((savedTrip) => {
     const isEditing = trips.some(t => t._id === savedTrip._id);
     if (isEditing) {
       // Update existing trip in the local state
@@ -591,9 +590,9 @@ const AdminDashboard = () => {
       setTrips(currentTrips => [savedTrip, ...currentTrips]);
     }
     setEditingTrip(null);
-  };
+  }, [trips]);
 
-  const handleRouteSaved = (savedRoute) => {
+  const handleRouteSaved = useCallback((savedRoute) => {
     const isEditing = routes.some(r => r._id === savedRoute._id);
     if (isEditing) {
       // Update existing route in the local state
@@ -603,9 +602,9 @@ const AdminDashboard = () => {
       setRoutes(currentRoutes => [savedRoute, ...currentRoutes]);
     }
     setEditingRoute(null);
-  };
+  }, [routes]);
 
-  const handleDeleteTrip = async (tripId) => {
+  const handleDeleteTrip = useCallback(async (tripId) => {
     if (
       window.confirm("Are you sure you want to permanently delete this trip?")
     ) {
@@ -617,9 +616,9 @@ const AdminDashboard = () => {
             console.error("Failed to delete trip:", error);
         }
     }
-  };
+  }, []);
 
-  const handleDeleteRoute = async (routeId) => {
+  const handleDeleteRoute = useCallback(async (routeId) => {
     if (
       window.confirm("Are you sure you want to permanently delete this route?")
     ) {
@@ -631,8 +630,8 @@ const AdminDashboard = () => {
             console.error("Failed to delete route:", error);
         }
     }
-  };
-  const handleUpdateParcel = async (parcelId, updateData) => {
+  }, []);
+  const handleUpdateParcel = useCallback(async (parcelId, updateData) => {
     try {
       await axios.patch(`${PARCELS_API_URL}/${parcelId}/admin`, updateData);
       fetchAllData();
@@ -640,9 +639,9 @@ const AdminDashboard = () => {
       console.error("Failed to update parcel:", error);
       throw error;
     }
-  };
+  }, []); // Empty dependency array means this function is created once and never changes
 
-  const handleToggleAdmin = async (userToUpdate) => {
+  const handleToggleAdmin = useCallback(async (userToUpdate) => {
     if (window.confirm(`Are you sure you want to ${userToUpdate.is_admin ? 'demote' : 'promote'} ${userToUpdate.name}?`)) {
       try {
         const token = localStorage.getItem("token");
@@ -660,7 +659,7 @@ const AdminDashboard = () => {
         setError(error.response?.data?.error || 'Failed to update user status.');
       }
     }
-  };
+  }, []);
 
 
   const getPriorityColor = (priority) => {

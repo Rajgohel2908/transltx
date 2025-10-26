@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Navigation, Route, Menu, X } from "lucide-react";
-import Navbar from "../components/Navbar";
+import { Navigation, Route, Menu, X, AlertCircle } from "lucide-react"; // Import AlertCircle
+import Navbar from "../components/Navbar"; // Assuming Navbar is used
 import Footer from "../components/Footer";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -22,14 +22,14 @@ L.Icon.Default.mergeOptions({
 
 // --- Custom Marker Icons ---
 const startIcon = L.icon({
-    iconUrl: '../public/images/gps-green.png', // Path to your start marker icon
+    iconUrl: '/images/gps-green.png', // Correct path for Vite public assets
     iconSize: [40, 40],
     iconAnchor: [20, 40], // Point of the icon which will correspond to marker's location
     popupAnchor: [0, -40] // Point from which the popup should open relative to the iconAnchor
 });
 
 const endIcon = L.icon({
-    iconUrl: '../public/images/gps-data.png', // Path to your end marker icon
+    iconUrl: '/images/gps-data.png', // Correct path for Vite public assets
     iconSize: [40, 40],
     iconAnchor: [20, 40],
     popupAnchor: [0, -40]
