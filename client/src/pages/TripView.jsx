@@ -20,6 +20,10 @@ const TripViewPage = () => {
   };
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     const fetchTrip = async () => {
       try {
         const res = await axios.get(`${VITE_BACKEND_BASE_URL}/trips/${id}`);
@@ -38,11 +42,19 @@ const TripViewPage = () => {
 
   if (!trip) return <div className="text-center mt-10 text-red-500">Trip not found.</div>;
 
+  const formatPrice = (price) => {
+    const numPrice = Number(price);
+    if (isNaN(numPrice)) {
+        return price;
+    }
+    return numPrice.toLocaleString('en-IN');
+  };
+
   return (
     <>
       <Navbar />
       <div className="bg-gray-50 py-12">
-        <div className="max-w-4xl mx-auto p-6 bg-white rounded-2xl shadow-xl">
+        <div className="max-w-6xl mx-auto p-6 bg-white rounded-2xl shadow-xl">
           <img
             src={trip.image.startsWith('http')
               ? trip.image
@@ -56,28 +68,77 @@ const TripViewPage = () => {
               <p className="text-gray-500 mt-2">{trip.duration}</p>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-green-600">{trip.price}</p>
+              <p className="text-3xl font-bold text-green-600">₹{formatPrice(trip.price)}</p>
               <p className="text-sm text-gray-500">per person</p>
             </div>
           </div>
 
-          <p className="text-gray-700 leading-relaxed my-6">{trip.description}</p>
+          <p className="text-gray-700 leading-relaxed my-6">{trip.longDescription}</p>
 
-          <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-800 border-b pb-2">What's Included:</h2>
-          <ul className="list-disc list-inside text-gray-700 space-y-2 mb-8">
-            {trip.features.map((feature, index) => (
-              <li key={index} className="flex items-center"><span className="text-green-500 mr-2">✔</span>{feature}</li>
-            ))}
-          </ul>
+          <div className="my-8">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Itinerary</h2>
+            <div className="space-y-6">
+              {trip.itinerary.map((item) => (
+                <div key={item.day} className="flex">
+                  <div className="flex flex-col items-center mr-4">
+                    <div className="flex items-center justify-center w-10 h-10 bg-blue-500 text-white rounded-full font-bold">{item.day}</div>
+                    {trip.itinerary.length > item.day && <div className="w-px h-full bg-gray-300"></div>}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{item.title}</h3>
+                    <p className="text-gray-600 mt-1">{item.details}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          <button onClick={handleBooking} className="w-full bg-blue-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-lg">
+          <div className="my-8">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Inclusions</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              {trip.inclusions.map((item, index) => (
+                <div key={index}>
+                  <h3 className="font-bold text-gray-800">{item.category}</h3>
+                  <p className="text-gray-600">{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="my-8">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Exclusions</h2>
+            <ul className="list-disc list-inside text-gray-600 space-y-2">
+              {trip.exclusions.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="my-8">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">What to Carry</h2>
+            <ul className="list-disc list-inside text-gray-600 space-y-2">
+              {trip.whatToCarry.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="my-8 p-6 bg-blue-50 rounded-lg">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">Logistics</h2>
+            <div className="space-y-2">
+              <p><span className="font-bold">Meeting Point:</span> {trip.logistics.meetingPoint}</p>
+              <p><span className="font-bold">Reporting Time:</span> {trip.logistics.reportingTime}</p>
+              <p><span className="font-bold">Departure Time:</span> {trip.logistics.departureTime}</p>
+            </div>
+          </div>
+
+          <button onClick={handleBooking} className="w-full bg-blue-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-lg shine-effect">
             Book Now & Pay
           </button>
         </div>
       </div>
       <Footer />
     </>
-  );
-};
+  );};
 
 export default TripViewPage;

@@ -21,7 +21,6 @@ const Navbar = () => {
   // Style for the active navigation link
   const activeLinkStyle = {
     color: "#2563EB", // This is Tailwind's blue-600
-    borderBottom: "2px solid #2563EB",
   };
 
   // A reusable component for NavLinks to keep code DRY
@@ -29,7 +28,7 @@ const Navbar = () => {
     <NavLink
       to={to}
       end={end}
-      className="text-gray-600 hover:text-blue-600 pb-1 transition-colors duration-300"
+      className="nav-item-underline text-gray-600 hover:text-blue-600 pb-1 transition-colors duration-300"
       style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
       onClick={() => setIsOpen(false)}
     >

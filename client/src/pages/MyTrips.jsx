@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Clock, ArrowRight, Heart, Search } from "lucide-react";
+import { Clock, ArrowRight, Heart, Search, Filter } from "lucide-react";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
@@ -13,17 +13,32 @@ const MyTripsPage = () => {
   const [error, setError] = useState("");
   const [likedTrips, setLikedTrips] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState("");
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [uniqueDurations, setUniqueDurations] = useState([]);
+  const [uniqueFeatures, setUniqueFeatures] = useState([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Fetch trips from the API when the component mounts
   useEffect(() => {
     const fetchTrips = async () => {
       try {
         const response = await axios.get(`${API_BASE_URL}/trips`);
-        // Ensure response is always an array
         const tripsData = Array.isArray(response.data)
           ? response.data
           : response.data?.data || [];
         setTrips(tripsData);
+
+        if (tripsData.length > 0) {
+          const durations = [...new Set(tripsData.map(trip => trip.duration))];
+          setUniqueDurations(durations);
+
+          const allFeatures = tripsData.flatMap(trip => trip.features);
+          const features = [...new Set(allFeatures)];
+          setUniqueFeatures(features);
+        }
+
       } catch (err) {
         setError("Could not load trips. Please try again later.");
         console.error("Failed to fetch trips:", err);
@@ -43,9 +58,47 @@ const MyTripsPage = () => {
     );
   };
 
-  const filteredTrips = trips.filter((trip) =>
-    trip.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleFeatureChange = (e) => {
+    const { value, checked } = e.target;
+    if (checked) {
+        setSelectedFeatures([...selectedFeatures, value]);
+    } else {
+        setSelectedFeatures(selectedFeatures.filter(feature => feature !== value));
+    }
+  };
+
+  const formatPrice = (price) => {
+    const numPrice = Number(price);
+    if (isNaN(numPrice)) {
+        return price;
+    }
+    return numPrice.toLocaleString('en-IN');
+  };
+
+  const filteredTrips = trips
+    .filter((trip) =>
+      trip.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .filter((trip) =>
+      selectedDuration ? trip.duration === selectedDuration : true
+    )
+    .filter((trip) =>
+      selectedFeatures.length > 0
+        ? selectedFeatures.every(feature => trip.features.includes(feature))
+        : true
+    )
+    .sort((a, b) => {
+      const priceA = typeof a.price === 'string' ? parseFloat(a.price.replace(/[^0-9.-]+/g,"")) : a.price;
+      const priceB = typeof b.price === 'string' ? parseFloat(b.price.replace(/[^0-9.-]+/g,"")) : b.price;
+
+      if (sortOrder === "price-asc") {
+        return priceA - priceB;
+      }
+      if (sortOrder === "price-desc") {
+        return priceB - priceA;
+      }
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -62,20 +115,64 @@ const MyTripsPage = () => {
             </p>
           </div>
 
-          <div className="mb-16 max-w-lg mx-auto">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search for an adventure..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3.5 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm"
-              />
+          <div className="mb-8 flex justify-center items-center gap-4">
+            <div className="relative w-full max-w-lg">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Search for an adventure..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm"
+                />
             </div>
+            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="p-3 border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-shadow">
+                <Filter className="h-5 w-5 text-gray-600" />
+            </button>
           </div>
+
+          {isFilterOpen && (
+            <div className="mb-8 p-6 bg-white rounded-2xl shadow-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <h4 className="text-lg font-semibold mb-2">Sort by price</h4>
+                        <select onChange={(e) => setSortOrder(e.target.value)} value={sortOrder} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
+                            <option value="">Select</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                        </select>
+                    </div>
+                    <div>
+                        <h4 className="text-lg font-semibold mb-2">Filter by duration</h4>
+                        <select onChange={(e) => setSelectedDuration(e.target.value)} value={selectedDuration} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
+                            <option value="">All durations</option>
+                            {uniqueDurations.map(duration => (
+                                <option key={duration} value={duration}>{duration}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <h4 className="text-lg font-semibold mb-2">Filter by features</h4>
+                        <div className="flex flex-wrap gap-4">
+                            {uniqueFeatures.map(feature => (
+                                <label key={feature} className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        value={feature}
+                                        onChange={handleFeatureChange}
+                                        checked={selectedFeatures.includes(feature)}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-gray-700">{feature}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+          )}
 
           {loading && <p className="text-center text-gray-500">Loading trips...</p>}
           {error && <p className="text-center text-red-500">{error}</p>}
@@ -130,7 +227,7 @@ const MyTripsPage = () => {
                         <span className="text-sm">{trip.duration}</span>
                       </div>
                       <div className="text-2xl font-bold text-green-600">
-                        {trip.price}
+                        ₹{formatPrice(trip.price)}
                       </div>
                     </div>
 
