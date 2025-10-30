@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { AlertCircle, DollarSign, Users, Package, Map } from 'lucide-react';
-import Navbar from '../components/Navbar';
+import { AlertCircle, DollarSign, Users, Package, Map, Ticket } from 'lucide-react';
 import Footer from '../components/Footer';
 import AlertForm from "./forms/AlertForm.jsx";
 import TripForm from "./forms/TripForm.jsx";
@@ -20,6 +19,7 @@ const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
 const RIDES_API_URL = `${VITE_BACKEND_BASE_URL}/rides`;
 const PARKING_API_URL = `${VITE_BACKEND_BASE_URL}/parking`;
 const USERS_API_URL = `${VITE_BACKEND_BASE_URL}/users/admin/users`;
+const BOOKINGS_API_URL = `${VITE_BACKEND_BASE_URL}/bookings`; // New endpoint for all bookings
 
 // --- Helper Components ---
 const StatCard = ({ title, value, icon, color }) => (
@@ -59,7 +59,7 @@ const ParcelManagerCard = ({ parcel, onUpdate }) => {
           {parcel.source} → {parcel.destination}
         </p>
         <p className="text-sm text-gray-500">
-          User: {parcel.user.name} ({parcel.user.email})
+          User: {parcel.user?.name || 'N/A'} ({parcel.user?.email || 'N/A'})
         </p>
         <p className="text-xs text-gray-400">Order ID: {parcel._id}</p>
       </div>
@@ -117,6 +117,7 @@ const AdminDashboard = () => {
   const [editingRoute, setEditingRoute] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTripForm, setShowTripForm] = useState(false);
+  const [allBookings, setAllBookings] = useState([]); // State for all bookings
   const [showParkingForm, setShowParkingForm] = useState(false);
   const [showRouteForm, setShowRouteForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false); // For individual actions
@@ -191,9 +192,10 @@ const AdminDashboard = () => {
         axios.get(RIDES_API_URL).catch(() => ({ data: [] })),
         axios.get(PARKING_API_URL).catch(() => ({ data: [] })),
         axios.get(`${USERS_API_URL}?page=${page}`, authHeaders).catch(() => ({ data: { users: [], totalUsers: 0, currentPage: 1, totalPages: 1 } })),
+        axios.get(BOOKINGS_API_URL, authHeaders).catch(() => ({ data: [] })), // Fetch all bookings
       ]);
 
-      const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes] = results;
+      const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes, bookingsRes] = results;
 
       const errors = results
         .filter(r => r.status === 'rejected')
@@ -216,6 +218,8 @@ const AdminDashboard = () => {
       const parkingData = parkingRes.status === 'fulfilled' ? (Array.isArray(parkingRes.value.data) ? parkingRes.value.data : []) : [];
       setParkingLots(parkingData);
       const ridesData = ridesRes.status === 'fulfilled' ? ridesRes.value.data : [];
+      const bookingsData = bookingsRes.status === 'fulfilled' ? (Array.isArray(bookingsRes.value.data) ? bookingsRes.value.data : []) : [];
+      setAllBookings(bookingsData);
 
       // Process and set the real data for the bookings chart
       setBookingsData(processBookingsData(parcelsData, tripsData, ridesData));
@@ -223,13 +227,13 @@ const AdminDashboard = () => {
       // Calculate stats
       const parcelRevenue = parcelsData.reduce((sum, p) => sum + (p.fare || 0), 0);
       // Assuming trip price is a number, not a string like '$149'
-      const tripRevenue = 0; // Placeholder until trip booking is implemented
+      const tripRevenue = bookingsData.filter(b => b.bookingType !== 'Parcel').reduce((sum, b) => sum + (b.fare || 0), 0);
 
       setStats({
         totalRevenue: parcelRevenue + tripRevenue,
         totalUsers: usersRes.status === 'fulfilled' ? usersRes.value.data?.totalUsers || 0 : 0,
         parcelBookings: parcelsData.length || 0,
-        tripBookings: 0, // Placeholder
+        tripBookings: bookingsData.filter(b => b.bookingType !== 'Parcel').length,
         carpoolRides: ridesData?.length || 0,
         activeRoutes: routesData?.length || 0,
       });
@@ -444,12 +448,12 @@ const AdminDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'routes':
-        return (
+        return ( // This is now the "Transport" tab
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Available Routes</h2>
+              <h2 className="text-2xl font-bold text-gray-800">Manage Transport Routes</h2>
               <button onClick={() => setShowRouteForm(!showRouteForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                {showRouteForm ? 'Hide Form' : 'Add New Route'}
+                {showRouteForm ? 'Hide Form' : 'Add New Transport Route'}
               </button>
             </div>
             {showRouteForm && <RouteForm onRouteSaved={handleRouteSaved} editingRoute={editingRoute} setEditingRoute={setEditingRoute} />}
@@ -457,7 +461,7 @@ const AdminDashboard = () => {
               {routes.map((route) => (
                 <div key={route._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-lg" style={{ color: route.color }}>{route.name}</p>
+                    <p className="font-bold text-lg" style={{ color: route.color }}>{route.name} <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full ml-2">{route.type || 'Bus'}</span></p>
                     <p className="text-gray-600 text-sm">{route.stops.length} stops, every {route.frequency} mins</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
@@ -472,7 +476,7 @@ const AdminDashboard = () => {
       case 'trips':
         return (
           <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6"> 
               <h2 className="text-2xl font-bold text-gray-800">Available Trips</h2>
               <button onClick={() => setShowTripForm(!showTripForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
                 {showTripForm ? 'Hide Form' : 'Add New Trip'}
@@ -587,6 +591,35 @@ const AdminDashboard = () => {
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => fetchAllData(page)} />
           </div>
         );
+      case 'bookings':
+        return (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">All Bookings</h2>
+            {loading ? <p>Loading bookings...</p> : allBookings.length > 0 ? (
+              <div className="space-y-4">
+                {allBookings.map((booking) => (
+                  <div key={booking._id} className="bg-white rounded-lg shadow-md p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-bold text-lg">{booking.from} → {booking.to}</p>
+                        <p className="text-sm text-gray-500">PNR: {booking.pnrNumber}</p>
+                        <p className="text-sm text-gray-500">User: {booking.userId?.name || 'N/A'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600">₹{booking.fare.toLocaleString()}</p>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          booking.bookingStatus === 'Confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>{booking.bookingStatus}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No bookings have been made yet.</p></div>
+            )}
+          </div>
+        );
       default:
         return (
           <>
@@ -599,7 +632,7 @@ const AdminDashboard = () => {
               <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toFixed(2)}`} icon={<DollarSign className="h-6 w-6 text-green-600" />} color="bg-green-100" />
               <StatCard title="Total Users" value={stats.totalUsers} icon={<Users className="h-6 w-6 text-blue-600" />} color="bg-blue-100" />
               <StatCard title="Parcel Bookings" value={stats.parcelBookings} icon={<Package className="h-6 w-6 text-orange-600" />} color="bg-orange-100" />
-              <StatCard title="Active Routes" value={stats.activeRoutes} icon={<Map className="h-6 w-6 text-purple-600" />} color="bg-purple-100" />
+              <StatCard title="Trip Bookings" value={stats.tripBookings} icon={<Ticket className="h-6 w-6 text-purple-600" />} color="bg-purple-100" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -687,7 +720,6 @@ const AdminDashboard = () => {
 
   return (
     <>
-      <Navbar />
       <ConfirmationModal
         isOpen={confirmationModal.isOpen}
         onClose={() => setConfirmationModal({ isOpen: false })}
@@ -702,9 +734,10 @@ const AdminDashboard = () => {
 
           <div className="bg-white rounded-lg shadow p-2 mb-8 flex space-x-2">
             <TabButton tabName="overview" label="Overview" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="routes" label="Routes" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="trips" label="Trips" currentTab={activeTab} setTab={setActiveTab} />
+            <TabButton tabName="routes" label="Transport" currentTab={activeTab} setTab={setActiveTab} />
+            <TabButton tabName="trips" label="Bookable Trips" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} />
+            <TabButton tabName="bookings" label="Bookings" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} />
             <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} />

@@ -1,28 +1,27 @@
 import { Navigate } from 'react-router-dom';
-import React from 'react';
-import {jwtDecode} from 'jwt-decode';
-import Context from "../context/Context.jsx";
+import React, { useContext } from 'react';
+import { DataContext } from "../context/Context.jsx";
 
-const isAuthenticated = () => {
-  const token = localStorage.getItem('token');
-  if (!token) return false;
-  try {
-    const { exp } = jwtDecode(token);
-    return Date.now() < exp * 1000;
-  } catch {
-    return false;
-  }
-};
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center h-screen">
+    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+  </div>
+);
 
 const PrivateRoute = ({ children }) =>  {
-  return (
-    <Context>
-      {isAuthenticated() ? children : <Navigate to="/user-login" />}
-    </Context>
-)}
+  const { user, loading } = useContext(DataContext);
+
+  if (loading) return <LoadingSpinner />;
+
+  return user ? children : <Navigate to="/user-login" />;
+}
 
 const NotPrivateRoute = ({ children }) => {
-  return isAuthenticated() ? <Navigate to="/" /> : children;
+  const { user, loading } = useContext(DataContext);
+
+  if (loading) return <LoadingSpinner />;
+
+  return user ? <Navigate to="/" /> : children;
 }
 
 export { PrivateRoute, NotPrivateRoute };

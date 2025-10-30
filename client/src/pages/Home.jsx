@@ -1,6 +1,5 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { Play, ChevronDown } from "lucide-react";
-import Navbar from "../components/Navbar";
 import { DataContext } from "../context/Context.jsx";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
@@ -84,15 +83,21 @@ const faqs = [
 ];
 
 const LogisticsWebsite = () => {
-  const data = useContext(DataContext);
-  let isAuthenticated = false;
-  if (data.user._id) isAuthenticated = true;
+  const { user, loading } = useContext(DataContext);
+  const [isAuthenticated, setisAuthenticated] = useState(false);
+
+  useEffect(() => {
+    if (user?._id) {
+      setisAuthenticated(true);
+    } else {
+      setisAuthenticated(false);
+    }
+  }, [user]);
 
   const [openFaq, setOpenFaq] = useState(null);
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar/>
       {/* Hero Section - Exact match with isometric illustration */}
       <section className="bg-gray-100 py-20">
         <div className="max-w-7xl mx-auto px-6">
@@ -116,7 +121,7 @@ const LogisticsWebsite = () => {
                   </Link>
                 ) : (
                   <Link
-                    to="/"
+                    to="/user-login"
                     className="bg-royalblue text-white px-4 py-2 rounded hover:bg-cyan transition font-medium"
                   >
                     Get Started

@@ -6,6 +6,7 @@ import Route from "../models/route.js";
 export const getAllRoutes = async (req, res) => {
   try {
     const routes = await Route.find({}).sort({ name: 1 });
+    console.log("Fetched routes:", routes);
     res.status(200).json(routes);
   } catch (error) {
     console.error("Error fetching all routes:", error);

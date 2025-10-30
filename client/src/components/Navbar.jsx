@@ -3,18 +3,18 @@ import { NavLink, Link } from "react-router-dom"; // Use NavLink for active styl
 import { DataContext } from "../context/Context.jsx";
 
 const Navbar = () => {
-  const data = useContext(DataContext);
+  const { user, loading } = useContext(DataContext);
   const [isAuthenticated, setisAuthenticated] = useState(null);
   const [isAdmin, setIsAdmin] = useState(null);
   useEffect(() => {
-    if (data.user?._id) {
+    if (user?._id) {
       setisAuthenticated(true);
-      setIsAdmin(!!data.user?.is_admin);
+      setIsAdmin(user.is_admin === true);
     } else {
       setisAuthenticated(false);
       setIsAdmin(false);
     }
-  }, [data.user]);
+  }, [user]);
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -51,19 +51,16 @@ const Navbar = () => {
             className="flex flex-col justify-center items-center w-10 h-10 group"
           >
             <div
-              className={`w-6 h-0.5 bg-gray-800 my-1 transition-all duration-300 ease-in-out ${
-                isOpen ? "rotate-45 translate-y-2" : ""
-              }`}
+              className={`w-6 h-0.5 bg-gray-800 my-1 transition-all duration-300 ease-in-out ${isOpen ? "rotate-45 translate-y-2" : ""
+                }`}
             ></div>
             <div
-              className={`w-6 h-0.5 bg-gray-800 my-1 transition-all duration-300 ease-in-out ${
-                isOpen ? "opacity-0" : ""
-              }`}
+              className={`w-6 h-0.5 bg-gray-800 my-1 transition-all duration-300 ease-in-out ${isOpen ? "opacity-0" : ""
+                }`}
             ></div>
             <div
-              className={`w-6 h-0.5 bg-gray-800 my-1 transition-all duration-300 ease-in-out ${
-                isOpen ? "-rotate-45 -translate-y-2" : ""
-              }`}
+              className={`w-6 h-0.5 bg-gray-800 my-1 transition-all duration-300 ease-in-out ${isOpen ? "-rotate-45 -translate-y-2" : ""
+                }`}
             ></div>
           </button>
         </div>
@@ -71,15 +68,15 @@ const Navbar = () => {
         {/* Desktop Menu */}
         <div className="hidden md:flex space-x-8 items-center text-md font-medium">
           <NavItem to="/" end>Home</NavItem>
-          <NavItem to="/live-map">Live Map</NavItem>
-          {/* <NavItem to="/schedules">Schedules</NavItem> */}
+          <NavItem to="/booking/bus">Booking</NavItem>
           <NavItem to="/my-trips">Trips</NavItem>
           <NavItem to="/carpool">Carpool</NavItem>
           <NavItem to="/parking">Parking</NavItem>
           <NavItem to="/parcel">Send a Parcel</NavItem>
+          <NavItem to="/live-map">Live Map</NavItem>
           <NavItem to="/orders">My Orders</NavItem>
-          <NavItem to="/contact">Contact</NavItem>
-          {isAdmin ? <NavItem to="/admin/dashboard">Admin</NavItem> : null}
+          <NavItem to="/contact">Contact</NavItem> 
+          {isAdmin ? <NavItem to="/admindashboard">Admin</NavItem> : null}
         </div>
 
         {/* Desktop Auth Button */}
@@ -95,20 +92,19 @@ const Navbar = () => {
 
       {/* Mobile Menu with Animation */}
       <div
-        className={`md:hidden overflow-hidden transition-all duration-500 ease-in-out ${
-          isOpen ? "max-h-screen pt-4" : "max-h-0"
-        }`}
+        className={`md:hidden overflow-hidden transition-all duration-500 ease-in-out ${isOpen ? "max-h-screen pt-4" : "max-h-0"
+          }`}
       >
         <div className="flex flex-col space-y-4 text-md font-medium">
           <NavItem to="/" end>Home</NavItem>
-          <NavItem to="/live-map">Live Map</NavItem>
-          <NavItem to="/schedules">Schedules</NavItem>
-          <NavItem to="/carpool">Carpool</NavItem>
+          <NavItem to="/booking/bus">Booking</NavItem>
           <NavItem to="/my-trips">Trips</NavItem>
-          <NavItem to="/orders">My Orders</NavItem>
+          <NavItem to="/carpool">Carpool</NavItem>
           <NavItem to="/parking">Parking</NavItem>
-          {isAdmin ? <NavItem to="/admin/dashboard">Admin</NavItem> : null}
           <NavItem to="/parcel">Send a Parcel</NavItem>
+          <NavItem to="/live-map">Live Map</NavItem>
+          <NavItem to="/orders">My Orders</NavItem>
+          {isAdmin ? <NavItem to="/admindashboard">Admin</NavItem> : null}
           <div className="pt-4">
             <Link
               to={isAuthenticated ? "/user-logout" : "/user-login"}

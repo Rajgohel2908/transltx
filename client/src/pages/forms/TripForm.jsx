@@ -8,6 +8,11 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [longDescription, setLongDescription] = useState("");
+  const [type, setType] = useState("Bus"); // Bus, Train, Air
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [departureTime, setDepartureTime] = useState("");
+  const [arrivalTime, setArrivalTime] = useState("");
   const [duration, setDuration] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
@@ -15,8 +20,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
   const [itinerary, setItinerary] = useState("[]");
   const [inclusions, setInclusions] = useState("[]");
   const [exclusions, setExclusions] = useState("");
-  const [whatToCarry, setWhatToCarry] = useState("");
-  const [logistics, setLogistics] = useState({ meetingPoint: "", reportingTime: "", departureTime: "" });
+  const [whatToCarry, setWhatToCarry] = useState("");  
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,6 +29,11 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setName(editingTrip.name);
       setDescription(editingTrip.description);
       setLongDescription(editingTrip.longDescription || "");
+      setType(editingTrip.type || "Bus");
+      setFrom(editingTrip.from || "");
+      setTo(editingTrip.to || "");
+      setDepartureTime(editingTrip.departureTime || "");
+      setArrivalTime(editingTrip.arrivalTime || "");
       setDuration(editingTrip.duration);
       const priceValue = typeof editingTrip.price === 'string' ? editingTrip.price.replace(/[^0-9.]/g, '') : editingTrip.price;
       setPrice(priceValue);
@@ -34,11 +43,15 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setInclusions(JSON.stringify(editingTrip.inclusions || [], null, 2));
       setExclusions((editingTrip.exclusions || []).join(", "));
       setWhatToCarry((editingTrip.whatToCarry || []).join(", "));
-      setLogistics(editingTrip.logistics || { meetingPoint: "", reportingTime: "", departureTime: "" });
     } else {
       setName("");
       setDescription("");
       setLongDescription("");
+      setType("Bus");
+      setFrom("");
+      setTo("");
+      setDepartureTime("");
+      setArrivalTime("");
       setDuration("");
       setPrice("");
       setImage("");
@@ -47,7 +60,6 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setInclusions("[]");
       setExclusions("");
       setWhatToCarry("");
-      setLogistics({ meetingPoint: "", reportingTime: "", departureTime: "" });
     }
   }, [editingTrip]);
 
@@ -59,6 +71,11 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
         name,
         description,
         longDescription,
+        type,
+        from,
+        to,
+        departureTime,
+        arrivalTime,
         duration,
         price: parseFloat(price),
         image,
@@ -67,7 +84,6 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
         inclusions: JSON.parse(inclusions),
         exclusions: exclusions.split(",").map(item => item.trim()).filter(item => item),
         whatToCarry: whatToCarry.split(",").map(item => item.trim()).filter(item => item),
-        logistics,
       };
       let response;
       setIsSubmitting(true);
@@ -94,24 +110,30 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input type="text" placeholder="Trip Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <textarea placeholder="Short Description" value={description} onChange={(e) => setDescription(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" rows="2"></textarea>
-        <textarea placeholder="Long Description" value={longDescription} onChange={(e) => setLongDescription(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input type="text" placeholder="From (e.g., Delhi)" value={from} onChange={(e) => setFrom(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+          <input type="text" placeholder="To (e.g., Mumbai)" value={to} onChange={(e) => setTo(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input type="text" placeholder="Departure Time (e.g., 08:30)" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+          <input type="text" placeholder="Arrival Time (e.g., 10:45)" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input type="text" placeholder="Duration (e.g., 5 Days, 4 Nights)" value={duration} onChange={(e) => setDuration(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
           <input type="text" placeholder="Price (INR)" value={price} onChange={(e) => setPrice(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+          <select value={type} onChange={(e) => setType(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg bg-white">
+            <option value="Bus">Bus</option>
+            <option value="Train">Train</option>
+            <option value="Air">Air</option>
+          </select>
         </div>
+        <textarea placeholder="Long Description" value={longDescription} onChange={(e) => setLongDescription(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <input type="text" placeholder="Image URL" value={image} onChange={(e) => setImage(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="Features (comma-separated)" value={features} onChange={(e) => setFeatures(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         <textarea placeholder="Itinerary (JSON format)" value={itinerary} onChange={(e) => setItinerary(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <textarea placeholder="Inclusions (JSON format)" value={inclusions} onChange={(e) => setInclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <input type="text" placeholder="Exclusions (comma-separated)" value={exclusions} onChange={(e) => setExclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="What to Carry (comma-separated)" value={whatToCarry} onChange={(e) => setWhatToCarry(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-        
-        <h4 className="text-lg font-semibold pt-4">Logistics</h4>
-        <div className="grid grid-cols-3 gap-4">
-            <input type="text" placeholder="Meeting Point" value={logistics.meetingPoint} onChange={(e) => setLogistics({...logistics, meetingPoint: e.target.value})} className="w-full p-3 border border-gray-300 rounded-lg" />
-            <input type="text" placeholder="Reporting Time" value={logistics.reportingTime} onChange={(e) => setLogistics({...logistics, reportingTime: e.target.value})} className="w-full p-3 border border-gray-300 rounded-lg" />
-            <input type="text" placeholder="Departure Time" value={logistics.departureTime} onChange={(e) => setLogistics({...logistics, departureTime: e.target.value})} className="w-full p-3 border border-gray-300 rounded-lg" />
-        </div>
 
         <div className="flex gap-4 pt-4">
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">{isSubmitting ? "Saving..." : (editingTrip ? "Save Changes" : "Create Trip")}</button>

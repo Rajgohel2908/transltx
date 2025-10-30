@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { MapPin, Car, Bike, Bus } from "lucide-react";
 import Footer from "../components/Footer";
-import Navbar from "../components/Navbar";
 
 // Use environment variable for API base URL
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
@@ -109,7 +108,6 @@ const ParkingPage = () => {
 
   return (
     <>
-      <Navbar />
       <div className="bg-gray-50 min-h-screen">
         <main className="container mx-auto px-4 py-12">
           <div className="text-center mb-12">

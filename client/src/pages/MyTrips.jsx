@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Clock, ArrowRight, Heart, Search, Filter } from "lucide-react";
 import Footer from "../components/Footer";
-import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
@@ -102,7 +101,6 @@ const MyTripsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <Navbar />
       <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">

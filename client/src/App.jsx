@@ -8,20 +8,26 @@ import Parcel from "./pages/Parcel.jsx";
 import Orders from "./pages/Orders.jsx";
 import Login from "./pages/users/Login.jsx";
 import Logout from "./pages/users/Logout.jsx";
-import { PrivateRoute, NotPrivateRoute } from "./components/PrivateRoute.jsx";
+import { PrivateRoute } from "./components/PrivateRoute.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import Context from "./context/Context.jsx";
 import AOS from "aos";
 import { useEffect } from "react";
-import Schedules from "./pages/Schedules.jsx";
+import Booking from "./pages/Booking.jsx";
 import CarpoolPage from "./pages/CarpoolPage.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
 import Transport404 from "./pages/PageNotFound.jsx";
 
+// Booking Flow Pages
+import SearchResults from "./pages/SearchResults.jsx";
+import PassengerDetails from "./pages/PassengerDetails.jsx";
+import Confirmation from "./pages/Confirmation.jsx";
+
 // --- Step 1: Import Navbar and AlertBanner here ---
+import Navbar from "./components/Navbar.jsx";
 import AlertBanner from "./components/AlertBanner";
 import TripViewPage from "./pages/TripView.jsx";
-import ParkingPage from "./pages/Parking.jsx";
+import ParkingPage from "./pages/Parking.jsx"; 
 
 function App() {
   useEffect(() => {
@@ -33,19 +39,26 @@ function App() {
   }, []);
   return (
     <div className="min-h-screen bg-lightgray">
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <Context>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </Context>
     </div>
   );
 }
 
 function AppContent() {
   const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
-    <Context>
+    <>
       {/* Step 3: Place Navbar and AlertBanner here, outside of Routes */}
-      {/* This makes them appear on every page */}
+      {/* This makes them appear on every page */}<Navbar />
 
       <AlertBanner />
 
@@ -62,7 +75,7 @@ function AppContent() {
             }
           />
           <Route
-            path="/admin/dashboard"
+            path="/admindashboard"
             element={
               <PrivateRoute>
                 <AdminRoute>
@@ -72,10 +85,34 @@ function AppContent() {
             }
           />
           <Route
-            path="/schedules"
+            path="/booking/:mode"
             element={
               <PrivateRoute>
-                <Schedules />
+                <Booking />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/booking/:mode/results"
+            element={
+              <PrivateRoute>
+                <SearchResults />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/booking/:mode/passenger-details"
+            element={
+              <PrivateRoute>
+                <PassengerDetails />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/booking/:mode/confirmation"
+            element={
+              <PrivateRoute>
+                <Confirmation />
               </PrivateRoute>
             }
           />
@@ -144,26 +181,18 @@ function AppContent() {
             }
           />
           <Route
-            path="/user-login"
-            element={
-              <NotPrivateRoute>
-                <Login />
-              </NotPrivateRoute>
-            }
+            path="/user-login" 
+            element={<Login />}
           />
           <Route
-            path="/user-signup"
-            element={
-              <NotPrivateRoute>
-                <Login />
-              </NotPrivateRoute>
-            }
+            path="/user-signup" 
+            element={<Login />}
           />
           <Route path="*" element={<Transport404 />} />
         </Routes>
       </div>
-    </Context>
-  );
+    </>
+  )
 }
 
 export default App;

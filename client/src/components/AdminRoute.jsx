@@ -2,15 +2,20 @@ import { Navigate } from "react-router-dom";
 import React, { useContext } from "react";
 import { DataContext } from "../context/Context.jsx";
 
+// A simple loading component
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center h-screen">
+    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+  </div>
+);
+
 const AdminRoute = ({ children }) => {
-  const { user } = useContext(DataContext);
+  // Assuming your context provides `user` and a `loading` state.
+  const { user, loading } = useContext(DataContext);
 
-  // Directly check the user from context.
-  const isAdmin = !!user?.is_admin;
+  if (loading) return <LoadingSpinner />;
 
-  if (!user) return null; // or a loading spinner while user data is loading
-
-  return isAdmin ? children : <Navigate to="/" />;
+  return user?.is_admin ? children : <Navigate to="/" />;
 };
 
 export default AdminRoute;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { loginUser, signupUser } from "@/utils/api.js";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, X, Eye, EyeOff } from "lucide-react";
 import Signup from "./Signup";
 import ForgotPassword from "./ForgotPassword";
 import "./Auth.css";
@@ -13,6 +13,7 @@ const Login = () => {
   // Login State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Signup State
   const [name, setName] = useState("");
@@ -32,7 +33,7 @@ const Login = () => {
       const data = await loginUser({ email, password });
       if (data?.token) {
         localStorage.setItem("token", data.token);
-        window.location.href = "/";
+        window.location.replace("/"); // Use replace to avoid adding to history
       }
     } catch (err) {
       const errors = err.errors || [];
@@ -54,7 +55,7 @@ const Login = () => {
       const data = await signupUser({ name, email: signupEmail, password: signupPassword });
       if (data?.token) {
         localStorage.setItem("token", data.token);
-        window.location.href = "/";
+        window.location.replace("/"); // Use replace to avoid adding to history
       }
     } catch (err) {
       const errors = err.errors || [];
@@ -106,9 +107,9 @@ const Login = () => {
                     />
                     <label htmlFor="login-email" className="form-label">Email</label>
                   </div>
-                  <div className="form-group" data-aos="fade-up" data-aos-delay="200">
+                  <div className="form-group relative" data-aos="fade-up" data-aos-delay="200">
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       id="login-password"
                       placeholder=" "
                       value={password}
@@ -117,6 +118,13 @@ const Login = () => {
                       required
                     />
                     <label htmlFor="login-password" className="form-label">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500"
+                    >
+                      {showPassword ? <EyeOff /> : <Eye />}
+                    </button>
                   </div>
                   <div className="text-right mt-2" data-aos="fade-up" data-aos-delay="250">
                     <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm font-medium text-blue-600 hover:underline focus:outline-none">

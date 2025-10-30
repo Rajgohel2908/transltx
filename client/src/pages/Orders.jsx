@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { DataContext } from "../context/Context.jsx";
 import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar.jsx";
 import Footer from "../components/Footer.jsx";
 
 // --- Helper Icons ---
@@ -211,7 +210,6 @@ const Orders = () => {
 
   return (
     <>
-      <Navbar />
       <div className="bg-gray-50 min-h-screen">
         <main className="container mx-auto px-4 py-12">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-8 border-b-4 border-blue-500 pb-2 inline-block">

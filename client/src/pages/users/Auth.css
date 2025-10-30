@@ -1,13 +1,42 @@
-.auth-container {
-  animation: slideInFromBottom 0.7s ease-out;
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  position: relative;
-  overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-  min-height: 100vh;
+@media (max-width: 768px) {
+  .auth-container {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .overlay-container {
+    display: none; /* Hide the overlay on mobile */
+  }
+
+  .form-container {
+    width: 100%;
+    padding: 0 2rem; /* Add some padding */
+    position: relative;
+  }
+
+  .sign-in-container,
+  .sign-up-container {
+    opacity: 1;
+    z-index: 1;
+    transform: none;
+    animation: none;
+    width: 100%;
+    left: 0;
+  }
+
+  .sign-up-container {
+    z-index: 2;
+  }
+
+  .auth-container.right-panel-active .sign-in-container {
+    transform: none;
+  }
+
+  .auth-container.right-panel-active .sign-up-container {
+    transform: none;
+  }
 }
 
 .form-container {

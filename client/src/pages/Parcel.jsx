@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { DataContext } from "../context/Context";
 import { CheckCircle, Package, User, Phone, MapPin, Weight, ArrowRight, Mail, Building, Hash, Globe, Box, DollarSign, Shield, Edit3 } from "lucide-react";
@@ -161,7 +160,7 @@ const Parcel = () => {
     setIsLoading(true);
     try {
       const bookingDetails = {
-        user: user,
+        user: user._id, // Pass only the user ID
         sender: {
           name: senderName,
           phone: senderPhone,
@@ -187,11 +186,21 @@ const Parcel = () => {
       };
       // The handlePayment function from razorpay.js will need to be updated
       // to accept a callback that receives the successful order details.
-      const onPaymentSuccess = (paymentResult) => {
-        // The paymentResult from cashfree might have a different structure.
-        // We'll use the data we already have in `bookingDetails`.
-        setBookedOrderDetails(bookingDetails);
-        setIsBooked(true);
+      const onPaymentSuccess = async (paymentResult) => {
+        try {
+          // Add payment details to the booking payload
+          const finalPayload = {
+            ...bookingDetails,
+            paymentId: paymentResult.cf_payment_id,
+            orderId: paymentResult.order_id,
+            paymentStatus: 'SUCCESS',
+          };
+          const res = await axios.post(`${PARCEL_API_URL}/book`, finalPayload);
+          setBookedOrderDetails(res.data.booking);
+          setIsBooked(true);
+        } catch (err) {
+          setError(err.response?.data?.message || "Failed to save booking after payment.");
+        }
         setIsLoading(false);
       };
 
@@ -226,7 +235,6 @@ const Parcel = () => {
 
   return (
     <>
-      <Navbar />
       <main className="bg-gray-100 font-sans flex items-center justify-center py-12 px-4 min-h-[calc(100vh-128px)]">
         {isBooked ? (
           <div className="bg-white p-8 md:p-12 rounded-2xl shadow-2xl text-center max-w-md mx-auto">

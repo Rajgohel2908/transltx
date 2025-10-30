@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { DataContext } from "../context/Context.jsx";
-import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
 // --- Helper Icons ---
@@ -187,7 +186,6 @@ const CarpoolPage = () => {
 
   return (
     <>
-      <Navbar />
       <div className="bg-gray-50 min-h-screen">
         <main className="container mx-auto px-4 py-12">
           <div className="text-center mb-12">

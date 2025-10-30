@@ -3,7 +3,6 @@ import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom"; // assuming route is /trips/:id
 import axios from "axios";
 import Footer from "../components/Footer.jsx";
-import Navbar from "../components/Navbar.jsx";
 import { DataContext } from "../context/Context.jsx";
 import { handlePayment } from "../utils/cashfree.js";
 
@@ -52,7 +51,6 @@ const TripViewPage = () => {
 
   return (
     <>
-      <Navbar />
       <div className="bg-gray-50 py-12">
         <div className="max-w-6xl mx-auto p-6 bg-white rounded-2xl shadow-xl">
           <img

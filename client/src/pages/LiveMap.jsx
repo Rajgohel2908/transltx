@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Navigation, Route, Menu, X, AlertCircle } from "lucide-react"; // Import AlertCircle
-import Navbar from "../components/Navbar"; // Assuming Navbar is used
 import Footer from "../components/Footer";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -352,7 +351,6 @@ const InteractiveMapWebsite = () => {
 
   return (
     <>
-      <Navbar />
       <div className="h-screen flex bg-gray-100 ">
         {/* Sidebar */}
         <div className={`${sidebarOpen ? "w-96" : "w-0"} transition-all duration-300 bg-white shadow-xl z-30 overflow-hidden`}>
