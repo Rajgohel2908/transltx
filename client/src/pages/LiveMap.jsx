@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useContext } from "react"; // <-- Add useContext
-import { Navigation, Route, Menu, X, AlertCircle, Calendar } from "lucide-react"; // <-- Add Calendar
+import { Navigation, Route, Menu, X, AlertCircle, Calendar, MapPin } from "lucide-react"; // <-- Add Calendar
 import Footer from "../components/Footer";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
@@ -45,6 +45,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || import.meta.env.VI
 
 // Helper component to change the map's view
 function ChangeView({ bounds }) {
+	const [locationName, setLocationName] = useState(null);
   const map = useMap();
   useEffect(() => {
     if (bounds) {
@@ -60,15 +61,18 @@ const InteractiveMapWebsite = () => {
   }, []);
 
   const [routes, setRoutes] = useState([]);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState({ name: "", coords: null });
+  const [to, setTo] = useState({ name: "", coords: null });
   const [departureTime, setDepartureTime] = useState(""); // <-- Add this
   const [matchedRoute, setMatchedRoute] = useState(null);
   const [error, setError] = useState("");
-  const [travelMode, setTravelMode] = useState("driving"); // 'driving', 'train', 'air'
+  const travelMode = "car"; // 'car' is the only mode
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [routePolyline, setRoutePolyline] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
+
+  // --- Add this new state ---
+  const [settingPinFor, setSettingPinFor] = useState(null); // Can be 'from', 'to', or null
 
   // --- Add these new state variables ---
   const { user } = useContext(DataContext);
@@ -143,6 +147,48 @@ const InteractiveMapWebsite = () => {
     const mins = Math.round((seconds % 3600) / 60);
     return `${hrs} hr ${mins} min`;
   };
+
+  // --- ADD THIS NEW COMPONENT ---
+  // Helper component to handle map clicks and cursor changes
+  function MapClickHandler() {
+    const map = useMapEvents({
+      click(e) {
+        if (!settingPinFor) return;
+
+        const { lat, lng } = e.latlng;
+        reverseGeocode(lat, lng).then(name => {
+          const location = { name, coords: [lat, lng] };
+          if (settingPinFor === 'from') {
+            setFrom(location);
+          } else if (settingPinFor === 'to') {
+            setTo(location);
+          }
+        });
+
+        setSettingPinFor(null); // Reset after setting
+      },
+    });
+
+    // Change cursor to crosshair when in pin-setting mode
+    useEffect(() => {
+      map.getContainer().style.cursor = settingPinFor ? 'crosshair' : 'grab';
+    }, [settingPinFor, map]);
+
+    return null; // This component doesn't render anything
+  }
+  // --- END OF NEW COMPONENT ---
+
+  // --- ADD THIS NEW FUNCTION ---
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      return response.data.display_name;
+    } catch (error) {
+      console.error("Reverse geocoding failed:", error);
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+  };
+  // --- END OF NEW FUNCTION ---
 
   // --- ADD THESE NEW FUNCTIONS ---
   const onPaymentSuccess = async (paymentResult) => {
@@ -226,94 +272,70 @@ const InteractiveMapWebsite = () => {
     return null;
   };
 
+  const geocode = async (name) => {
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${name}&format=json&limit=1`);
+      if (response.data && response.data.length > 0) {
+        return [parseFloat(response.data[0].lat), parseFloat(response.data[0].lon)];
+      }
+      return null;
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      return null;
+    }
+  };
+
   const handleSearch = async () => {
     setError("");
     setMatchedRoute(null);
     setRoutePolyline([]);
     setMapBounds(null);
 
-    const fromCoords = parseCoordinates(from);
-    const toCoords = parseCoordinates(to);
+    const fromCoords = from.coords || await geocode(from.name);
+    const toCoords = to.coords || await geocode(to.name);
 
     if (fromCoords && toCoords) {
-      // Both are coordinates, use OSRM for routing or draw a straight line
-      try {
-        if (travelMode === 'driving') {
-          const response = await axios.get(
-            `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`
-          );
-          if (response.data.routes && response.data.routes.length > 0) {
-          const route = response.data.routes[0];
-          const stopsForRoute = [
-            { name: 'Start', lat: fromCoords[0], lng: fromCoords[1], latitude: fromCoords[0], longitude: fromCoords[1] },
-            { name: 'End', lat: toCoords[0], lng: toCoords[1], latitude: toCoords[0], longitude: toCoords[1] }
-          ];
-          const polyline = normalizePolyline(route.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-          setRoutePolyline(polyline);
-          if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-          setMatchedRoute({
-            name: "Custom Route",
-            type: "driving",
-            color: "#007BFF", // A default color for custom routes
-            stops: stopsForRoute, // Add stops for marker rendering
-            distance: (route.distance / 1000).toFixed(2) + " km",
-            duration: formatDurationSec(route.duration)
-          });
-          } else {
-            setError(`Driving route not found for "${from}" to "${to}"`);
-          }
-        } else { // For 'train' or 'air', draw a straight line between coordinates
-          const polyline = [fromCoords, toCoords];
-          setRoutePolyline(polyline);
-          if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-          setMatchedRoute({
-            name: `Direct ${travelMode.charAt(0).toUpperCase() + travelMode.slice(1)} Route`,
-            type: travelMode,
-            color: travelMode === 'train' ? '#8A2BE2' : '#3498DB', // Blue for air, purple for train
-            stops: [
-              { name: 'Start', lat: fromCoords[0], lng: fromCoords[1], latitude: fromCoords[0], longitude: fromCoords[1] },
-              { name: 'End', lat: toCoords[0], lng: toCoords[1], latitude: toCoords[0], longitude: toCoords[1] }
-            ],
-            distance: getDistanceFromLatLonInKm(fromCoords[0], fromCoords[1], toCoords[0], toCoords[1]).toFixed(2) + " km",
-            duration: "N/A"
-          });
+        // For car mode with specific coordinates, use OSRM for a direct route.
+        try {
+            const response = await axios.get(
+                `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`
+            );
+            if (response.data.routes && response.data.routes.length > 0) {
+                const route = response.data.routes[0];
+                const stopsForRoute = [
+                    { name: from.name || 'Start', lat: fromCoords[0], lng: fromCoords[1], latitude: fromCoords[0], longitude: fromCoords[1] },
+                    { name: to.name || 'End', lat: toCoords[0], lng: toCoords[1], latitude: toCoords[0], longitude: toCoords[1] }
+                ];
+                const polyline = normalizePolyline(route.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                setRoutePolyline(polyline);
+                if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
+                setMatchedRoute({
+                    name: "Custom Driving Route",
+                    type: "car",
+                    color: "#007BFF",
+                    stops: stopsForRoute,
+                    distance: (route.distance / 1000).toFixed(2) + " km",
+                    duration: formatDurationSec(route.duration),
+                    price: parseFloat(((route.distance / 1000) * 12).toFixed(2)), // Example pricing: ₹12/km
+                });
+            } else {
+                setError(`Driving route not found for the given coordinates.`);
+            }
+        } catch (err) {
+            setError("Failed to fetch driving route. Please try again.");
+            console.error(err);
         }
-      } catch (err) {
-        setError("Failed to fetch route. Please try again.");
-        console.error(err);
-      }
-    } else if (travelMode === 'air') {
-      // Air travel between named stops should also be a straight line
-      const allStopsMap = new Map();
-      routes.forEach(route => route.stops.forEach(stop => allStopsMap.set(normalize(stop.name), stop)));
-      const sourceNode = allStopsMap.get(normalize(from));
-      const targetNode = allStopsMap.get(normalize(to));
-      if (sourceNode && targetNode) {
-        const polyline = [[sourceNode.latitude, sourceNode.longitude], [targetNode.latitude, targetNode.longitude]];
-        setRoutePolyline(polyline);
-        if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-        setMatchedRoute({
-          name: "Direct Air Route",
-          type: "air",
-          color: "#3498DB",
-          stops: [sourceNode, targetNode],
-          distance: getDistanceFromLatLonInKm(sourceNode.latitude, sourceNode.longitude, targetNode.latitude, targetNode.longitude).toFixed(2) + " km",
-          duration: "N/A"
-        });
-      } else {
-        setError(`Could not find coordinates for "${from}" or "${to}".`);
-      }
     } else {
       // Use graph-based shortest path across all routes (by stop name)
       if (!Array.isArray(routes) || routes.length === 0) return;
 
-      const normalize = (s) => s.trim().toLowerCase();
-      const source = normalize(from);
-      const target = normalize(to);
+      const normalize = (s) => (s || "").trim().toLowerCase();
+      const source = normalize(from.name);
+      const target = normalize(to.name);
 
       // --- Primary Logic: Find the best predefined route that matches the travel mode ---
       const candidateRoutes = routes
-        .filter(route => travelMode === 'driving' ? ['bus', 'car'].includes(route.type) : route.type === travelMode || (travelMode === 'train' && route.type === 'metro'))
+        .filter(route => route.type === 'car')
         .map(route => {
 
         const sourceIndex = route.stops.findIndex(s => normalize(s.name) === source);
@@ -341,7 +363,7 @@ const InteractiveMapWebsite = () => {
         const bestRoute = candidateRoutes[0];
 
         // --- Fetch road-following polyline for driving, but straight lines for train/air ---
-        if (travelMode === 'driving') {
+        if (travelMode === 'car') {
           try {
             const stopCoords = bestRoute.journeyStops.map(s => `${s.longitude},${s.latitude}`).join(';');
             const osrmRes = await axios.get(`https://router.project-osrm.org/route/v1/driving/${stopCoords}?overview=full&geometries=geojson`, { timeout: 10000 });
@@ -358,10 +380,6 @@ const InteractiveMapWebsite = () => {
             setRoutePolyline(polyline);
             if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
           }
-        } else { // For 'train' mode on a predefined route
-          const polyline = bestRoute.journeyStops.map(s => [s.latitude, s.longitude]);
-          setRoutePolyline(polyline);
-          if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
         }
 
         // Update state with the best route found
@@ -377,7 +395,7 @@ const InteractiveMapWebsite = () => {
       const allStops = new Map();
       routes.forEach(route => {
         route.stops.forEach(stop => {
-          allStops.set(normalize(stop.name), { name: stop.name, lat: stop.latitude, lng: stop.longitude });
+          allStops.set(normalize(stop.name), { name: stop.name, lat: stop.latitude, lng: stop.longitude, latitude: stop.latitude, longitude: stop.longitude });
         });
       });
 
@@ -398,7 +416,7 @@ const InteractiveMapWebsite = () => {
           if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
           setMatchedRoute({ 
             name: 'Direct Driving Route', 
-            stops: [{ name: from, ...sourceNode }, { name: to, ...targetNode }],
+            stops: [{ ...sourceNode, name: from.name }, { ...targetNode, name: to.name }],
             type: 'driving', 
             color: '#007BFF', 
             distance: (routeObj.distance/1000).toFixed(2) + ' km', 
@@ -416,6 +434,7 @@ const InteractiveMapWebsite = () => {
   };
 
   const defaultCenter = [21.1645, 72.785];
+
 
   return (
     <>
@@ -436,27 +455,49 @@ const InteractiveMapWebsite = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">Plan Your Route</h2>
               <div className="space-y-3">
+                {/* --- From Input --- */}
                 <div className="relative">
-                  <div className="absolute left-3 top-3 w-3 h-3 bg-green-500 rounded-full"></div>
-                  <input
-                    type="text"
-                    placeholder="From (stop name or coordinates like 21.1944, 72.8194)"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  <label className="text-sm font-medium text-gray-700">From</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Click 'Set' or type coords"
+                      value={from.name}
+                      onChange={(e) => setFrom({ name: e.target.value, coords: null })}
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-blue-500 ${settingPinFor === 'from' ? 'ring-2 ring-blue-500' : 'focus:ring-blue-500'}`}
+                    />
+                    <button
+                      type="button"
+                      title="Set 'From' on map"
+                      onClick={() => setSettingPinFor('from')}
+                      className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                      <MapPin size={20} />
+                    </button>
+                  </div>
                 </div>
 
+                {/* --- To Input --- */}
                 <div className="relative">
-                  <div className="absolute left-3 top-3 w-3 h-3 bg-red-500 rounded-full"></div>
-                                <input
-                                  type="text"
-                                  placeholder="To (stop name or coordinates like 21.1635, 72.7851)"
-                                  value={to}
-                                  onChange={(e) => setTo(e.target.value)}
-                                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                              </div>
+                  <label className="text-sm font-medium text-gray-700">To</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Click 'Set' or type coords"
+                      value={to.name}
+                      onChange={(e) => setTo({ name: e.target.value, coords: null })}
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-blue-500 ${settingPinFor === 'to' ? 'ring-2 ring-blue-500' : 'focus:ring-blue-500'}`}
+                    />
+                    <button
+                      type="button"
+                      title="Set 'To' on map"
+                      onClick={() => setSettingPinFor('to')}
+                      className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                      <MapPin size={20} />
+                    </button>
+                  </div>
+                </div>
                   
                               {/* --- Add this new field --- */}
                               <div className="relative">
@@ -472,22 +513,6 @@ const InteractiveMapWebsite = () => {
                                 />
                               </div>
                               {/* --- End of new field --- */}
-                            </div>
-              <div className="mt-2">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Travel Mode</h3>
-                <div className="flex items-center justify-around bg-gray-100 p-1 rounded-lg">
-                  {['driving', 'train', 'air'].map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setTravelMode(mode)}
-                      className={`w-full text-center px-3 py-2 rounded-md text-sm font-semibold transition-all ${
-                        travelMode === mode ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <button
@@ -516,7 +541,7 @@ const InteractiveMapWebsite = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Route:</span>
-                          <span className="font-semibold text-gray-800">{from} → {to}</span>
+                          <span className="font-semibold text-gray-800">{from.name} → {to.name}</span>
                         </div>
                         {matchedRoute.distance && (
                           <div className="flex items-center justify-between">
@@ -576,6 +601,42 @@ const InteractiveMapWebsite = () => {
             <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%", zIndex: 0 }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <ChangeView bounds={mapBounds} />
+              
+              {/* --- ADD THIS LINE --- */}
+              <MapClickHandler />
+
+              {/* --- ADD THESE MARKERS --- */}
+              {from.coords && (
+                <Marker
+                  position={from.coords}
+                  icon={startIcon}
+                  draggable={true}
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const { lat, lng } = e.target.getLatLng();
+                      reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] }));
+                    },
+                  }}
+                >
+                  <Popup>Pickup Location</Popup>
+                </Marker>
+              )}
+              {to.coords && (
+                <Marker
+                  position={to.coords}
+                  icon={endIcon}
+                  draggable={true}
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const { lat, lng } = e.target.getLatLng();
+                      reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] }));
+                    },
+                  }}
+                >
+                  <Popup>Destination</Popup>
+                </Marker>
+              )}
+              {/* --- END OF NEW MARKERS --- */}
 
               {/* Show custom route polyline if available */}
               {routePolyline.length > 0 && (
