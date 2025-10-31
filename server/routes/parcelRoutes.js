@@ -1,29 +1,24 @@
 import express from "express";
+// 1. Import middleware
+import { verifyToken, isAdmin } from "../middlewares/userMiddleware.js";
 import {
   calculateFare,
   createBooking,
   getUserOrders,
-  getAllParcels, // <-- 1. Import new admin function
-  updateParcelByAdmin, // <-- 2. Import new admin function
+  getAllParcels,
+  updateParcelByAdmin,
 } from "../controllers/parcelController.js";
 
 const router = express.Router();
 
 // --- USER-FACING ROUTES ---
 router.post("/fare", calculateFare);
-router.post("/book", createBooking);
-router.get("/user/:userId", getUserOrders);
+// Protect user routes with verifyToken
+router.post("/book", verifyToken, createBooking); 
+router.get("/user/:userId", verifyToken, getUserOrders);
 
-// --- NEW ADMIN ROUTES ---
-
-// @route   GET /api/parcels/all
-// @desc    Get all parcels from all users (for admin dashboard)
-// @access  Admin
-router.get("/all", getAllParcels);
-
-// @route   PATCH /api/parcels/:id/admin
-// @desc    Update a parcel's status and tag (by admin)
-// @access  Admin
-router.patch("/:id/admin", updateParcelByAdmin);
+// --- ADMIN ROUTES (Add verifyToken and isAdmin) ---
+router.get("/all", verifyToken, isAdmin, getAllParcels);
+router.patch("/:id/admin", verifyToken, isAdmin, updateParcelByAdmin);
 
 export default router;

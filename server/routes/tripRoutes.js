@@ -1,4 +1,6 @@
 import express from "express";
+// 1. Import middleware
+import { verifyToken, isAdmin } from "../middlewares/userMiddleware.js";
 import {
   createTrip,
   getAllTrips,
@@ -9,26 +11,13 @@ import {
 
 const router = express.Router();
 
-// @route   GET /api/trips
-// @desc    Get all trips
-// @access  Public
+// --- PUBLIC ROUTES ---
 router.get("/", getAllTrips);
-
 router.get("/:id", getTrip);
 
-// @route   POST /api/trips
-// @desc    Create a new trip
-// @access  Admin
-router.post("/", createTrip);
-
-// @route   PUT /api/trips/:id
-// @desc    Update an existing trip
-// @access  Admin
-router.put("/:id", updateTrip);
-
-// @route   DELETE /api/trips/:id
-// @desc    Delete a trip
-// @access  Admin
-router.delete("/:id", deleteTrip);
+// --- ADMIN ROUTES (Add verifyToken and isAdmin) ---
+router.post("/", verifyToken, isAdmin, createTrip);
+router.put("/:id", verifyToken, isAdmin, updateTrip);
+router.delete("/:id", verifyToken, isAdmin, deleteTrip);
 
 export default router;

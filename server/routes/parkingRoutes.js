@@ -1,9 +1,22 @@
 import express from "express";
-import { getAllParkingLots } from "../controllers/parkingController.js";
+// 1. Import middleware
+import { verifyToken, isAdmin } from "../middlewares/userMiddleware.js";
+// 2. Import new controller functions
+import { 
+  getAllParkingLots,
+  createParkingLot,
+  updateParkingLot,
+  deleteParkingLot 
+} from "../controllers/parkingController.js";
 
 const router = express.Router();
 
-// This sets up the single endpoint to fetch all parking lot data
+// --- PUBLIC ROUTE ---
 router.get("/", getAllParkingLots);
+
+// --- ADMIN ROUTES ---
+router.post("/", verifyToken, isAdmin, createParkingLot);
+router.put("/:id", verifyToken, isAdmin, updateParkingLot);
+router.delete("/:id", verifyToken, isAdmin, deleteParkingLot);
 
 export default router;

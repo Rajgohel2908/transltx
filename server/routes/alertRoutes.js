@@ -1,4 +1,6 @@
 import express from "express";
+// 1. Import middleware
+import { verifyToken, isAdmin } from "../middlewares/userMiddleware.js"; 
 import {
   createAlert,
   getActiveAlerts,
@@ -11,23 +13,13 @@ import {
 const router = express.Router();
 
 // --- PUBLIC-FACING ROUTE ---
-// Get all currently active alerts (for the public banner)
 router.get("/active", getActiveAlerts);
 
-// --- ADMIN-FACING ROUTES ---
-// Get all alerts, including inactive ones (for the admin dashboard)
-router.get("/", getAllAlerts);
-
-// Create a new alert
-router.post("/", createAlert);
-
-// Update an alert's content (title, message, priority)
-router.put("/:id", updateAlert);
-
-// Update just an alert's status (active/inactive)
-router.patch("/:id/status", updateAlertStatus);
-
-// Delete an alert permanently
-router.delete("/:id", deleteAlert);
+// --- ADMIN-FACING ROUTES (Add verifyToken and isAdmin) ---
+router.get("/", verifyToken, isAdmin, getAllAlerts);
+router.post("/", verifyToken, isAdmin, createAlert);
+router.put("/:id", verifyToken, isAdmin, updateAlert);
+router.patch("/:id/status", verifyToken, isAdmin, updateAlertStatus);
+router.delete("/:id", verifyToken, isAdmin, deleteAlert);
 
 export default router;
