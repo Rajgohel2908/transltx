@@ -58,7 +58,7 @@ export const getActiveRides = async (req, res) => {
       status: "active",
       departureTime: { $gt: new Date() },
     })
-      // IMPORTANT: We specifically DO NOT send the driver's phone number to the public
+      // Populate the driver field with the 'name'
       .populate("driver", "name")
       .sort({ departureTime: 1 });
     res.status(200).json(activeRides);

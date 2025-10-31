@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
-import axios from "axios";
+import { api } from "../utils/api.js";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { AlertCircle, DollarSign, Users, Package, Map, Ticket } from 'lucide-react';
 import Footer from '../components/Footer';
@@ -182,18 +182,15 @@ const AdminDashboard = () => {
     setLoading(true);
     setError(''); // Clear previous errors
     try {
-      const token = localStorage.getItem("token");
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-      
       const results = await Promise.allSettled([
-        axios.get(ALERTS_API_URL).catch(() => ({ data: [] })),
-        axios.get(TRIPS_API_URL).catch(() => ({ data: [] })),
-        axios.get(`${PARCELS_API_URL}/all`).catch(() => ({ data: [] })),
-        axios.get(ROUTES_API_URL).catch(() => ({ data: [] })),
-        axios.get(RIDES_API_URL).catch(() => ({ data: [] })),
-        axios.get(PARKING_API_URL).catch(() => ({ data: [] })),
-        axios.get(`${USERS_API_URL}?page=${page}`, authHeaders),
-        axios.get(BOOKINGS_API_URL, authHeaders).catch(() => ({ data: [] })), // Fetch all bookings
+        api.get(ALERTS_API_URL).catch(() => ({ data: [] })),
+        api.get(TRIPS_API_URL).catch(() => ({ data: [] })),
+        api.get(`${PARCELS_API_URL}/all`).catch(() => ({ data: [] })),
+        api.get(ROUTES_API_URL).catch(() => ({ data: [] })),
+        api.get(RIDES_API_URL).catch(() => ({ data: [] })),
+        api.get(PARKING_API_URL).catch(() => ({ data: [] })),
+        api.get(`${USERS_API_URL}?page=${page}`),
+        api.get(BOOKINGS_API_URL).catch(() => ({ data: [] })),
       ]);
 
       const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes, bookingsRes] = results;
@@ -256,7 +253,7 @@ const AdminDashboard = () => {
     try {
       setIsSubmitting(true);
       setError('');
-      await axios.patch(`${ALERTS_API_URL}/${alert._id}/status`, {
+      await api.patch(`${ALERTS_API_URL}/${alert._id}/status`, {
         status: newStatus,
       });
       fetchAllData();
@@ -277,7 +274,7 @@ const AdminDashboard = () => {
         try {
           setIsSubmitting(true);
           setError('');
-          await axios.delete(`${ALERTS_API_URL}/${alertId}`);
+          await api.delete(`${ALERTS_API_URL}/${alertId}`);
           fetchAllData();
           setConfirmationModal({ isOpen: false });
         } catch (error) {
@@ -338,7 +335,7 @@ const AdminDashboard = () => {
         try {
           setIsSubmitting(true);
           setError('');
-          await axios.delete(`${TRIPS_API_URL}/${tripId}`);
+          await api.delete(`${TRIPS_API_URL}/${tripId}`);
           setTrips(currentTrips => currentTrips.filter(t => t._id !== tripId));
           setConfirmationModal({ isOpen: false });
         } catch (error) {
@@ -361,7 +358,7 @@ const AdminDashboard = () => {
         try {
           setIsSubmitting(true);
           setError('');
-          await axios.delete(`${ROUTES_API_URL}/${routeId}`);
+          await api.delete(`${ROUTES_API_URL}/${routeId}`);
           fetchAllData();
           setConfirmationModal({ isOpen: false });
         } catch (error) {
@@ -384,7 +381,7 @@ const AdminDashboard = () => {
         try {
           setIsSubmitting(true);
           setError('');
-          await axios.delete(`${PARKING_API_URL}/${parkingId}`);
+          await api.delete(`${PARKING_API_URL}/${parkingId}`);
           setParkingLots(currentLots => currentLots.filter(p => p._id !== parkingId));
           setConfirmationModal({ isOpen: false });
         } catch (error) {
@@ -400,7 +397,7 @@ const AdminDashboard = () => {
 
   const handleUpdateParcel = useCallback(async (parcelId, updateData) => {
     try {
-      await axios.patch(`${PARCELS_API_URL}/${parcelId}/admin`, updateData);
+      await api.patch(`${PARCELS_API_URL}/${parcelId}/admin`, updateData);
       fetchAllData();
     } catch (error) {
       console.error("Failed to update parcel:", error);
@@ -411,12 +408,10 @@ const AdminDashboard = () => {
   const handleToggleAdmin = useCallback(async (userToUpdate) => {
     if (window.confirm(`Are you sure you want to ${userToUpdate.is_admin ? 'demote' : 'promote'} ${userToUpdate.name}?`)) {
       try {
-        const token = localStorage.getItem("token");
-        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
         const newAdminStatus = !userToUpdate.is_admin;
         setIsSubmitting(true);
         setError('');
-        await axios.patch(`${USERS_API_URL}/${userToUpdate._id}`, { is_admin: newAdminStatus }, authHeaders);
+        await api.patch(`${USERS_API_URL}/${userToUpdate._id}`, { is_admin: newAdminStatus });
 
         // Update the user in the local state for an immediate UI update
         setAllUsers(currentUsers =>
@@ -472,7 +467,9 @@ const AdminDashboard = () => {
                     )}
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => setEditingRoute(route)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
+                    <button onClick={() => { setEditingRoute(route); setShowRouteForm(true); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                      Edit
+                    </button>
                     <button onClick={() => handleDeleteRoute(route._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>
@@ -495,7 +492,9 @@ const AdminDashboard = () => {
                 <div key={trip._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div><p className="font-bold text-lg">{trip.name}</p></div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => setEditingTrip(trip)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
+                    <button onClick={() => { setEditingTrip(trip); setShowTripForm(true); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                      Edit
+                    </button>
                     <button onClick={() => handleDeleteTrip(trip._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>
@@ -553,7 +552,9 @@ const AdminDashboard = () => {
                     <p className="text-gray-600 text-sm">{lot.location} - {lot.availableSlots}/{lot.totalSlots} available</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => setEditingParking(lot)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
+                    <button onClick={() => { setEditingParking(lot); setShowParkingForm(true); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                      Edit
+                    </button>
                     <button onClick={() => handleDeleteParkingLot(lot._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>

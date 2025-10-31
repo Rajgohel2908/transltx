@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../utils/api.js';
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
@@ -30,7 +30,7 @@ const Booking = () => {
     };
 
     try {
-      const response = await axios.put(`${VITE_BACKEND_BASE_URL}/api/bookings/${editingBooking._id}`, updatedBooking);
+      const response = await api.put(`/api/bookings/${editingBooking._id}`, updatedBooking);
       setFoundBooking(response.data);
       setIsEditModalOpen(false);
     } catch (error) {
@@ -44,7 +44,7 @@ const Booking = () => {
     setSearchError('');
     setFoundBooking(null);
     try {
-      const response = await axios.get(`${VITE_BACKEND_BASE_URL}/api/bookings/pnr/${pnr}`);
+      const response = await api.get(`/api/bookings/pnr/${pnr}`);
       setFoundBooking(response.data);
     } catch (error) {
       setFoundBooking(null);

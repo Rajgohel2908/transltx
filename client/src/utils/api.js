@@ -3,6 +3,21 @@ import { getToken } from "../pages/users/auth.js";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
+const api = axios.create({
+  baseURL: VITE_BACKEND_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Fetch current user safely
 async function fetchCurrentUser() {
   const token = getToken();
@@ -11,9 +26,7 @@ async function fetchCurrentUser() {
   }
 
   try {
-    const res = await axios.get(`${VITE_BACKEND_BASE_URL}/users/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await api.get(`/users/me`);
     return res.data;
   } catch (err) {
     console.log("fetchCurrentUser error:", err.response?.data || err.message);
@@ -32,9 +45,7 @@ async function fetchCurrentUser() {
 // Signup user
 async function signupUser(data) {
   try {
-    const res = await axios.post(`${VITE_BACKEND_BASE_URL}/users/signup`, data, {
-      headers: { "Content-Type": "application/json" },
-    });
+    const res = await api.post(`/users/signup`, data);
     return res.data;
   } catch (err) {
     throw err.response?.data || { message: "Signup failed" };
@@ -44,9 +55,7 @@ async function signupUser(data) {
 // Login user
 async function loginUser(data) {
   try {
-    const res = await axios.post(`${VITE_BACKEND_BASE_URL}/users/login`, data, {
-      headers: { "Content-Type": "application/json" },
-    });
+    const res = await api.post(`/users/login`, data);
     return res.data;
   } catch (err) {
     throw err.response?.data || { message: "Login failed" };
@@ -55,19 +64,11 @@ async function loginUser(data) {
 
 async function getAdminUsers() {
   try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No authentication token found.");
-    }
-    const response = await axios.get(`${VITE_BACKEND_BASE_URL}/users/admin/users`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await api.get(`/users/admin/users`);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: error.message };
   }
 }
 
-export { fetchCurrentUser, signupUser, loginUser, getAdminUsers };
+export { fetchCurrentUser, signupUser, loginUser, getAdminUsers, api };
