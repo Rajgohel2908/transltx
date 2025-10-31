@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Navigation, Route, Menu, X, AlertCircle } from "lucide-react"; // Import AlertCircle
+import React, { useState, useEffect, useMemo, useContext } from "react"; // <-- Add useContext
+import { Navigation, Route, Menu, X, AlertCircle, Calendar } from "lucide-react"; // <-- Add Calendar
 import Footer from "../components/Footer";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import { handlePayment } from "../utils/cashfree";
+import { DataContext } from "../context/Context.jsx"; // <-- Add this
+import { api } from "../utils/api.js"; // <-- Add this
+import CarpoolOfferModal from "../components/CarpoolOfferModal.jsx"; // <-- Add this
 
 // --- Leaflet Icon Fix ---
 // This is a common issue with React-Leaflet and bundlers like Vite.
@@ -59,12 +62,19 @@ const InteractiveMapWebsite = () => {
   const [routes, setRoutes] = useState([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [departureTime, setDepartureTime] = useState(""); // <-- Add this
   const [matchedRoute, setMatchedRoute] = useState(null);
   const [error, setError] = useState("");
   const [travelMode, setTravelMode] = useState("driving"); // 'driving', 'train', 'air'
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [routePolyline, setRoutePolyline] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
+
+  // --- Add these new state variables ---
+  const { user } = useContext(DataContext);
+  const [showCarpoolModal, setShowCarpoolModal] = useState(false);
+  const [bookedRideDetails, setBookedRideDetails] = useState(null);
+  // --- End of new state variables ---
 
   // Helper: remove consecutive duplicate points
   const dedupePoints = (pts) => {
@@ -133,6 +143,64 @@ const InteractiveMapWebsite = () => {
     const mins = Math.round((seconds % 3600) / 60);
     return `${hrs} hr ${mins} min`;
   };
+
+  // --- ADD THESE NEW FUNCTIONS ---
+  const onPaymentSuccess = async (paymentResult) => {
+    try {
+      const bookingPayload = {
+        userId: user._id,
+        bookingType: matchedRoute.type === 'driving' ? 'Ride' : (matchedRoute.type || 'Bus'),
+        service: matchedRoute.name,
+        from: from,
+        to: to,
+        departure: departureTime || new Date().toISOString(),
+        arrival: new Date().toISOString(), // Placeholder, real app would calculate
+        passengers: [{ fullName: user.name, age: 30, gender: 'Unknown' }], // Placeholder data
+        contactEmail: user.email,
+        contactPhone: '9999999999', // Placeholder, modal will ask for real one
+        fare: matchedRoute.price,
+        paymentId: paymentResult.cf_payment_id,
+        orderId: paymentResult.order_id,
+        paymentStatus: 'SUCCESS',
+        bookingStatus: 'Confirmed'
+      };
+
+      const res = await api.post(`${API_BASE_URL}/bookings`, bookingPayload);
+      
+      // Save details for the carpool modal
+      setBookedRideDetails({ 
+        ...res.data,
+        from: from, // Pass readable names
+        to: to,     // Pass readable names
+        departure: bookingPayload.departure // Pass the correct departure time
+      });
+      setShowCarpoolModal(true); // Open the carpool modal
+    } catch (error) {
+      console.error("Failed to save booking:", error);
+      setError('Payment was successful, but failed to save your booking. Please contact support.');
+    }
+  };
+
+  const handleBookRoute = () => {
+    if (!user) {
+      setError('Please log in to book a ride.');
+      return;
+    }
+    if (!matchedRoute || !matchedRoute.price) {
+      setError('Cannot book this route. No price defined.');
+      return;
+    }
+    if (!departureTime) {
+      setError('Please select a departure date and time.');
+      return;
+    }
+    handlePayment({
+      item: { ...matchedRoute, name: matchedRoute.name || 'Custom Ride' }, // Ensure item has a name
+      user: user,
+      onPaymentSuccess: onPaymentSuccess
+    });
+  };
+  // --- END OF NEW FUNCTIONS ---
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -381,16 +449,30 @@ const InteractiveMapWebsite = () => {
 
                 <div className="relative">
                   <div className="absolute left-3 top-3 w-3 h-3 bg-red-500 rounded-full"></div>
-                  <input
-                    type="text"
-                    placeholder="To (stop name or coordinates like 21.1635, 72.7851)"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
+                                <input
+                                  type="text"
+                                  placeholder="To (stop name or coordinates like 21.1635, 72.7851)"
+                                  value={to}
+                                  onChange={(e) => setTo(e.target.value)}
+                                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                  
+                              {/* --- Add this new field --- */}
+                              <div className="relative">
+                                <div className="absolute left-3 top-3 w-5 h-5 text-gray-400">
+                                  <Calendar size={18} />
+                                </div>
+                                <input
+                                  type="datetime-local"
+                                  placeholder="Departure Time"
+                                  value={departureTime}
+                                  onChange={(e) => setDepartureTime(e.target.value)}
+                                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                              {/* --- End of new field --- */}
+                            </div>
               <div className="mt-2">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Travel Mode</h3>
                 <div className="flex items-center justify-around bg-gray-100 p-1 rounded-lg">
@@ -460,7 +542,7 @@ const InteractiveMapWebsite = () => {
                         )}
                         {matchedRoute.price && (
                           <div className="mt-4 pt-3 border-t">
-                            <button onClick={() => handlePayment({ item: matchedRoute, user: {} })} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
+                            <button onClick={handleBookRoute} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
                               <span>Book Now</span>
                             </button>
                           </div>
@@ -540,9 +622,18 @@ const InteractiveMapWebsite = () => {
           </div>
         </div>
       </div>
-      <Footer />
-    </>
-  );
+        <Footer />
+      
+        {/* --- Add this modal --- */}
+        {showCarpoolModal && (
+          <CarpoolOfferModal
+            rideDetails={bookedRideDetails}
+            user={user}
+            onClose={() => setShowCarpoolModal(false)}
+          />
+        )}
+        {/* --- End of modal --- */}
+      </>  );
 };
 
 export default InteractiveMapWebsite;

@@ -6,11 +6,13 @@ import {
   createRoute,
   updateRoute,
   deleteRoute,
+  searchRoutes // <-- Add this
 } from "../controllers/routeController.js";
 
 const router = express.Router();
 
-// --- PUBLIC ROUTE ---
+// --- PUBLIC ROUTES ---
+router.get("/search", searchRoutes); // <-- Add this new line
 router.get("/", getAllRoutes);
 
 // --- ADMIN ROUTES (Add verifyToken and isAdmin) ---

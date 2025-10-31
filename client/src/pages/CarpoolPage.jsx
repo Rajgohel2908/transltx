@@ -36,7 +36,7 @@ const PhoneIcon = () => (
 );
 
 // --- API URL using .env ---
-const API_URL = `${import.meta.env.VITE_API_BASE_URL}/rides`;
+const API_URL = `${import.meta.env.VITE_BACKEND_BASE_URL}/rides`;
 
 // --- Offer Ride Form ---
 const OfferRideForm = ({ onRidePosted }) => {

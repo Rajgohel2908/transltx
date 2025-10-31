@@ -97,6 +97,59 @@ export const getAllRoutes = async (req, res) => {
   }
 };
 
+// --- ADD THIS NEW FUNCTION ---
+// @desc    Search routes by criteria
+// @route   GET /api/routes/search
+// @access  Public
+export const searchRoutes = async (req, res) => {
+  try {
+    const { from, to, date, type } = req.query;
+
+    let query = {};
+
+    if (type) {
+      query.type = type.toLowerCase();
+    }
+    
+    // Use case-insensitive regex for partial matching on start and end points
+    if (from) {
+      query.startPoint = { $regex: from, $options: 'i' };
+    }
+    if (to) {
+      query.endPoint = { $regex: to, $options: 'i' };
+    }
+
+    if (date) {
+      const searchDate = new Date(date);
+      const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][searchDate.getUTCDay()];
+      
+      // Build date-related query
+      query.$or = [
+        // 1. Matches daily schedule
+        { scheduleType: 'daily' },
+        
+        // 2. Matches weekly schedule on the correct day
+        { scheduleType: 'weekly', daysOfWeek: dayOfWeek },
+        
+        // 3. Matches specific date (compare date part only)
+        { 
+          scheduleType: 'specific_date', 
+          specificDate: {
+            $gte: new Date(date).setUTCHours(0, 0, 0, 0),
+            $lte: new Date(date).setUTCHours(23, 59, 59, 999)
+          }
+        }
+      ];
+    }
+
+    const routes = await Route.find(query);
+    res.status(200).json(routes);
+  } catch (error) {
+    res.status(500).json({ message: 'Error searching routes', error: error.message });
+  }
+};
+// --- END OF NEW FUNCTION ---
+
 // Delete a route
 export const deleteRoute = async (req, res) => {
   try {

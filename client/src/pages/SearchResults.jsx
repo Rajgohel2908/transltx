@@ -17,21 +17,17 @@ const SearchResults = () => {
     setLoading(true);
     const fetchResults = async () => {
       try {
-        // Fetch from the /routes endpoint now
         const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-        const response = await axios.get(`${VITE_BACKEND_BASE_URL}/routes`);
-        const allRoutes = response.data || [];
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (searchType) params.append('type', searchType);
+        if (from) params.append('from', from);
+        if (to) params.append('to', to);
+        if (departureDate) params.append('date', departureDate);
 
-        // Filter trips based on search criteria
-        const filtered = allRoutes.filter(route => {
-          const typeMatch = searchType ? route.type.toLowerCase() === searchType.toLowerCase() : true;
-          // A more robust search would check if `from` and `to` are in the route's path
-          const fromMatch = from ? route.startPoint.toLowerCase().includes(from.toLowerCase()) : true;
-          const toMatch = to ? route.endPoint.toLowerCase().includes(to.toLowerCase()) : true;
-          return typeMatch && fromMatch && toMatch;
-        });
-
-        setResults(filtered);
+        const response = await axios.get(`${VITE_BACKEND_BASE_URL}/routes/search?${params.toString()}`);
+        
+        setResults(response.data || []);
       } catch (error) {
         console.error("Failed to fetch search results:", error);
         setResults([]);
@@ -40,7 +36,14 @@ const SearchResults = () => {
       }
     };
 
-    fetchResults();
+    // Only fetch if we have the necessary search state
+    if (searchType && from && to && departureDate) {
+      fetchResults();
+    } else {
+      // Optional: Handle missing search terms, e.g., redirect or show message
+      console.warn("Search terms missing, not fetching results.");
+      setLoading(false);
+    }
   }, [searchType, from, to, departureDate]);
 
   const handleBookNow = (result) => {
