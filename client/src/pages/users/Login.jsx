@@ -14,6 +14,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Signup State
   const [name, setName] = useState("");
@@ -32,13 +33,23 @@ const Login = () => {
     try {
       const data = await loginUser({ email, password });
       if (data?.token) {
-        localStorage.setItem("token", data.token);
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+        } else {
+          sessionStorage.setItem("token", data.token);
+        }
         window.location.replace("/"); // Use replace to avoid adding to history
       }
     } catch (err) {
       const errors = err.errors || [];
       setAlertTitle("Login Failed");
       setAlertMessage(errors.length ? errors.map((e) => e.msg).join(", ") : err.message || "An unknown error occurred.");
+      // Provide a more user-friendly message for the common error
+      if (err.error === "Invalid email or password") {
+        setAlertMessage("The email or password you entered is incorrect. Please try again.");
+      } else {
+        setAlertMessage(errors.length ? errors.map((e) => e.msg).join(", ") : err.message || "An unknown error occurred.");
+      }
       setIsAlertVisible(true);
     }
   };
@@ -126,6 +137,18 @@ const Login = () => {
                       {showPassword ? <EyeOff /> : <Eye />}
                     </button>
                   </div>
+                  <div className="flex justify-between items-center mt-4" data-aos="fade-up" data-aos-delay="225">
+                    <label className="flex items-center text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                      />
+                      <span className="ml-2">Remember Me</span>
+                    </label>
+                  </div>
+
                   <div className="text-right mt-2" data-aos="fade-up" data-aos-delay="250">
                     <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm font-medium text-blue-600 hover:underline focus:outline-none">
                       Forgot your password?

@@ -1,17 +1,13 @@
 import axios from "axios";
+import { getToken } from "../pages/users/auth.js";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
 // Fetch current user safely
 async function fetchCurrentUser() {
-  const token = localStorage.getItem("token");
+  const token = getToken();
   if (!token) {
-    return {
-      _id: null,
-      name: "Anonymous User",
-      email: null,
-      createdAt: null,
-    };
+    return null;
   }
 
   try {
@@ -21,7 +17,9 @@ async function fetchCurrentUser() {
     return res.data;
   } catch (err) {
     console.log("fetchCurrentUser error:", err.response?.data || err.message);
+    // Clear both storages on auth error
     localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
     return {
       _id: null,
       name: "Anonymous User",

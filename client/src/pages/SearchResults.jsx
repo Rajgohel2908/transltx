@@ -17,17 +17,17 @@ const SearchResults = () => {
     setLoading(true);
     const fetchResults = async () => {
       try {
-        // Using the existing /trips endpoint and filtering on the client-side.
-        // In a real-world app, you'd have a dedicated search endpoint: /api/search?from=...&to=...
+        // Fetch from the /routes endpoint now
         const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-        const response = await axios.get(`${VITE_BACKEND_BASE_URL}/trips`);
-        const allTrips = response.data?.data || response.data || [];
+        const response = await axios.get(`${VITE_BACKEND_BASE_URL}/routes`);
+        const allRoutes = response.data || [];
 
         // Filter trips based on search criteria
-        const filtered = allTrips.filter(trip => {
-          const typeMatch = searchType ? trip.type === searchType : true;
-          const fromMatch = from ? trip.from.toLowerCase().includes(from.toLowerCase()) : true;
-          const toMatch = to ? trip.to.toLowerCase().includes(to.toLowerCase()) : true;
+        const filtered = allRoutes.filter(route => {
+          const typeMatch = searchType ? route.type.toLowerCase() === searchType.toLowerCase() : true;
+          // A more robust search would check if `from` and `to` are in the route's path
+          const fromMatch = from ? route.startPoint.toLowerCase().includes(from.toLowerCase()) : true;
+          const toMatch = to ? route.endPoint.toLowerCase().includes(to.toLowerCase()) : true;
           return typeMatch && fromMatch && toMatch;
         });
 
@@ -55,30 +55,34 @@ const SearchResults = () => {
       <div className="bg-white rounded-xl shadow-md transition-shadow hover:shadow-lg">
         <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4 w-full sm:w-1/4">
-            <img src={result.image} alt={`${result.name} logo`} className="h-12 w-12 object-cover rounded-md" />
+            <div className="h-12 w-12 rounded-md flex items-center justify-center" style={{ backgroundColor: result.color || '#3B82F6' }}>
+              {result.type === 'air' && <Plane className="text-white" />}
+              {result.type === 'bus' && <Bus className="text-white" />}
+              {result.type === 'train' && <Train className="text-white" />}
+            </div>
             <div>
-              <p className="font-bold text-lg">{result.name}</p>
-              <p className="text-sm text-gray-500">{result.duration}</p>
+              <p className="font-bold text-lg">{result.airline || result.name}</p>
+              <p className="text-sm text-gray-500">{result.flightNumber || result.id}</p>
             </div>
           </div>
           <div className="flex items-center justify-between w-full sm:w-2/4">
             <div className="text-center">
-              <p className="text-xl font-semibold">{result.departureTime || 'N/A'}</p>
-              <p className="text-gray-600">{result.from || 'Source'}</p>
+              <p className="text-xl font-semibold">{result.startTime || 'N/A'}</p>
+              <p className="text-gray-600">{result.startPoint || 'Source'}</p>
             </div>
             <div className="text-center px-4">
-              <p className="text-sm text-gray-500">{result.duration}</p>
+              <p className="text-sm text-gray-500">{result.duration || ''}</p>
               <div className="w-full h-px bg-gray-200 my-1 relative">
                 <ArrowRight className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 bg-white px-1" />
               </div>
             </div>
             <div className="text-center">
-              <p className="text-xl font-semibold">{result.arrivalTime || 'N/A'}</p>
-              <p className="text-gray-600">{result.to || 'Destination'}</p>
+              <p className="text-xl font-semibold">{result.endTime || 'N/A'}</p>
+              <p className="text-gray-600">{result.endPoint || 'Destination'}</p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 w-full sm:w-auto sm:w-1/4">
-            <p className="text-2xl font-bold text-gray-800">₹{Number(result.price).toLocaleString()}</p>
+            <p className="text-2xl font-bold text-gray-800">{result.price ? `₹${Number(result.price).toLocaleString()}` : 'Fare N/A'}</p>
             <button onClick={() => handleBookNow(result)} className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto">
               Book Now
             </button>

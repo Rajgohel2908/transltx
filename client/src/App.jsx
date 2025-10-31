@@ -55,12 +55,14 @@ function AppContent() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
+  const hideNavbarOn = ['/user-login', '/user-signup'];
+  const shouldShowNavbar = !hideNavbarOn.includes(location.pathname);
+
   return (
     <>
       {/* Step 3: Place Navbar and AlertBanner here, outside of Routes */}
-      {/* This makes them appear on every page */}<Navbar />
-
-      <AlertBanner />
+      {shouldShowNavbar && <Navbar />}
+      {shouldShowNavbar && <AlertBanner />}
 
       <div key={location.pathname} className="fade-scale-in">
         <Routes>

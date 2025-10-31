@@ -11,8 +11,6 @@ export const createRoute = async (req, res) => {
       name: req.body.name,
       type: req.body.type,
       color: req.body.color,
-      // Ensure startPoint and endPoint are objects with name, latitude, longitude
-      // This assumes the client sends these as objects. If they are strings, parsing is needed.
       startPoint: req.body.startPoint,
       endPoint: req.body.endPoint,
       price: req.body.price,
@@ -22,11 +20,23 @@ export const createRoute = async (req, res) => {
     if (type === 'air') {
       routeData.flightNumber = req.body.flightNumber;
       routeData.airline = req.body.airline;
-    } else { // bus or train
+      routeData.scheduleType = req.body.scheduleType;
+      routeData.specificDate = req.body.specificDate;
       routeData.startTime = req.body.startTime;
-      routeData.endTime = req.body.endTime;
-      routeData.frequency = req.body.frequency;
+    } else { // bus or train
+      routeData.scheduleType = req.body.scheduleType;
       routeData.stops = req.body.stops;
+      if (req.body.scheduleType === 'daily') {
+        routeData.startTime = req.body.startTime;
+        routeData.endTime = req.body.endTime;
+        routeData.frequency = req.body.frequency;
+      } else if (req.body.scheduleType === 'weekly') {
+        routeData.daysOfWeek = req.body.daysOfWeek;
+        routeData.startTime = req.body.startTime;
+      } else if (req.body.scheduleType === 'specific_date') {
+        routeData.specificDate = req.body.specificDate;
+        routeData.startTime = req.body.startTime;
+      }
     }
 
     const newRoute = new Route(routeData);
@@ -40,7 +50,7 @@ export const createRoute = async (req, res) => {
 // Update an existing route
 export const updateRoute = async (req, res) => {
   try {
-    const { routeId } = req.params; // Assuming you pass the route's DB _id in the URL
+    const { id } = req.params; // Assuming you pass the route's DB _id in the URL
     const { type } = req.body;
 
     const updateData = {
@@ -56,26 +66,52 @@ export const updateRoute = async (req, res) => {
     if (type === 'air') {
       updateData.flightNumber = req.body.flightNumber;
       updateData.airline = req.body.airline;
+      updateData.scheduleType = req.body.scheduleType;
+      updateData.specificDate = req.body.specificDate;
+      updateData.startTime = req.body.startTime;
       // Unset fields that don't apply to 'air' routes
       updateData.$unset = {
-        startTime: 1,
         endTime: 1,
         frequency: 1,
         stops: 1,
+        daysOfWeek: 1,
       };
     } else { // bus or train
-      updateData.startTime = req.body.startTime;
-      updateData.endTime = req.body.endTime;
-      updateData.frequency = req.body.frequency;
+      updateData.scheduleType = req.body.scheduleType;
       updateData.stops = req.body.stops;
       // Unset fields that don't apply to 'bus'/'train' routes
       updateData.$unset = {
         flightNumber: 1,
         airline: 1,
+        specificDate: req.body.scheduleType !== 'specific_date' ? 1 : undefined,
+        daysOfWeek: req.body.scheduleType !== 'weekly' ? 1 : undefined,
+        endTime: req.body.scheduleType !== 'daily' ? 1 : undefined,
+        frequency: req.body.scheduleType !== 'daily' ? 1 : undefined,
       };
+
+      if (req.body.scheduleType === 'daily') {
+        updateData.startTime = req.body.startTime;
+        updateData.endTime = req.body.endTime;
+        updateData.frequency = req.body.frequency;
+        delete updateData.$unset.endTime;
+        delete updateData.$unset.frequency;
+      } else if (req.body.scheduleType === 'weekly') {
+        updateData.daysOfWeek = req.body.daysOfWeek;
+        updateData.startTime = req.body.startTime;
+        delete updateData.$unset.daysOfWeek;
+      } else if (req.body.scheduleType === 'specific_date') {
+        updateData.specificDate = req.body.specificDate;
+        updateData.startTime = req.body.startTime;
+        delete updateData.$unset.specificDate;
+      }
+
+      // Clean up unset object
+      if (Object.values(updateData.$unset).every(v => v === undefined)) {
+        delete updateData.$unset;
+      }
     }
 
-    const updatedRoute = await Route.findByIdAndUpdate(routeId, updateData, { new: true });
+    const updatedRoute = await Route.findByIdAndUpdate(id, updateData, { new: true });
 
     if (!updatedRoute) {
       return res.status(404).json({ message: 'Route not found' });
@@ -100,8 +136,8 @@ export const getAllRoutes = async (req, res) => {
 // Delete a route
 export const deleteRoute = async (req, res) => {
   try {
-    const { routeId } = req.params;
-    const deletedRoute = await Route.findByIdAndDelete(routeId);
+    const { id } = req.params;
+    const deletedRoute = await Route.findByIdAndDelete(id);
     if (!deletedRoute) {
       return res.status(404).json({ message: 'Route not found' });
     }

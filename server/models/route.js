@@ -1,58 +1,71 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-const stopSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  latitude: { type: Number, required: true },
-  longitude: { type: Number, required: true },
-});
-
-const routeSchema = new mongoose.Schema(
-  {
-    id: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    name: {
-      type: String,
-      required: true,
-    },
-    type: {
-      type: String,
-      enum: ["pedal", "cycle", "two-wheeler", "car", "bus", "metro"], // Added bus/metro
-      required: true,
-    },
-    color: {
-      type: String,
-      required: true,
-    },
-    stops: {
-      type: [stopSchema],
-      validate: [(arr) => arr.length > 0, "At least one stop is required"],
-    },
-    // --- NEW SCHEDULE FIELDS ---
-    startTime: {
-      type: String, // e.g., "06:00"
-      required: true,
-      default: "06:00",
-    },
-    endTime: {
-      type: String, // e.g., "22:00"
-      required: true,
-      default: "22:00",
-    },
-    frequency: {
-      type: Number, // Frequency in minutes
-      required: true,
-      default: 15,
-    },
+const routeSchema = new mongoose.Schema({
+  id: {
+    type: String,
+    required: true,
+    unique: true,
   },
-  {
-    timestamps: true,
-    // Note: Mongoose automatically looks for the plural, lowercased version of your model name.
-    // So, a model named 'Route' will use the 'routes' collection by default.
-  }
-);
+  name: {
+    type: String,
+    required: true,
+  },
+  type: {
+    type: String,
+    enum: ['bus', 'train', 'air'],
+    required: true,
+  },
+  color: {
+    type: String,
+    default: '#3B82F6',
+  },
+  startPoint: {
+    type: String,
+    required: true,
+  },
+  endPoint: {
+    type: String,
+    required: true,
+  },
+  price: {
+    type: Number,
+    default: 0,
+  },
+  // New Scheduling Fields
+  scheduleType: {
+    type: String,
+    enum: ['daily', 'weekly', 'specific_date'],
+  },
+  // Changed from dayOfWeek to daysOfWeek to support multiple days for 'weekly'
+  daysOfWeek: {
+    type: [String],
+    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+  },
+  specificDate: {
+    type: Date,
+  },
+  // Fields for 'bus', 'train', and 'air' with specific times
+  startTime: {
+    type: String,
+  },
+  endTime: {
+    type: String,
+  },
+  frequency: {
+    type: Number,
+  },
+  stops: {
+    type: [String],
+  },
+  // Fields for 'air'
+  flightNumber: {
+    type: String,
+  },
+  airline: {
+    type: String,
+  },
+}, { timestamps: true });
 
-const Route = mongoose.model("Route", routeSchema);
+const Route = mongoose.model('Route', routeSchema);
+
 export default Route;

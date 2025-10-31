@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin } from 'lucide-react';
+import axios from 'axios';
+
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
 const Booking = () => {
   const { mode } = useParams();
@@ -13,6 +16,41 @@ const Booking = () => {
   const [tripType, setTripType] = useState('one-way');
   const [passengers, setPassengers] = useState({ adults: 1, children: 0, infants: 0 });
   const [showPassengerDropdown, setShowPassengerDropdown] = useState(false);
+  const [pnr, setPnr] = useState('');
+  const [foundBooking, setFoundBooking] = useState(null);
+  const [searchError, setSearchError] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState(null);
+
+  const handleUpdateBooking = async (e) => {
+    e.preventDefault();
+    const updatedBooking = {
+      from: e.target.from.value,
+      to: e.target.to.value,
+    };
+
+    try {
+      const response = await axios.put(`${VITE_BACKEND_BASE_URL}/api/bookings/${editingBooking._id}`, updatedBooking);
+      setFoundBooking(response.data);
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error('Error updating booking:', error);
+      // Handle error display to the user
+    }
+  };
+
+  const handlePnrSearch = async () => {
+    if (!pnr) return;
+    setSearchError('');
+    setFoundBooking(null);
+    try {
+      const response = await axios.get(`${VITE_BACKEND_BASE_URL}/api/bookings/pnr/${pnr}`);
+      setFoundBooking(response.data);
+    } catch (error) {
+      setFoundBooking(null);
+      setSearchError('Booking not found or an error occurred.');
+    }
+  };
   
   // State for search inputs
   const [from, setFrom] = useState('');
@@ -54,6 +92,43 @@ const Booking = () => {
           <div className="text-center mb-12">
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 mb-4">Book Your Next Journey</h1>
             <p className="text-lg text-gray-500">Seamlessly book bus, train, and air tickets all in one place.</p>
+          </div>
+
+          {/* Find My Booking Section */}
+          <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 mb-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Find My Booking</h2>
+            <div className="flex gap-4">
+              <input 
+                type="text" 
+                placeholder="Enter your PNR" 
+                value={pnr}
+                onChange={e => setPnr(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <button onClick={handlePnrSearch} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+                Search
+              </button>
+            </div>
+            {searchError && <p className="text-red-500 mt-2">{searchError}</p>}
+            {foundBooking && (
+              <div className="mt-6 p-4 border border-gray-200 rounded-lg">
+                <h3 className="text-xl font-bold">Booking Details</h3>
+                <p><strong>PNR:</strong> {foundBooking.pnrNumber}</p>
+                <p><strong>From:</strong> {foundBooking.from}</p>
+                <p><strong>To:</strong> {foundBooking.to}</p>
+                <p><strong>Departure:</strong> {foundBooking.departure}</p>
+                <p><strong>Status:</strong> {foundBooking.bookingStatus}</p>
+                <button 
+                  className="mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors"
+                  onClick={() => {
+                    setEditingBooking(foundBooking);
+                    setIsEditModalOpen(true);
+                  }}
+                >
+                  Edit Booking
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
@@ -206,6 +281,41 @@ const Booking = () => {
           </div>
         </main>
       </div>
+      {isEditModalOpen && editingBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4">Edit Booking</h2>
+            <form onSubmit={handleUpdateBooking}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">From</label>
+                <input 
+                  type="text" 
+                  name="from"
+                  defaultValue={editingBooking.from}
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">To</label>
+                <input 
+                  type="text" 
+                  name="to"
+                  defaultValue={editingBooking.to}
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="flex justify-end gap-4">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">
+                  Cancel
+                </button>
+                <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <Footer />
     </>
   );

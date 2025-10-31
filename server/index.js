@@ -18,8 +18,9 @@ import routeRouter from "./routes/routeRoutes.js";
 import rideRouter from "./routes/rideRoutes.js";
 import alertRouter from "./routes/alertRoutes.js";
 import tripRouter from "./routes/tripRoutes.js";
-import paymentRouter from "./routes/paymentRouter.js";
+import paymentRouter from "./routes/paymentRoutes.js";
 import parkingRouter from "./routes/parkingRoutes.js";
+import bookingRouter from "./routes/bookingRoutes.js";
 // app.use("/api/admins", adminRouter);
 app.use("/api/users", userRouter);
 app.use("/api/parcels", parcelRouter);
@@ -29,5 +30,6 @@ app.use("/api/alerts", alertRouter);
 app.use("/api/trips", tripRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/parking", parkingRouter);
+app.use("/api/bookings", bookingRouter);
 
 export default app;

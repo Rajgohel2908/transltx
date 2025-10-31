@@ -2,7 +2,7 @@ import { redirect } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
 export function getToken() {
-  return localStorage.getItem("token");
+  return localStorage.getItem("token") || sessionStorage.getItem("token");
 }
 
 export function checkAuthLoader() {

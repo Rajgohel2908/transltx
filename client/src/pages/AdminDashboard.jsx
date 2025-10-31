@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { AlertCircle, DollarSign, Users, Package, Map, Ticket } from 'lucide-react';
@@ -9,7 +9,7 @@ import RouteForm from "./forms/RouteForm.jsx";
 import ParkingForm from "./forms/ParkingForm.jsx";
 import ConfirmationModal from "../components/ConfirmationModal.jsx";
 import Pagination from "../components/Pagination.jsx";
-
+import { DataContext } from "../context/Context.jsx";
 // API Endpoints
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/admin/alerts`;
@@ -105,6 +105,7 @@ const ParcelManagerCard = ({ parcel, onUpdate }) => {
 
 // --- Main Admin Dashboard Page ---
 const AdminDashboard = () => {
+  const { user, loading: userLoading } = useContext(DataContext);
   const [alerts, setAlerts] = useState([]);
   const [editingAlert, setEditingAlert] = useState(null);
   const [trips, setTrips] = useState([]);
@@ -191,7 +192,7 @@ const AdminDashboard = () => {
         axios.get(ROUTES_API_URL).catch(() => ({ data: [] })),
         axios.get(RIDES_API_URL).catch(() => ({ data: [] })),
         axios.get(PARKING_API_URL).catch(() => ({ data: [] })),
-        axios.get(`${USERS_API_URL}?page=${page}`, authHeaders).catch(() => ({ data: { users: [], totalUsers: 0, currentPage: 1, totalPages: 1 } })),
+        axios.get(`${USERS_API_URL}?page=${page}`, authHeaders),
         axios.get(BOOKINGS_API_URL, authHeaders).catch(() => ({ data: [] })), // Fetch all bookings
       ]);
 
@@ -361,7 +362,7 @@ const AdminDashboard = () => {
           setIsSubmitting(true);
           setError('');
           await axios.delete(`${ROUTES_API_URL}/${routeId}`);
-          setRoutes(currentRoutes => currentRoutes.filter(r => r._id !== routeId));
+          fetchAllData();
           setConfirmationModal({ isOpen: false });
         } catch (error) {
           console.error("Failed to delete route:", error);
@@ -372,7 +373,7 @@ const AdminDashboard = () => {
         }
       },
     });
-  }, []);
+  }, [fetchAllData]);
 
   const handleDeleteParkingLot = useCallback((parkingId) => {
     setConfirmationModal({
@@ -462,7 +463,13 @@ const AdminDashboard = () => {
                 <div key={route._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-lg" style={{ color: route.color }}>{route.name} <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full ml-2">{route.type || 'Bus'}</span></p>
-                    <p className="text-gray-600 text-sm">{route.stops.length} stops, every {route.frequency} mins</p>
+                    {route.type === 'air' ? (
+                      <p className="text-gray-600 text-sm">
+                        {route.airline} - Flight {route.flightNumber}
+                      </p>
+                    ) : (
+                      <p className="text-gray-600 text-sm">{(route.stops || []).length} stops, every {route.frequency} mins</p>
+                    )}
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
                     <button onClick={() => setEditingRoute(route)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">Edit</button>
@@ -561,33 +568,66 @@ const AdminDashboard = () => {
               <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
               {/* Placeholder for a search or filter bar */}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {allUsers.map((user) => (
-                <div key={user._id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-lg text-gray-900">{user.name}</h3>
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${user.is_admin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
-                        {user.is_admin ? 'Admin' : 'User'}
-                      </span>
-                    </div>
-                    <p className="text-gray-500 text-sm break-all">{user.email}</p>
-                    <p className="text-xs text-gray-400 mt-2">Joined: {new Date(user.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <div className="mt-4">
-                    <button
-                      onClick={() => handleToggleAdmin(user)}
-                      disabled={isSubmitting}
-                      className={`w-full font-bold py-2 px-4 rounded-lg text-sm text-white transition-colors disabled:opacity-50 ${
-                        user.is_admin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-                      }`}
-                    >
-                      {isSubmitting ? 'Updating...' : (user.is_admin ? 'Demote to User' : 'Promote to Admin')}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {loading ? (
+              <p>Loading users...</p>
+            ) : allUsers.length > 0 ? (
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Admin Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Joined
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {allUsers.map((user) => (
+                      <tr key={user._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500 break-all">{user.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${user.is_admin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                            {user.is_admin ? 'Admin' : 'User'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleToggleAdmin(user)}
+                            disabled={isSubmitting}
+                            className={`font-bold py-2 px-4 rounded-lg text-xs text-white transition-colors disabled:opacity-50 ${
+                              user.is_admin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+                            }`}
+                          >
+                            {isSubmitting ? 'Updating...' : (user.is_admin ? 'Demote' : 'Promote')}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No users found.</p></div>
+            )}
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => fetchAllData(page)} />
           </div>
         );
@@ -676,7 +716,13 @@ const AdminDashboard = () => {
                     <div key={route._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-semibold" style={{ color: route.color }}>{route.name}</p>
-                        <p className="text-sm text-gray-500">{route.stops.length} stops</p>
+                        {route.type === 'air' ? (
+                          <p className="text-sm text-gray-500">
+                            {route.airline} - Flight {route.flightNumber}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-500">{(route.stops || []).length} stops</p>
+                        )}
                       </div>
                       <button onClick={() => { setActiveTab('routes'); setEditingRoute(route); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
                     </div>
@@ -720,37 +766,49 @@ const AdminDashboard = () => {
 
   return (
     <>
-      <ConfirmationModal
-        isOpen={confirmationModal.isOpen}
-        onClose={() => setConfirmationModal({ isOpen: false })}
-        onConfirm={confirmationModal.onConfirm}
-        title={confirmationModal.title}
-        message={confirmationModal.message}
-      />
-      <div className="bg-gray-50 min-h-screen">
-        <main className="container mx-auto px-4 py-12">
-          <h1 className="text-4xl font-extrabold text-gray-800 mb-4">Admin Dashboard</h1>
-          <p className="text-lg text-gray-500 mb-8">Welcome back, Admin! Here's your overview.</p>
+      {userLoading ? (
+        <div className="flex justify-center items-center min-h-screen text-xl font-semibold">Loading user data...</div>
+      ) : !user || !user.is_admin ? (
+        <div className="flex justify-center items-center min-h-screen flex-col">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Access Denied</h1>
+          <p className="text-lg text-gray-600">You do not have administrative privileges to view this page.</p>
+        </div>
+      ) : (
+        <>
+          <ConfirmationModal
+            isOpen={confirmationModal.isOpen}
+            onClose={() => setConfirmationModal({ isOpen: false })}
+            onConfirm={confirmationModal.onConfirm}
+            title={confirmationModal.title}
+            message={confirmationModal.message}
+          />
+          <div className="bg-gray-50 min-h-screen">
+            <main className="container mx-auto px-4 py-12">
+              <h1 className="text-4xl font-extrabold text-gray-800 mb-4">Admin Dashboard</h1>
+              <p className="text-lg text-gray-500 mb-8">Welcome back, Admin! Here's your overview.</p>
 
-          <div className="bg-white rounded-lg shadow p-2 mb-8 flex space-x-2">
-            <TabButton tabName="overview" label="Overview" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="routes" label="Transport" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="trips" label="Bookable Trips" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="bookings" label="Bookings" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} />
-            <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} />
-          </div>
+              <div className="bg-white rounded-lg shadow p-2 mb-8 flex space-x-2">
+                <TabButton tabName="overview" label="Overview" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="routes" label="Transport" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="trips" label="Bookable Trips" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="bookings" label="Bookings" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} />
+              </div>
 
-          <div className="mt-8">
-            {loading ? <p className="text-center">Loading dashboard data...</p> : renderContent()}
+              <div className="mt-8">
+                {loading ? <p className="text-center">Loading dashboard data...</p> : renderContent()}
+              </div>
+            </main>
           </div>
-        </main>
-      </div>
-      <Footer />
+          <Footer />
+        </>
+      )}
     </>
-  );
+  )
 };
 
 export default AdminDashboard;

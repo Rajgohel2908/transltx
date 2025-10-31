@@ -1,22 +1,15 @@
 import React, { useContext, useState, useEffect } from "react";
-import { NavLink, Link } from "react-router-dom"; // Use NavLink for active styling
+import { NavLink, Link, useNavigate } from "react-router-dom"; // Use NavLink for active styling
 import { DataContext } from "../context/Context.jsx";
 
 const Navbar = () => {
   const { user, loading } = useContext(DataContext);
-  const [isAuthenticated, setisAuthenticated] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(null);
-  useEffect(() => {
-    if (user?._id) {
-      setisAuthenticated(true);
-      setIsAdmin(user.is_admin === true);
-    } else {
-      setisAuthenticated(false);
-      setIsAdmin(false);
-    }
-  }, [user]);
-
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Directly derive auth status from the user object for immediate UI updates.
+  const isAuthenticated = !!user?._id;
+  const isAdmin = user?.is_admin === true;
 
   // Style for the active navigation link
   const activeLinkStyle = {
@@ -34,6 +27,10 @@ const Navbar = () => {
     >
       {children}
     </NavLink>
+  );
+
+  const handleLogout = () => (
+    navigate('/user-logout')
   );
 
   return (
@@ -81,12 +78,21 @@ const Navbar = () => {
 
         {/* Desktop Auth Button */}
         <div className="hidden md:flex">
-          <Link
-            to={isAuthenticated ? "/user-logout" : "/user-login"}
-            className="bg-blue-600 text-white font-bold px-5 py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
-          >
-            {isAuthenticated ? "Logout" : "Get Started"}
-          </Link>
+          {isAuthenticated ? (
+            <button
+              onClick={handleLogout}
+              className="bg-blue-600 text-white font-bold px-5 py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+            >
+              Logout
+            </button>
+          ) : (
+            <Link
+              to="/user-login"
+              className="bg-blue-600 text-white font-bold px-5 py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+            >
+              Get Started
+            </Link>
+          )}
         </div>
       </div>
 
@@ -106,13 +112,22 @@ const Navbar = () => {
           <NavItem to="/orders">My Orders</NavItem>
           {isAdmin ? <NavItem to="/admindashboard">Admin</NavItem> : null}
           <div className="pt-4">
-            <Link
-              to={isAuthenticated ? "/user-logout" : "/user-login"}
-              className="bg-blue-600 text-white block text-center w-full font-bold px-5 py-3 rounded-lg hover:bg-blue-700 transition-all"
-              onClick={() => setIsOpen(false)}
-            >
-              {isAuthenticated ? "Logout" : "Get Started"}
-            </Link>
+            {isAuthenticated ? (
+              <button
+                onClick={() => { handleLogout(); setIsOpen(false); }}
+                className="bg-blue-600 text-white block text-center w-full font-bold px-5 py-3 rounded-lg hover:bg-blue-700 transition-all"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/user-login"
+                className="bg-blue-600 text-white block text-center w-full font-bold px-5 py-3 rounded-lg hover:bg-blue-700 transition-all"
+                onClick={() => setIsOpen(false)}
+              >
+                Get Started
+              </Link>
+            )}
           </div>
         </div>
       </div>
