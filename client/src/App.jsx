@@ -1,7 +1,7 @@
 // File: client/src/App.jsx
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home.jsx";
-import LiveMap from "./pages/LiveMap.jsx";
+import RouteMap from "./pages/LiveMap.jsx";
 import Contact from "./pages/Contact.jsx";
 import MyTrips from "./pages/MyTrips.jsx";
 import Parcel from "./pages/Parcel.jsx";
@@ -41,19 +41,17 @@ function App() {
     <div className="min-h-screen bg-lightgray">
       <Context>
         <BrowserRouter>
-          <AppContent />
+          <Routes>
+            <Route path="/*" element={<MainLayout />} />
+          </Routes>
         </BrowserRouter>
       </Context>
     </div>
   );
 }
 
-function AppContent() {
+function MainLayout() {
   const location = useLocation();
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
 
   const hideNavbarOn = ['/user-login', '/user-signup'];
   const shouldShowNavbar = !hideNavbarOn.includes(location.pathname);
@@ -72,7 +70,7 @@ function AppContent() {
             path="/live-map"
             element={
               <PrivateRoute>
-                <LiveMap />
+                <RouteMap />
               </PrivateRoute>
             }
           />

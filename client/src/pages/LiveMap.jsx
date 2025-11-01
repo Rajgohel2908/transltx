@@ -54,10 +54,10 @@ function ChangeView({ bounds }) {
   }, [bounds, map]);
   return null;
 }
-const InteractiveMapWebsite = () => {
+const RouteMap = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = "LiveMap";
+    document.title = "RouteMap";
   }, []);
 
   const [routes, setRoutes] = useState([]);
@@ -696,5 +696,5 @@ const InteractiveMapWebsite = () => {
         {/* --- End of modal --- */}
       </>  );
 };
-
-export default InteractiveMapWebsite;
+ 
+export default RouteMap;
