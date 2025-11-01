@@ -10,11 +10,11 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const [startPoint, setStartPoint] = useState("");
   const [endPoint, setEndPoint] = useState("");
   const [type, setType] = useState("bus");
-  const [color, setColor] = useState("#3B82F6");
+  const [operator, setOperator] = useState("");
+  const [estimatedArrivalTime, setEstimatedArrivalTime] = useState("12:00");
+  const [amenitiesInput, setAmenitiesInput] = useState("");
   const [startTime, setStartTime] = useState("06:00");
-  const [endTime, setEndTime] = useState("22:00");
-  const [frequency, setFrequency] = useState(15);
-  const [stops, setStops] = useState([]);
+  const [stops, setStops] = useState([]); // each stop: { stopName, priceFromStart, estimatedTimeAtStop }
   const [flightNumber, setFlightNumber] = useState("");
   const [airline, setAirline] = useState("");
   const [price, setPrice] = useState("");
@@ -38,29 +38,34 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setId(editingRoute.id);
       setName(editingRoute.name);
       setType(editingRoute.type);
-      setColor(editingRoute.color);
+      setOperator(editingRoute.operator || '');
+      setEstimatedArrivalTime(editingRoute.estimatedArrivalTime || '12:00');
       setStartTime(editingRoute.startTime || "06:00");
-      setEndTime(editingRoute.endTime || "22:00");
-      setFrequency(editingRoute.frequency || 15);
       setStartPoint(editingRoute.startPoint || "");
       setEndPoint(editingRoute.endPoint || "");
-      setStops(editingRoute.stops || []);
+      // Normalize stops to objects
+      const existingStops = editingRoute.stops || [];
+      const normalized = existingStops.map(s => {
+        if (typeof s === 'string') return { stopName: s, priceFromStart: 0, estimatedTimeAtStop: '' };
+        return { stopName: s.stopName || s.name || '', priceFromStart: s.priceFromStart || 0, estimatedTimeAtStop: s.estimatedTimeAtStop || '' };
+      });
+      setStops(normalized);
       setFlightNumber(editingRoute.flightNumber || "");
       setAirline(editingRoute.airline || "");
       setPrice(editingRoute.price || "");
       setScheduleType(editingRoute.scheduleType || (editingRoute.type === 'air' ? 'specific_date' : 'daily'));
       setDaysOfWeek(editingRoute.daysOfWeek || []);
       setSpecificDate(editingRoute.specificDate ? new Date(editingRoute.specificDate).toISOString().split('T')[0] : '');
+      setAmenitiesInput(Array.isArray(editingRoute.amenities) ? editingRoute.amenities.join(', ') : (editingRoute.amenities || ''));
     } else {
       setId("");
       setName("");
       setStartPoint("");
       setEndPoint("");
       setType("bus");
-      setColor("#3B82F6");
+      setOperator('');
+      setEstimatedArrivalTime('12:00');
       setStartTime("06:00");
-      setEndTime("22:00");
-      setFrequency(15);
       setStops([]);
       setFlightNumber("");
       setAirline("");
@@ -68,6 +73,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setScheduleType("bus" === 'air' ? 'specific_date' : 'daily');
       setDaysOfWeek([]);
       setSpecificDate('');
+      setAmenitiesInput('');
     }
   }, [editingRoute]);
 
@@ -82,7 +88,15 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
 
     try {
       let routeData = {
-        id, name, type, color, startPoint, endPoint, price: parseFloat(price) || 0
+        id,
+        name,
+        type,
+        operator,
+        amenities: amenitiesInput ? amenitiesInput.split(',').map(s => s.trim()).filter(Boolean) : [],
+        estimatedArrivalTime: estimatedArrivalTime,
+        startPoint,
+        endPoint,
+        price: parseFloat(price) || 0,
       };
 
       if (type === 'air') {
@@ -90,7 +104,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       } else {
         routeData = { ...routeData, scheduleType, stops, startTime };
         if (scheduleType === 'daily') {
-          routeData = { ...routeData, endTime, frequency };
+          routeData = { ...routeData };
         } else if (scheduleType === 'weekly') {
           routeData = { ...routeData, daysOfWeek };
         } else if (scheduleType === 'specific_date') {
@@ -116,18 +130,15 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   };
 
   const handleAddStop = () => {
-    setStops([...stops, ""]);
+    setStops(prev => ([...prev, { stopName: '', priceFromStart: 0, estimatedTimeAtStop: '' }]));
   };
 
   const handleRemoveStop = (index) => {
-    const newStops = stops.filter((_, i) => i !== index);
-    setStops(newStops);
+    setStops(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleStopChange = (index, value) => {
-    const newStops = [...stops];
-    newStops[index] = value;
-    setStops(newStops);
+  const handleStopChange = (index, field, value) => {
+    setStops(prev => prev.map((s, i) => i === index ? { ...s, [field]: field === 'priceFromStart' ? Number(value) : value } : s));
   };
 
   const handleDayOfWeekChange = (day) => {
@@ -157,7 +168,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
             <option value="train">Train</option>
             <option value="air">Air</option>
           </select>
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-full h-12 border border-gray-300 rounded-lg" />
+          <input type="text" placeholder="Operator (e.g., RedBus)" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         </div>
         {type === 'air' ? (
           <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
@@ -188,10 +199,9 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
               </select>
 
               {scheduleType === 'daily' ? (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <input type="time" placeholder="Start Time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-                  <input type="time" placeholder="End Time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-                  <input type="number" placeholder="Frequency (mins)" value={frequency} onChange={(e) => setFrequency(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input type="time" placeholder="Estimated Arrival Time" value={estimatedArrivalTime} onChange={(e) => setEstimatedArrivalTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
                 </div>
               ) : scheduleType === 'weekly' ? (
                 <div>
@@ -222,9 +232,13 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Intermediate Stops</label>
               {stops.map((stop, index) => (
-                <div key={index} className="flex items-center gap-2 mb-2">
-                <input type="text" placeholder={`Stop ${index + 1}`} value={stop} onChange={(e) => handleStopChange(index, e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-                  <button type="button" onClick={() => handleRemoveStop(index)} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600">Remove</button>
+                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                  <input type="text" placeholder={`Stop ${index + 1} Name`} value={stop.stopName} onChange={(e) => handleStopChange(index, 'stopName', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input type="number" placeholder="Price From Start (INR)" value={stop.priceFromStart} onChange={(e) => handleStopChange(index, 'priceFromStart', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input type="time" placeholder="Estimated Time" value={stop.estimatedTimeAtStop} onChange={(e) => handleStopChange(index, 'estimatedTimeAtStop', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => handleRemoveStop(index)} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600">Remove</button>
+                  </div>
                 </div>
               ))}
               <button type="button" onClick={handleAddStop} className="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Add Stop</button>

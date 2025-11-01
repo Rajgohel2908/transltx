@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import { DataContext } from '../context/Context';
 import { handlePayment } from '../utils/cashfree';
 import axios from 'axios';
+import TripPassengerForm from './TripPassengerForm';
 
 const PassengerDetails = () => {
   const location = useLocation();
@@ -12,6 +13,11 @@ const PassengerDetails = () => {
   const { mode } = useParams();
   const { user } = useContext(DataContext);
   const { selectedTicket, searchType } = location.state || {};
+
+  // If this booking flow is for a Trip (from MyTrips -> TripView)
+  if (String(searchType || '').toLowerCase() === 'trips') {
+    return <TripPassengerForm selectedTicket={selectedTicket} />;
+  }
 
   // State for form inputs
   const [fullName, setFullName] = useState('');

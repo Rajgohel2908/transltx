@@ -99,10 +99,28 @@ const SearchResults = () => {
         {isExpanded && (
           <div className="border-t bg-gray-50 p-6">
             <h4 className="font-bold mb-2">Details & Amenities</h4>
-            <div className="flex gap-6 text-sm text-gray-700">
-              <div className="flex items-center gap-2"><Wind size={16} className="text-blue-500" /> Air Conditioned</div>
-              <div className="flex items-center gap-2"><Wifi size={16} className="text-blue-500" /> WiFi Available</div>
-              <div className="flex items-center gap-2"><Utensils size={16} className="text-blue-500" /> Meal Included</div>
+            <div className="flex flex-col gap-4 text-sm text-gray-700">
+              <div className="flex flex-wrap gap-4">
+                {(result.amenities || []).length > 0 ? (
+                  result.amenities.map((a, idx) => (
+                    <div key={idx} className="flex items-center gap-2"><Wind size={16} className="text-blue-500" /> {a}</div>
+                  ))
+                ) : (
+                  <div className="text-gray-500">No amenities listed.</div>
+                )}
+              </div>
+              <div>
+                <h5 className="font-semibold">Stops for this journey:</h5>
+                {Array.isArray(result.stops) && result.stops.length > 0 ? (
+                  <ul className="list-disc list-inside text-gray-700">
+                    {result.stops.map((s, i) => (
+                      <li key={i}>{s.stopName || s}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">No intermediate stops.</p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -149,17 +167,13 @@ const SearchResults = () => {
       <div>
         <h4 className="font-semibold mb-2">{searchType === 'Air' ? 'Airlines' : 'Operators'}</h4>
         <div className="space-y-2">
-          {searchType === 'Air' && <>
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Indigo</label>
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Vistara</label>
-          </>}
-          {searchType === 'Bus' && <>
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Zing Bus</label>
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> IntrCity</label>
-          </>}
-          {searchType === 'Train' && <>
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> IRCTC</label>
-          </>}
+          {(() => {
+            const ops = new Set((results || []).map(r => (r.operator || r.airline || r.name || '').trim()).filter(Boolean));
+            if (ops.size === 0) return <div className="text-gray-500">No operators available</div>;
+            return Array.from(ops).map((op) => (
+              <label key={op} className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> {op}</label>
+            ));
+          })()}
         </div>
       </div>
     </div>
@@ -223,7 +237,14 @@ const SearchResults = () => {
                   <LoadingSkeleton />
                 </>
               ) : (
-                results.map(result => <ResultCard key={result._id} result={result} />)
+                results.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                    <h3 className="text-xl font-semibold mb-2">No routes found for your search</h3>
+                    <p className="text-gray-500">Please try a different route or date.</p>
+                  </div>
+                ) : (
+                  results.map(result => <ResultCard key={result._id} result={result} />)
+                )
               )}
             </div>
           </div>

@@ -10,28 +10,22 @@ export const createRoute = async (req, res) => {
       id: req.body.id,
       name: req.body.name,
       type: req.body.type,
-      color: req.body.color,
-      // Ensure startPoint and endPoint are objects with name, latitude, longitude
-      // This assumes the client sends these as objects. If they are strings, parsing is needed.
+      operator: req.body.operator,
+      amenities: Array.isArray(req.body.amenities) ? req.body.amenities : (req.body.amenities ? String(req.body.amenities).split(',').map(s => s.trim()).filter(Boolean) : []),
+      estimatedArrivalTime: req.body.estimatedArrivalTime || req.body.estimatedArrival,
       startPoint: req.body.startPoint,
       endPoint: req.body.endPoint,
       price: req.body.price,
-      scheduleType: req.body.scheduleType, // <-- Add this
+      scheduleType: req.body.scheduleType,
+      daysOfWeek: req.body.daysOfWeek,
+      specificDate: req.body.specificDate,
+      startTime: req.body.startTime,
+      stops: req.body.stops || [],
     };
 
-    // Add type-specific fields
     if (type === 'air') {
       routeData.flightNumber = req.body.flightNumber;
       routeData.airline = req.body.airline;
-      routeData.specificDate = req.body.specificDate; // <-- Add this
-      routeData.startTime = req.body.startTime; // <-- Add this
-    } else { // bus or train
-      routeData.startTime = req.body.startTime;
-      routeData.endTime = req.body.endTime;
-      routeData.frequency = req.body.frequency;
-      routeData.stops = req.body.stops;
-      routeData.daysOfWeek = req.body.daysOfWeek; // <-- Add this
-      routeData.specificDate = req.body.specificDate; // <-- Add this
     }
 
     const newRoute = new Route(routeData);
@@ -52,43 +46,25 @@ export const updateRoute = async (req, res) => {
       id: req.body.id,
       name: req.body.name,
       type: req.body.type,
-      color: req.body.color,
+      operator: req.body.operator,
+      amenities: Array.isArray(req.body.amenities) ? req.body.amenities : (req.body.amenities ? String(req.body.amenities).split(',').map(s => s.trim()).filter(Boolean) : []),
+      estimatedArrivalTime: req.body.estimatedArrivalTime || req.body.estimatedArrival,
       startPoint: req.body.startPoint,
       endPoint: req.body.endPoint,
       price: req.body.price,
-      scheduleType: req.body.scheduleType, // <-- Add this
+      scheduleType: req.body.scheduleType,
+      daysOfWeek: req.body.daysOfWeek,
+      specificDate: req.body.specificDate,
+      startTime: req.body.startTime,
+      stops: req.body.stops,
     };
 
     if (type === 'air') {
       updateData.flightNumber = req.body.flightNumber;
       updateData.airline = req.body.airline;
-      updateData.startTime = req.body.startTime;
-      updateData.specificDate = req.body.specificDate;
-      // Unset fields that don't apply to 'air' routes
-      updateData.$unset = {
-        endTime: 1,
-        frequency: 1,
-        stops: 1,
-        daysOfWeek: 1,
-      };
-    } else { // bus or train
-      updateData.startTime = req.body.startTime;
-      updateData.stops = req.body.stops;
-
-      if (req.body.scheduleType === 'daily') {
-        updateData.endTime = req.body.endTime;
-        updateData.frequency = req.body.frequency;
-      } else if (req.body.scheduleType === 'weekly') {
-        updateData.daysOfWeek = req.body.daysOfWeek;
-      } else if (req.body.scheduleType === 'specific_date') {
-        updateData.specificDate = req.body.specificDate;
-      }
-
-      // Unset fields that don't apply to 'bus'/'train'/'car' routes
-      updateData.$unset = {
-        flightNumber: 1,
-        airline: 1,
-      };
+    } else {
+      // for non-air, ensure flight specific fields are removed
+      updateData.$unset = { flightNumber: 1, airline: 1 };
     }
 
     const updatedRoute = await Route.findByIdAndUpdate(routeId, updateData, { new: true });
@@ -121,46 +97,80 @@ export const searchRoutes = async (req, res) => {
   try {
     const { from, to, date, type } = req.query;
 
-    let query = {};
-
-    if (type) {
-      query.type = type.toLowerCase();
-    }
-    
-    // Use case-insensitive regex for partial matching on start and end points
-    if (from) {
-      query.startPoint = { $regex: from, $options: 'i' };
-    }
-    if (to) {
-      query.endPoint = { $regex: to, $options: 'i' };
-    }
+    let baseQuery = {};
+    if (type) baseQuery.type = type.toLowerCase();
 
     if (date) {
-      // Treat the date as UTC to avoid timezone issues
       const searchDate = new Date(`${date}T00:00:00.000Z`);
       const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][searchDate.getUTCDay()];
-
-      // Build date-related query
-      query.$or = [
-        // 1. Matches daily schedule
+      baseQuery.$or = [
         { scheduleType: 'daily' },
-
-        // 2. Matches weekly schedule on the correct day
         { scheduleType: 'weekly', daysOfWeek: dayOfWeek },
-
-        // 3. Matches specific date
-        {
-          scheduleType: 'specific_date',
-          specificDate: {
-            $gte: searchDate,
-            $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) // Next day
-          }
-        }
+        { scheduleType: 'specific_date', specificDate: { $gte: searchDate, $lt: new Date(searchDate.getTime() + 24*60*60*1000) } }
       ];
     }
 
-    const routes = await Route.find(query);
-    res.status(200).json(routes);
+    // Fetch candidate routes matching schedule/type
+    const candidates = await Route.find(baseQuery);
+    const matches = [];
+
+    // If from/to provided, attempt stop-to-stop matching
+    for (const route of candidates) {
+      const stops = Array.isArray(route.stops) ? route.stops : [];
+
+      // normalize helper
+      const normalize = (s) => String(s || '').trim().toLowerCase();
+
+      let iIndex = -1;
+      let jIndex = -1;
+
+      if (from && to && stops.length > 0) {
+        for (let i = 0; i < stops.length; i++) {
+          const sName = normalize(stops[i].stopName || stops[i]);
+          if (sName === normalize(from)) {
+            iIndex = i;
+            // find j > i
+            for (let j = i+1; j < stops.length; j++) {
+              const tName = normalize(stops[j].stopName || stops[j]);
+              if (tName === normalize(to)) {
+                jIndex = j;
+                break;
+              }
+            }
+            if (jIndex !== -1) break;
+          }
+        }
+      }
+
+      if (iIndex !== -1 && jIndex !== -1 && jIndex > iIndex) {
+        // compute dynamic price
+        const priceFromStartI = Number(stops[iIndex].priceFromStart || 0);
+        const priceFromStartJ = Number(stops[jIndex].priceFromStart || 0);
+        const dynamicPrice = Math.max(0, priceFromStartJ - priceFromStartI);
+
+        // slice stops between i and j inclusive
+        const slicedStops = stops.slice(iIndex, jIndex+1);
+
+        const result = route.toObject();
+        result.price = dynamicPrice;
+        result.stops = slicedStops;
+        result.from = stops[iIndex].stopName || result.from || from;
+        result.to = stops[jIndex].stopName || result.endPoint || to;
+        matches.push(result);
+      } else if (!from && !to) {
+        // no stop-to-stop search requested, return route as-is
+        matches.push(route);
+      } else {
+        // If stops array empty or no match, fall back to matching startPoint/endPoint strings
+        if (from && to) {
+          const startsWithFrom = normalize(route.startPoint) === normalize(from);
+          const endsWithTo = normalize(route.endPoint) === normalize(to);
+          if (startsWithFrom && endsWithTo) matches.push(route);
+        }
+      }
+    }
+
+    res.status(200).json(matches);
   } catch (error) {
     res.status(500).json({ message: 'Error searching routes', error: error.message });
   }

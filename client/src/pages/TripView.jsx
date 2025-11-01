@@ -1,6 +1,6 @@
 // components/TripViewPage.jsx
 import React, { useEffect, useState, useContext } from "react";
-import { useParams } from "react-router-dom"; // assuming route is /trips/:id
+import { useParams, useNavigate } from "react-router-dom"; // assuming route is /trips/:id
 import axios from "axios";
 import Footer from "../components/Footer.jsx";
 import { DataContext } from "../context/Context.jsx";
@@ -12,10 +12,13 @@ const TripViewPage = () => {
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const { user } = useContext(DataContext);
+  const navigate = useNavigate();
 
   const handleBooking = () => {
     if (!user?._id) return alert("Please log in to book a trip.");
-    handlePayment({ item: trip, user });
+    // Instead of calling payment directly, navigate to passenger details page so passenger info can be collected
+    // We'll pass the selected trip as `selectedTicket` in location.state so PassengerDetails can use the same flow
+    navigate(`/booking/trips/passenger-details`, { state: { selectedTicket: trip, searchType: 'Trips' } });
   };
 
   useEffect(() => {

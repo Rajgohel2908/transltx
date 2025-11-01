@@ -434,11 +434,17 @@ const AdminDashboard = () => {
   };
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [bookingFilter, setBookingFilter] = useState('All');
+
+  // Compute revenue breakdown from allBookings
+  const parcelRevenue = (allBookings || []).filter(b => b.bookingType === 'Parcel').reduce((s, b) => s + (b.fare || 0), 0);
+  const transportRevenue = (allBookings || []).filter(b => ['Bus', 'Train', 'Air', 'bus', 'train', 'air'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0);
+  const ridesRevenue = (allBookings || []).filter(b => ['Ride', 'ride', 'Rides', 'rides', 'Carpool', 'carpool'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0);
 
   const revenueData = [
-    { name: 'Parcels', revenue: stats.totalRevenue },
-    { name: 'Trips', revenue: 0 }, // Placeholder
-    { name: 'Carpool', revenue: 0 }, // Placeholder
+    { name: 'Parcels', revenue: parcelRevenue },
+    { name: 'Transport', revenue: transportRevenue },
+    { name: 'Rides', revenue: ridesRevenue },
   ];
 
   const renderContent = () => {
@@ -457,13 +463,13 @@ const AdminDashboard = () => {
               {routes.map((route) => (
                 <div key={route._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-lg" style={{ color: route.color }}>{route.name} <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full ml-2">{route.type || 'Bus'}</span></p>
+                    <p className="font-bold text-lg" style={{ color: route.color || '#3B82F6' }}>{route.name} <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full ml-2">{route.type || 'Bus'}</span></p>
                     {route.type === 'air' ? (
                       <p className="text-gray-600 text-sm">
                         {route.airline} - Flight {route.flightNumber}
                       </p>
                     ) : (
-                      <p className="text-gray-600 text-sm">{(route.stops || []).length} stops, every {route.frequency} mins</p>
+                      <p className="text-gray-600 text-sm">{(route.stops || []).length} stops · ETA: {route.estimatedArrivalTime || route.endTime || 'N/A'}</p>
                     )}
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
@@ -635,30 +641,49 @@ const AdminDashboard = () => {
       case 'bookings':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">All Bookings</h2>
-            {loading ? <p>Loading bookings...</p> : allBookings.length > 0 ? (
-              <div className="space-y-4">
-                {allBookings.map((booking) => (
-                  <div key={booking._id} className="bg-white rounded-lg shadow-md p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-lg">{booking.from} → {booking.to}</p>
-                        <p className="text-sm text-gray-500">PNR: {booking.pnrNumber}</p>
-                        <p className="text-sm text-gray-500">User: {booking.userId?.name || 'N/A'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">₹{booking.fare.toLocaleString()}</p>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          booking.bookingStatus === 'Confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>{booking.bookingStatus}</span>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">All Bookings</h2>
+            <div className="flex items-center gap-3 mb-4">
+              {['All','Bus','Train','Air','Trips','Parcel','Ride'].map((t) => (
+                <button key={t} onClick={() => setBookingFilter(t)} className={`px-3 py-1 rounded-full text-sm font-semibold ${bookingFilter === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {loading ? (
+              <p>Loading bookings...</p>
+            ) : (() => {
+              const filtered = bookingFilter === 'All' ? allBookings : allBookings.filter(b => {
+                if (!b.bookingType) return false;
+                if (bookingFilter === 'Parcel') return String(b.bookingType).toLowerCase() === 'parcel';
+                if (bookingFilter === 'Trips') return !['parcel','ride','carpool'].includes(String(b.bookingType).toLowerCase());
+                return String(b.bookingType).toLowerCase() === String(bookingFilter).toLowerCase();
+              });
+
+              return filtered.length > 0 ? (
+                <div className="space-y-4">
+                  {filtered.map((booking) => (
+                    <div key={booking._id} className="bg-white rounded-lg shadow-md p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-lg">{booking.from} → {booking.to}</p>
+                          <p className="text-sm text-gray-500">PNR: {booking.pnrNumber}</p>
+                          <p className="text-sm text-gray-500">User: {booking.userId?.name || 'N/A'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-green-600">₹{(booking.fare || 0).toLocaleString()}</p>
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            booking.bookingStatus === 'Confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>{booking.bookingStatus}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No bookings have been made yet.</p></div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No bookings match the selected filter.</p></div>
+              );
+            })()}
           </div>
         );
       default:
@@ -716,7 +741,7 @@ const AdminDashboard = () => {
                   {routes.slice(0, 5).map(route => (
                     <div key={route._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="font-semibold" style={{ color: route.color }}>{route.name}</p>
+                        <p className="font-semibold" style={{ color: route.color || '#3B82F6' }}>{route.name}</p>
                         {route.type === 'air' ? (
                           <p className="text-sm text-gray-500">
                             {route.airline} - Flight {route.flightNumber}
