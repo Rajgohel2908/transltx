@@ -16,17 +16,22 @@ export const createRoute = async (req, res) => {
       startPoint: req.body.startPoint,
       endPoint: req.body.endPoint,
       price: req.body.price,
+      scheduleType: req.body.scheduleType, // <-- Add this
     };
 
     // Add type-specific fields
     if (type === 'air') {
       routeData.flightNumber = req.body.flightNumber;
       routeData.airline = req.body.airline;
+      routeData.specificDate = req.body.specificDate; // <-- Add this
+      routeData.startTime = req.body.startTime; // <-- Add this
     } else { // bus or train
       routeData.startTime = req.body.startTime;
       routeData.endTime = req.body.endTime;
       routeData.frequency = req.body.frequency;
       routeData.stops = req.body.stops;
+      routeData.daysOfWeek = req.body.daysOfWeek; // <-- Add this
+      routeData.specificDate = req.body.specificDate; // <-- Add this
     }
 
     const newRoute = new Route(routeData);
@@ -51,24 +56,35 @@ export const updateRoute = async (req, res) => {
       startPoint: req.body.startPoint,
       endPoint: req.body.endPoint,
       price: req.body.price,
+      scheduleType: req.body.scheduleType, // <-- Add this
     };
 
     if (type === 'air') {
       updateData.flightNumber = req.body.flightNumber;
       updateData.airline = req.body.airline;
+      updateData.startTime = req.body.startTime;
+      updateData.specificDate = req.body.specificDate;
       // Unset fields that don't apply to 'air' routes
       updateData.$unset = {
-        startTime: 1,
         endTime: 1,
         frequency: 1,
         stops: 1,
+        daysOfWeek: 1,
       };
     } else { // bus or train
       updateData.startTime = req.body.startTime;
-      updateData.endTime = req.body.endTime;
-      updateData.frequency = req.body.frequency;
       updateData.stops = req.body.stops;
-      // Unset fields that don't apply to 'bus'/'train' routes
+
+      if (req.body.scheduleType === 'daily') {
+        updateData.endTime = req.body.endTime;
+        updateData.frequency = req.body.frequency;
+      } else if (req.body.scheduleType === 'weekly') {
+        updateData.daysOfWeek = req.body.daysOfWeek;
+      } else if (req.body.scheduleType === 'specific_date') {
+        updateData.specificDate = req.body.specificDate;
+      }
+
+      // Unset fields that don't apply to 'bus'/'train'/'car' routes
       updateData.$unset = {
         flightNumber: 1,
         airline: 1,
