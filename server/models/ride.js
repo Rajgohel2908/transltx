@@ -40,7 +40,9 @@ const rideSchema = new mongoose.Schema(
     },
     price: {
       type: Number,
-      default: 0
+      required: [true, "Please set a price (can be 0)."],
+      min: 0,
+      default: 0,
     },
     notes: {
       type: String,

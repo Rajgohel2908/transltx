@@ -4,17 +4,17 @@ import {
   getActiveRides,
   cancelRide,
   acceptRide,
-  getMyAcceptedRides, // <-- 1. Import the new function
+  getMyAcceptedRides,
+  getRideQuote, // <-- 1. Import the new function
 } from "../controllers/rideController.js";
 
 const router = express.Router();
 
+router.post("/quote", getRideQuote); // <-- 2. Add the new route
 router.get("/", getActiveRides);
 router.post("/", createRide);
 router.delete("/:rideId/cancel", cancelRide);
 router.patch("/:rideId/accept", acceptRide);
-
-// --- 2. NEW ROUTE for fetching rides a user has accepted ---
 router.get("/accepted/:userId", getMyAcceptedRides);
 
 export default router;

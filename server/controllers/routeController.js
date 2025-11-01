@@ -136,23 +136,24 @@ export const searchRoutes = async (req, res) => {
     }
 
     if (date) {
-      const searchDate = new Date(date);
+      // Treat the date as UTC to avoid timezone issues
+      const searchDate = new Date(`${date}T00:00:00.000Z`);
       const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][searchDate.getUTCDay()];
-      
+
       // Build date-related query
       query.$or = [
         // 1. Matches daily schedule
         { scheduleType: 'daily' },
-        
+
         // 2. Matches weekly schedule on the correct day
         { scheduleType: 'weekly', daysOfWeek: dayOfWeek },
-        
-        // 3. Matches specific date (compare date part only)
-        { 
-          scheduleType: 'specific_date', 
+
+        // 3. Matches specific date
+        {
+          scheduleType: 'specific_date',
           specificDate: {
-            $gte: new Date(date).setUTCHours(0, 0, 0, 0),
-            $lte: new Date(date).setUTCHours(23, 59, 59, 999)
+            $gte: searchDate,
+            $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) // Next day
           }
         }
       ];

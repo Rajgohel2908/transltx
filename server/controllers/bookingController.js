@@ -33,7 +33,8 @@ export const getAllBookings = async (req, res) => {
 // @access  Private
 export const getBookingByPnr = async (req, res) => {
   try {
-    const booking = await Booking.findOne({ pnrNumber: req.params.pnr }).populate('userId', 'name email');
+    const pnrToSearch = req.params.pnr.trim();
+    const booking = await Booking.findOne({ pnrNumber: { $regex: `^${pnrToSearch}$`, $options: 'i' } }).populate('userId', 'name email');
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }

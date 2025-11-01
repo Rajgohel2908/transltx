@@ -50,14 +50,22 @@ const Booking = () => {
 
   const handlePnrSearch = async () => {
     if (!pnr) return;
+    const trimmedPnr = pnr.trim();
+    if (!trimmedPnr) return;
+
     setSearchError('');
     setFoundBooking(null);
     try {
-      const response = await api.get(`/api/bookings/pnr/${pnr}`);
+      const response = await api.get(`/api/bookings/pnr/${trimmedPnr}`);
       setFoundBooking(response.data);
     } catch (error) {
       setFoundBooking(null);
-      setSearchError('Booking not found or an error occurred.');
+      if (error.response && error.response.status === 404) {
+        setSearchError(`No booking found with PNR: ${trimmedPnr}`);
+      } else {
+        setSearchError('An error occurred while searching for the booking.');
+        console.error(error); // Log the full error for debugging
+      }
     }
   };
   

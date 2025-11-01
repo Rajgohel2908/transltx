@@ -14,7 +14,7 @@ import Context from "./context/Context.jsx";
 import AOS from "aos";
 import { useEffect } from "react";
 import Booking from "./pages/Booking.jsx";
-import RidePage from "./pages/RidePage.jsx";
+import RidePage from "./pages/RidePage.jsx"; // <-- IMPORT RidePage
 import AdminRoute from "./components/AdminRoute.jsx";
 import Transport404 from "./pages/PageNotFound.jsx";
 

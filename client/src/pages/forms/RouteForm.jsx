@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../../utils/api.js";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
@@ -100,12 +100,10 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
 
       let response;
       setIsSubmitting(true);
-      const token = localStorage.getItem("token");
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
       if (editingRoute) {
-        response = await axios.put(`${ROUTES_API_URL}/${editingRoute._id}`, routeData, authHeaders);
+        response = await api.put(`${ROUTES_API_URL}/${editingRoute._id}`, routeData);
       } else {
-        response = await axios.post(ROUTES_API_URL, routeData, authHeaders);
+        response = await api.post(ROUTES_API_URL, routeData);
       }
       onRouteSaved(response.data.route);
       setEditingRoute(null);

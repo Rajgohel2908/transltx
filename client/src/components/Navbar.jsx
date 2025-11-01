@@ -66,7 +66,7 @@ const Navbar = () => {
         <div className="hidden md:flex space-x-8 items-center text-md font-medium">
           <NavItem to="/" end>Home</NavItem>
           <NavItem to="/booking/bus">Booking</NavItem>
-          <NavItem to="/my-trips">My Trips</NavItem>
+          <NavItem to="/my-trips">Trips</NavItem>
           <NavItem to="/ride">Ride</NavItem>
           <NavItem to="/parking">Parking</NavItem>
           <NavItem to="/parcel">Send a Parcel</NavItem>
