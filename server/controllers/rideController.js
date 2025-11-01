@@ -1,5 +1,6 @@
 import Ride from "../models/ride.js";
 import mongoose from "mongoose";
+import axios from "axios";
 
 // @desc    Create a new ride offer
 export const createRide = async (req, res) => {
@@ -13,6 +14,7 @@ export const createRide = async (req, res) => {
       departureTime,
       seatsAvailable,
       notes,
+      price,
     } = req.body;
 
     if (
@@ -36,6 +38,7 @@ export const createRide = async (req, res) => {
       departureTime,
       seatsAvailable,
       notes,
+      price,
     });
 
     const savedRide = await newRide.save();
@@ -48,6 +51,54 @@ export const createRide = async (req, res) => {
     res
       .status(500)
       .json({ message: "Server error while creating ride offer." });
+  }
+};
+
+// @desc    Get a price quote for a private ride
+export const getRideQuote = async (req, res) => {
+  const { from, to } = req.body;
+
+  if (!from || !to) {
+    return res.status(400).json({ message: "Origin and destination are required." });
+  }
+
+  const geocode = async (name) => {
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`);
+      if (response.data && response.data.length > 0) {
+        return [parseFloat(response.data[0].lat), parseFloat(response.data[0].lon)];
+      }
+      return null;
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      return null;
+    }
+  };
+
+  try {
+    const fromCoords = await geocode(from);
+    const toCoords = await geocode(to);
+
+    if (!fromCoords || !toCoords) {
+      return res.status(400).json({ message: "Could not find coordinates for the given locations." });
+    }
+
+    const osrmResponse = await axios.get(
+      `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=false`
+    );
+
+    if (osrmResponse.data.routes && osrmResponse.data.routes.length > 0) {
+      const route = osrmResponse.data.routes[0];
+      const distanceInKm = (route.distance / 1000).toFixed(2);
+      const price = parseFloat((distanceInKm * 12).toFixed(2)); // Pricing: ₹12/km
+
+      res.status(200).json({ distance: distanceInKm, price });
+    } else {
+      res.status(404).json({ message: "Driving route not found for the given locations." });
+    }
+  } catch (error) {
+    console.error("Error getting ride quote:", error);
+    res.status(500).json({ message: "Server error while calculating ride quote." });
   }
 };
 

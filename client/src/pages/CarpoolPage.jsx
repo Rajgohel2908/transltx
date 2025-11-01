@@ -50,6 +50,13 @@ const OfferRideForm = ({ onRidePosted }) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // --- ADD THIS HELPER FUNCTION ---
+  const getMinDateTimeString = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
+  const minDateTime = getMinDateTimeString();
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -82,7 +89,14 @@ const OfferRideForm = ({ onRidePosted }) => {
           <input type="text" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg"/>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg"/>
+          <input 
+            type="datetime-local" 
+            value={departureTime} 
+            onChange={(e) => setDepartureTime(e.target.value)} 
+            required 
+            className="w-full p-3 border border-gray-300 rounded-lg"
+            min={minDateTime}
+          />
           <input type="number" placeholder="Seats" value={seatsAvailable} onChange={(e) => setSeatsAvailable(e.target.value)} min="1" max="8" required className="w-full p-3 border border-gray-300 rounded-lg"/>
         </div>
         <input type="tel" placeholder="Your Contact Number" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg"/>

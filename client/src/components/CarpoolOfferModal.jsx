@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { api } from "../utils/api.js";
-import { Users, Phone } from 'lucide-react';
+import { Users, Phone, DollarSign } from 'lucide-react';
 
-const CarpoolOfferModal = ({ rideDetails, user, onClose }) => {
+const CarpoolOfferModal = ({ bookingDetails, user, onClose }) => {
   const [seats, setSeats] = useState(1);
   const [phone, setPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [price, setPrice] = useState(0);
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -23,11 +24,12 @@ const CarpoolOfferModal = ({ rideDetails, user, onClose }) => {
       const rideData = {
         driver: user._id,
         driverPhone: phone,
-        from: rideDetails.from,
-        to: rideDetails.to,
-        departureTime: rideDetails.departure,
+        from: bookingDetails.from,
+        to: bookingDetails.to,
+        departureTime: bookingDetails.departure,
         seatsAvailable: seats,
-        notes: `Booked ride (${rideDetails.service}) offered for carpool.`,
+        price: price,
+        notes: `Listing my booked ride ${bookingDetails.pnrNumber} for carpool.`,
       };
       // Use the global api instance which has auth headers
       await api.post(`${VITE_BACKEND_BASE_URL}/rides`, rideData);
@@ -83,6 +85,18 @@ const CarpoolOfferModal = ({ rideDetails, user, onClose }) => {
                   min="1"
                   max="8"
                   onChange={(e) => setSeats(Number(e.target.value))}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  type="number"
+                  placeholder="Price per Seat (INR)"
+                  value={price}
+                  min="0"
+                  onChange={(e) => setPrice(Number(e.target.value))}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg"
                   required
                 />

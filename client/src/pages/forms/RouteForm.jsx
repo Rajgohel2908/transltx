@@ -24,6 +24,15 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // --- ADD THIS HELPER FUNCTION ---
+  const getTodayString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const todayString = getTodayString();
   useEffect(() => {
     if (editingRoute) {
       setId(editingRoute.id);
@@ -160,7 +169,13 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
               <input type="text" placeholder="Airline" value={airline} onChange={(e) => setAirline(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <input type="date" placeholder="Departure Date" value={specificDate} onChange={(e) => setSpecificDate(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+              <input 
+                type="date" 
+                placeholder="Departure Date" 
+                value={specificDate} 
+                onChange={(e) => setSpecificDate(e.target.value)} 
+                required className="w-full p-3 border border-gray-300 rounded-lg" 
+                min={todayString} />
               <input type="time" placeholder="Departure Time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
             </div>
           </div>
@@ -194,7 +209,13 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
                 </div>
               ) : ( // specific_date
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="date" placeholder="Select Date" value={specificDate} onChange={(e) => setSpecificDate(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input 
+                    type="date" 
+                    placeholder="Select Date" 
+                    value={specificDate} 
+                    onChange={(e) => setSpecificDate(e.target.value)} 
+                    required className="w-full p-3 border border-gray-300 rounded-lg" 
+                    min={todayString} />
                   <input type="time" placeholder="Departure Time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
                 </div>
               )}

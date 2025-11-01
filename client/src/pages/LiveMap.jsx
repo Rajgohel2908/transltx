@@ -1,14 +1,10 @@
-import React, { useState, useEffect, useMemo, useContext } from "react"; // <-- Add useContext
+import React, { useState, useEffect, useMemo } from "react";
 import { Navigation, Route, Menu, X, AlertCircle, Calendar, MapPin } from "lucide-react"; // <-- Add Calendar
 import Footer from "../components/Footer";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
-import { handlePayment } from "../utils/cashfree";
-import { DataContext } from "../context/Context.jsx"; // <-- Add this
-import { api } from "../utils/api.js"; // <-- Add this
-import CarpoolOfferModal from "../components/CarpoolOfferModal.jsx"; // <-- Add this
 
 // --- Leaflet Icon Fix ---
 // This is a common issue with React-Leaflet and bundlers like Vite.
@@ -60,6 +56,15 @@ const RouteMap = () => {
     document.title = "RouteMap";
   }, []);
 
+  // --- ADD THIS HELPER FUNCTION ---
+  const getMinDateTimeString = () => {
+    const now = new Date();
+    // Adjust for local timezone
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    // Format to "YYYY-MM-DDTHH:MM"
+    return now.toISOString().slice(0, 16);
+  };
+  const minDateTime = getMinDateTimeString();
   const [routes, setRoutes] = useState([]);
   const [from, setFrom] = useState({ name: "", coords: null });
   const [to, setTo] = useState({ name: "", coords: null });
@@ -73,12 +78,6 @@ const RouteMap = () => {
 
   // --- Add this new state ---
   const [settingPinFor, setSettingPinFor] = useState(null); // Can be 'from', 'to', or null
-
-  // --- Add these new state variables ---
-  const { user } = useContext(DataContext);
-  const [showCarpoolModal, setShowCarpoolModal] = useState(false);
-  const [bookedRideDetails, setBookedRideDetails] = useState(null);
-  // --- End of new state variables ---
 
   // Helper: remove consecutive duplicate points
   const dedupePoints = (pts) => {
@@ -190,64 +189,6 @@ const RouteMap = () => {
   };
   // --- END OF NEW FUNCTION ---
 
-  // --- ADD THESE NEW FUNCTIONS ---
-  const onPaymentSuccess = async (paymentResult) => {
-    try {
-      const bookingPayload = {
-        userId: user._id,
-        bookingType: matchedRoute.type === 'driving' ? 'Ride' : (matchedRoute.type || 'Bus'),
-        service: matchedRoute.name,
-        from: from,
-        to: to,
-        departure: departureTime || new Date().toISOString(),
-        arrival: new Date().toISOString(), // Placeholder, real app would calculate
-        passengers: [{ fullName: user.name, age: 30, gender: 'Unknown' }], // Placeholder data
-        contactEmail: user.email,
-        contactPhone: '9999999999', // Placeholder, modal will ask for real one
-        fare: matchedRoute.price,
-        paymentId: paymentResult.cf_payment_id,
-        orderId: paymentResult.order_id,
-        paymentStatus: 'SUCCESS',
-        bookingStatus: 'Confirmed'
-      };
-
-      const res = await api.post(`${API_BASE_URL}/bookings`, bookingPayload);
-      
-      // Save details for the carpool modal
-      setBookedRideDetails({ 
-        ...res.data,
-        from: from, // Pass readable names
-        to: to,     // Pass readable names
-        departure: bookingPayload.departure // Pass the correct departure time
-      });
-      setShowCarpoolModal(true); // Open the carpool modal
-    } catch (error) {
-      console.error("Failed to save booking:", error);
-      setError('Payment was successful, but failed to save your booking. Please contact support.');
-    }
-  };
-
-  const handleBookRoute = () => {
-    if (!user) {
-      setError('Please log in to book a ride.');
-      return;
-    }
-    if (!matchedRoute || !matchedRoute.price) {
-      setError('Cannot book this route. No price defined.');
-      return;
-    }
-    if (!departureTime) {
-      setError('Please select a departure date and time.');
-      return;
-    }
-    handlePayment({
-      item: { ...matchedRoute, name: matchedRoute.name || 'Custom Ride' }, // Ensure item has a name
-      user: user,
-      onPaymentSuccess: onPaymentSuccess
-    });
-  };
-  // --- END OF NEW FUNCTIONS ---
-
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
@@ -316,7 +257,6 @@ const RouteMap = () => {
                     stops: stopsForRoute,
                     distance: (route.distance / 1000).toFixed(2) + " km",
                     duration: formatDurationSec(route.duration),
-                    price: parseFloat(((route.distance / 1000) * 12).toFixed(2)), // Example pricing: ₹12/km
                 });
             } else {
                 setError(`Driving route not found for the given coordinates.`);
@@ -510,6 +450,7 @@ const RouteMap = () => {
                                   value={departureTime}
                                   onChange={(e) => setDepartureTime(e.target.value)}
                                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  min={minDateTime}
                                 />
                               </div>
                               {/* --- End of new field --- */}
@@ -559,19 +500,6 @@ const RouteMap = () => {
                           <span className="text-sm text-gray-600">Route Color:</span>
                           <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: matchedRoute.color || "#007BFF" }}></div>
                         </div>
-                        {matchedRoute.price && (
-                          <div className="flex items-center justify-between pt-3 border-t mt-3">
-                            <span className="text-lg font-semibold text-gray-600">Fare:</span>
-                            <span className="text-xl font-bold text-green-600">₹{matchedRoute.price}</span>
-                          </div>
-                        )}
-                        {matchedRoute.price && (
-                          <div className="mt-4 pt-3 border-t">
-                            <button onClick={handleBookRoute} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
-                              <span>Book Now</span>
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ) : (
@@ -684,16 +612,6 @@ const RouteMap = () => {
         </div>
       </div>
         <Footer />
-      
-        {/* --- Add this modal --- */}
-        {showCarpoolModal && (
-          <CarpoolOfferModal
-            rideDetails={bookedRideDetails}
-            user={user}
-            onClose={() => setShowCarpoolModal(false)}
-          />
-        )}
-        {/* --- End of modal --- */}
       </>  );
 };
  

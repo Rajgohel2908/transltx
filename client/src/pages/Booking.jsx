@@ -22,6 +22,15 @@ const Booking = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState(null);
 
+  // --- ADD THIS HELPER FUNCTION ---
+  const getTodayString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const todayString = getTodayString();
   const handleUpdateBooking = async (e) => {
     e.preventDefault();
     const updatedBooking = {
@@ -190,13 +199,23 @@ const Booking = () => {
                   <div className="w-full relative">
                     <label htmlFor="departure" className="block text-sm font-medium text-gray-700 mb-1">Departure</label>
                     <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-                    <input type="date" id="departure" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                    <input 
+                      type="date" 
+                      id="departure" 
+                      value={departureDate} 
+                      onChange={e => setDepartureDate(e.target.value)} 
+                      className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
+                      required 
+                      min={todayString}
+                    />
                   </div>
                   {activeTab !== 'Bus' && (
                     <div className={`w-full relative transition-opacity duration-300 ${tripType === 'one-way' ? 'opacity-50' : 'opacity-100'}`}>
                       <label htmlFor="return" className="block text-sm font-medium text-gray-700 mb-1">Return</label>
                       <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-                      <input type="date" id="return" className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" disabled={tripType === 'one-way'} />
+                      <input type="date" id="return" className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        disabled={tripType === 'one-way'} 
+                        min={departureDate || todayString} />
                     </div>
                   )}
                 </div>

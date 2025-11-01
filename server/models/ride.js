@@ -38,6 +38,10 @@ const rideSchema = new mongoose.Schema(
       min: [1, "You must offer at least one seat."],
       default: 1,
     },
+    price: {
+      type: Number,
+      default: 0
+    },
     notes: {
       type: String,
       trim: true,

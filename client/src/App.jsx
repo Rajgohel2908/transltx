@@ -14,7 +14,7 @@ import Context from "./context/Context.jsx";
 import AOS from "aos";
 import { useEffect } from "react";
 import Booking from "./pages/Booking.jsx";
-import CarpoolPage from "./pages/CarpoolPage.jsx";
+import RidePage from "./pages/RidePage.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
 import Transport404 from "./pages/PageNotFound.jsx";
 
@@ -117,10 +117,10 @@ function MainLayout() {
             }
           />
           <Route
-            path="/carpool"
+            path="/ride"
             element={
               <PrivateRoute>
-                <CarpoolPage />
+                <RidePage />
               </PrivateRoute>
             }
           />
