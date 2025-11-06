@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react'; // <-- useCallback IMPORT KAR
 import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin } from 'lucide-react';
 import { api } from '../utils/api.js';
-
-const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+import _ from 'lodash'; // Lodash debounce ke liye, ya simple timeout use kar sakte hain. Chalo pehle `useCallback` se try karte hain.
 
 const Booking = () => {
   const { mode } = useParams();
@@ -22,7 +21,14 @@ const Booking = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState(null);
 
-  // --- ADD THIS HELPER FUNCTION ---
+  // --- MODIFIED ---
+  // State for suggestions
+  const [fromSuggestions, setFromSuggestions] = useState([]);
+  const [toSuggestions, setToSuggestions] = useState([]);
+  const [isFromLoading, setIsFromLoading] = useState(false);
+  const [isToLoading, setIsToLoading] = useState(false);
+
+  // ... (getTodayString, handleUpdateBooking, handlePnrSearch, handleSearch functions same rahenge)
   const getTodayString = () => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -85,6 +91,59 @@ const Booking = () => {
         departureDate
       } 
     });
+  };
+
+  // --- MODIFIED Debounce logic ---
+  const searchHandler = (value, type, setSuggestions, setLoading) => {
+    setLoading(true);
+    if (value) {
+      // --- API CALL UPDATE ---
+      // 'type' (Bus/Train/Air) ko lowercase me bhejo
+      api.get(`/api/locations?search=${value}&type=${type.toLowerCase()}`)
+        .then(res => {
+          setSuggestions(res.data || []);
+        })
+        .catch(err => {
+          console.error("Failed to fetch suggestions:", err);
+          setSuggestions([]);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      setSuggestions([]);
+      setLoading(false);
+    }
+  };
+
+  const debouncedSearch = useMemo(
+    () => debounce(searchHandler, 300),
+    [] 
+  );
+  // --- END MODIFICATION ---
+
+  const handleFromChange = (e) => {
+    const value = e.target.value;
+    setFrom(value);
+    setIsFromLoading(true); 
+    debouncedSearch(value, activeTab, setFromSuggestions, setIsFromLoading); // <-- activeTab ko pass kar
+  };
+
+  const handleToChange = (e) => {
+    const value = e.target.value;
+    setTo(value);
+    setIsToLoading(true); 
+    debouncedSearch(value, activeTab, setToSuggestions, setIsToLoading); // <-- activeTab ko pass kar
+  };
+
+  const selectFromSuggestion = (city) => {
+    setFrom(city);
+    setFromSuggestions([]);
+  };
+
+  const selectToSuggestion = (city) => {
+    setTo(city);
+    setToSuggestions([]);
   };
 
   const PassengerInput = ({ label, count, onIncrement, onDecrement }) => (
@@ -154,7 +213,7 @@ const Booking = () => {
               {['Bus', 'Train', 'Air'].map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => setActiveTab(tab)} // <-- YEH STATE UPDATE HOGA
                   className={`flex items-center gap-2 px-4 py-3 font-semibold transition-colors duration-300 ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500'}`}
                 >
                   {tab === 'Bus' && <Bus size={20} />}
@@ -181,11 +240,27 @@ const Booking = () => {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 items-end">
-                {/* From */}
                 <div className="lg:col-span-3 relative">
                   <label htmlFor="from" className="block text-sm font-medium text-gray-700 mb-1">From</label>
                   <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-                  <input type="text" id="from" placeholder="Source City" value={from} onChange={e => setFrom(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                  <input type="text" id="from" placeholder="Source City" value={from} onChange={handleFromChange} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required autoComplete="off" />
+                  {(isFromLoading || fromSuggestions.length > 0) && from ? (
+                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                      {isFromLoading ? (
+                        <li className="p-2 text-gray-500">Loading...</li>
+                      ) : (
+                        fromSuggestions.length > 0 ? (
+                          fromSuggestions.map(city => (
+                            <li key={city} onClick={() => selectFromSuggestion(city)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                              {city}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="p-2 text-gray-500">No results found</li> 
+                        )
+                      )}
+                    </ul>
+                  ) : null}
                 </div>
 
                 {/* Swap Button */}
@@ -195,11 +270,27 @@ const Booking = () => {
                   </button>
                 </div>
 
-                {/* To */}
                 <div className="lg:col-span-3 relative">
                   <label htmlFor="to" className="block text-sm font-medium text-gray-700 mb-1">To</label>
                   <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-                  <input type="text" id="to" placeholder="Destination City" value={to} onChange={e => setTo(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                  <input type="text" id="to" placeholder="Destination City" value={to} onChange={handleToChange} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required autoComplete="off" />
+                  {(isToLoading || toSuggestions.length > 0) && to ? (
+                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                      {isToLoading ? (
+                        <li className="p-2 text-gray-500">Loading...</li>
+                      ) : (
+                         toSuggestions.length > 0 ? (
+                          toSuggestions.map(city => (
+                            <li key={city} onClick={() => selectToSuggestion(city)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                              {city}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="p-2 text-gray-500">No results found</li>
+                        )
+                      )}
+                    </ul>
+                  ) : null}
                 </div>
 
                 {/* Dates */}

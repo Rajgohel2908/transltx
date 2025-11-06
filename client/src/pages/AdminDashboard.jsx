@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 import AlertForm from "./forms/AlertForm.jsx";
 import TripForm from "./forms/TripForm.jsx";
 import RouteForm from "./forms/RouteForm.jsx";
+import LocationForm from "./forms/LocationForm.jsx"; // <-- 1. NAYA FORM IMPORT KAR
 import ParkingForm from "./forms/ParkingForm.jsx";
 import ConfirmationModal from "../components/ConfirmationModal.jsx";
 import Pagination from "../components/Pagination.jsx";
@@ -686,6 +687,15 @@ const AdminDashboard = () => {
             })()}
           </div>
         );
+      // --- NAYA CASE ADD KAR ---
+      case 'locations':
+        return (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Locations</h2>
+            <LocationForm />
+          </div>
+        );
+      // --- END NAYA CASE ---
       default:
         return (
           <>
@@ -821,6 +831,7 @@ const AdminDashboard = () => {
                 <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} />
                 <TabButton tabName="bookings" label="Bookings" currentTab={activeTab} setTab={setActiveTab} />
                 <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} />
+                <TabButton tabName="locations" label="Locations" currentTab={activeTab} setTab={setActiveTab} /> {/* <-- NAYA TAB */}
                 <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} />
                 <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} />
               </div>

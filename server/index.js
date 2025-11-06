@@ -21,6 +21,7 @@ import tripRouter from "./routes/tripRoutes.js";
 import paymentRouter from "./routes/paymentRoutes.js";
 import parkingRouter from "./routes/parkingRoutes.js";
 import bookingRouter from "./routes/bookingRoutes.js";
+import locationRouter from "./routes/locationRoutes.js"; // <-- 1. IMPORT KAR
 // app.use("/api/admins", adminRouter);
 app.use("/api/users", userRouter);
 app.use("/api/parcels", parcelRouter);
@@ -31,5 +32,6 @@ app.use("/api/trips", tripRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/parking", parkingRouter);
 app.use("/api/bookings", bookingRouter);
+app.use("/api/locations", locationRouter); // <-- 2. ADD KAR
 
 export default app;

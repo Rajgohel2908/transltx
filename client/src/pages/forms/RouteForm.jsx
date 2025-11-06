@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../../utils/api.js";
+import { debounce } from 'lodash'; // <-- Import barabar hai
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
 
 const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
+  // ... (sare 'useState' hooks same rahenge)
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [startPoint, setStartPoint] = useState("");
@@ -14,17 +16,21 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const [estimatedArrivalTime, setEstimatedArrivalTime] = useState("12:00");
   const [amenitiesInput, setAmenitiesInput] = useState("");
   const [startTime, setStartTime] = useState("06:00");
-  const [stops, setStops] = useState([]); // each stop: { stopName, priceFromStart, estimatedTimeAtStop }
+  const [stops, setStops] = useState([]);
   const [flightNumber, setFlightNumber] = useState("");
   const [airline, setAirline] = useState("");
   const [price, setPrice] = useState("");
-  const [scheduleType, setScheduleType] = useState("daily"); // 'daily', 'weekly', 'specific_date'
+  const [scheduleType, setScheduleType] = useState("daily");
   const [daysOfWeek, setDaysOfWeek] = useState([]);
   const [specificDate, setSpecificDate] = useState('');
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [startSuggestions, setStartSuggestions] = useState([]);
+  const [endSuggestions, setEndSuggestions] = useState([]);
+  const [stopSuggestions, setStopSuggestions] = useState({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false); // <-- Ye hamara 'single' loading state hai
 
-  // --- ADD THIS HELPER FUNCTION ---
+  // ... (getTodayString aur useEffect same rahenge)
   const getTodayString = () => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -33,6 +39,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     return `${yyyy}-${mm}-${dd}`;
   };
   const todayString = getTodayString();
+
   useEffect(() => {
     if (editingRoute) {
       setId(editingRoute.id);
@@ -43,7 +50,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setStartTime(editingRoute.startTime || "06:00");
       setStartPoint(editingRoute.startPoint || "");
       setEndPoint(editingRoute.endPoint || "");
-      // Normalize stops to objects
       const existingStops = editingRoute.stops || [];
       const normalized = existingStops.map(s => {
         if (typeof s === 'string') return { stopName: s, priceFromStart: 0, estimatedTimeAtStop: '' };
@@ -77,6 +83,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     }
   }, [editingRoute]);
 
+  // ... (handleSubmit, handleAddStop, handleRemoveStop same rahenge)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -136,10 +143,76 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const handleRemoveStop = (index) => {
     setStops(prev => prev.filter((_, i) => i !== index));
   };
+  
+  // --- YEH HAI ASLI FIX ---
+  // Is function me 3 parameters hain: value, setSuggestions, setLoading
+  const searchHandler = (value, setSuggestions, setLoading) => {
+    if (value) {
+      // Admin form hamesha sab search karega (type=... nahi bhejenge)
+      api.get(`/api/locations?search=${value}`)
+        .then(res => {
+          setSuggestions(res.data || []);
+        })
+        .catch(err => {
+          console.error("Failed to fetch suggestions:", err);
+          setSuggestions([]);
+        })
+        .finally(() => {
+          setLoading(false); // <-- YEH LOADING KO 'FALSE' KAREGA
+        });
+    } else {
+      setSuggestions([]);
+      setLoading(false); // <-- YEH BHI LOADING KO 'FALSE' KAREGA (jab input clear ho)
+    }
+  };
+
+  const debouncedSearch = useMemo(
+    () => debounce(searchHandler, 300),
+    []
+  );
+
+  const handleStartPointChange = (e) => {
+    const value = e.target.value;
+    setStartPoint(value);
+    setLoadingSuggestions(true); // <-- Loading 'true' set kiya
+    // Aur 'setLoadingSuggestions' ko as a parameter pass kiya
+    debouncedSearch(value, setStartSuggestions, setLoadingSuggestions); 
+  };
+
+  const selectStartSuggestion = (city) => {
+    setStartPoint(city);
+    setStartSuggestions([]);
+  };
+
+  const handleEndPointChange = (e) => {
+    const value = e.target.value;
+    setEndPoint(value);
+    setLoadingSuggestions(true); // <-- Loading 'true' set kiya
+    debouncedSearch(value, setEndSuggestions, setLoadingSuggestions);
+  };
+
+  const selectEndSuggestion = (city) => {
+    setEndPoint(city);
+    setEndSuggestions([]);
+  };
 
   const handleStopChange = (index, field, value) => {
     setStops(prev => prev.map((s, i) => i === index ? { ...s, [field]: field === 'priceFromStart' ? Number(value) : value } : s));
+    
+    if (field === 'stopName') {
+      setLoadingSuggestions(true); // <-- Loading 'true' set kiya
+      debouncedSearch(value, (suggestions) => {
+        // Stop ka 'setter' function thoda alag hai
+        setStopSuggestions(prev => ({ ...prev, [index]: suggestions }));
+      }, setLoadingSuggestions);
+    }
   };
+
+  const selectStopSuggestion = (index, city) => {
+    handleStopChange(index, 'stopName', city);
+    setStopSuggestions(prev => ({ ...prev, [index]: [] }));
+  };
+  // --- FIX KHATAM ---
 
   const handleDayOfWeekChange = (day) => {
     setDaysOfWeek(prev =>
@@ -156,12 +229,53 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         {editingRoute ? "Edit Route" : "Create New Route"}
       </h3>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* ... (input fields same rahenge) ... */}
         <input type="text" placeholder="Route ID (e.g., bus-101)" value={id} onChange={(e) => setId(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="Route Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="number" placeholder="Price (INR)" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-        <input type="text" placeholder={type === 'air' ? "Departure Airport" : "Start Point"} value={startPoint} onChange={(e) => setStartPoint(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-        <input type="text" placeholder={type === 'air' ? "Arrival Airport" : "End Point"} value={endPoint} onChange={(e) => setEndPoint(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-
+        
+        {/* --- Start Point (Patched JSX) --- */}
+        <div className="relative">
+          <input type="text" placeholder={type === 'air' ? "Departure Airport" : "Start Point"} value={startPoint} onChange={handleStartPointChange} required className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
+          {/* JSX logic update kar diya (ab 'loadingSuggestions' use karega) */}
+          {(loadingSuggestions || startSuggestions.length > 0) && startPoint ? (
+            <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+              {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : 
+                startSuggestions.length > 0 ? (
+                  startSuggestions.map(city => (
+                    <li key={city} onClick={() => selectStartSuggestion(city)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                      {city}
+                    </li>
+                  ))
+                ) : (
+                  <li className="p-2 text-gray-500">No results</li>
+                )
+              }
+            </ul>
+          ) : null}
+        </div>
+        
+        {/* --- End Point (Patched JSX) --- */}
+        <div className="relative">
+          <input type="text" placeholder={type === 'air' ? "Arrival Airport" : "End Point"} value={endPoint} onChange={handleEndPointChange} required className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
+          {(loadingSuggestions || endSuggestions.length > 0) && endPoint ? (
+            <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+              {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : 
+                endSuggestions.length > 0 ? (
+                  endSuggestions.map(city => (
+                    <li key={city} onClick={() => selectEndSuggestion(city)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                      {city}
+                    </li>
+                  ))
+                ) : (
+                  <li className="p-2 text-gray-500">No results</li>
+                )
+              }
+            </ul>
+          ) : null}
+        </div>
+        
+        {/* ... (Baaki poora form same rahega) ... */}
         <div className="grid grid-cols-2 gap-4">
           <select value={type} onChange={(e) => setType(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg bg-white">
             <option value="bus">Bus</option>
@@ -233,11 +347,28 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Intermediate Stops</label>
               {stops.map((stop, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
-                  <input type="text" placeholder={`Stop ${index + 1} Name`} value={stop.stopName} onChange={(e) => handleStopChange(index, 'stopName', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <div className="relative md:col-span-2">
+                    <input type="text" placeholder={`Stop ${index + 1} Name`} value={stop.stopName} onChange={(e) => handleStopChange(index, 'stopName', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
+                    {(loadingSuggestions || stopSuggestions[index]?.length > 0) && stop.stopName ? (
+                      <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                        {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : 
+                          stopSuggestions[index]?.length > 0 ? (
+                            stopSuggestions[index].map(city => (
+                              <li key={city} onClick={() => selectStopSuggestion(index, city)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                                {city}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="p-2 text-gray-500">No results</li>
+                          )
+                        }
+                      </ul>
+                    ) : null}
+                  </div>
                   <input type="number" placeholder="Price From Start (INR)" value={stop.priceFromStart} onChange={(e) => handleStopChange(index, 'priceFromStart', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-                  <input type="time" placeholder="Estimated Time" value={stop.estimatedTimeAtStop} onChange={(e) => handleStopChange(index, 'estimatedTimeAtStop', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => handleRemoveStop(index)} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600">Remove</button>
+                    <input type="time" placeholder="Est. Time" value={stop.estimatedTimeAtStop} onChange={(e) => handleStopChange(index, 'estimatedTimeAtStop', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                    <button type="button" onClick={() => handleRemoveStop(index)} className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600">X</button>
                   </div>
                 </div>
               ))}
