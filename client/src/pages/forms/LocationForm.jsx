@@ -61,7 +61,7 @@ const LocationForm = () => {
             className="w-full p-3 border border-gray-300 rounded-lg bg-white"
           >
             <option value="city">City / Bus Stop</option>
-            <option value="station">Train Station</option>
+            <option value="train_station">Train Station</option> {/* <-- 'station' ko 'train_station' kar diya */}
             <option value="airport">Airport</option>
           </select>
           {/* --- END --- */}

@@ -20,7 +20,7 @@ export const getLocations = async (req, res) => {
       // Agar 'type' (bus/train/air) bheja hai, toh usko map karo
       let typeToSearch = "city"; // Default
       if (requestedType.toLowerCase() === "train") {
-        typeToSearch = "station";
+        typeToSearch = "train_station"; // <-- "station" ko "train_station" kar diya
       } else if (requestedType.toLowerCase() === "air") {
         typeToSearch = "airport";
       }
