@@ -15,7 +15,6 @@ const routeSchema = new mongoose.Schema({
   estimatedArrivalTime: { type: String, required: true },
   startPoint: { type: String, required: true },
   endPoint: { type: String, required: true },
-  price: { type: Number, default: 0 },
   // Scheduling
   scheduleType: { type: String, enum: ['daily', 'weekly', 'specific_date'] },
   daysOfWeek: { type: [String], enum: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] },
@@ -26,6 +25,11 @@ const routeSchema = new mongoose.Schema({
   // Fields for 'air'
   flightNumber: { type: String },
   airline: { type: String },
+  // --- PRICE IS NOW AN OBJECT FOR TRAIN/AIR ---
+  price: {
+    type: mongoose.Schema.Types.Mixed, // Can be Number for Bus, or Object for Train/Air
+    default: 0,
+  },
 }, { timestamps: true });
 
 const Route = mongoose.model('Route', routeSchema);

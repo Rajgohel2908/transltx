@@ -79,7 +79,7 @@ const TripViewPage = () => {
           <div className="my-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Itinerary</h2>
             <div className="space-y-6">
-              {trip.itinerary.map((item) => (
+              {(trip.itinerary || []).map((item) => (
                 <div key={item.day} className="flex">
                   <div className="flex flex-col items-center mr-4">
                     <div className="flex items-center justify-center w-10 h-10 bg-blue-500 text-white rounded-full font-bold">{item.day}</div>
@@ -87,7 +87,7 @@ const TripViewPage = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-800">{item.title}</h3>
-                    <p className="text-gray-600 mt-1">{item.details}</p>
+                    <p className="text-gray-600 mt-1">{item.description}</p>
                   </div>
                 </div>
               ))}
@@ -97,7 +97,7 @@ const TripViewPage = () => {
           <div className="my-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Inclusions</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {trip.inclusions.map((item, index) => (
+              {(trip.inclusions || []).map((item, index) => (
                 <div key={index}>
                   <h3 className="font-bold text-gray-800">{item.category}</h3>
                   <p className="text-gray-600">{item.description}</p>
@@ -109,7 +109,7 @@ const TripViewPage = () => {
           <div className="my-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Exclusions</h2>
             <ul className="list-disc list-inside text-gray-600 space-y-2">
-              {trip.exclusions.map((item, index) => (
+              {(trip.exclusions || []).map((item, index) => (
                 <li key={index}>{item}</li>
               ))}
             </ul>
@@ -118,7 +118,7 @@ const TripViewPage = () => {
           <div className="my-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">What to Carry</h2>
             <ul className="list-disc list-inside text-gray-600 space-y-2">
-              {trip.whatToCarry.map((item, index) => (
+              {(trip.whatToCarry || []).map((item, index) => (
                 <li key={index}>{item}</li>
               ))}
             </ul>
@@ -127,9 +127,9 @@ const TripViewPage = () => {
           <div className="my-8 p-6 bg-blue-50 rounded-lg">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Logistics</h2>
             <div className="space-y-2">
-              <p><span className="font-bold">Meeting Point:</span> {trip.logistics.meetingPoint}</p>
-              <p><span className="font-bold">Reporting Time:</span> {trip.logistics.reportingTime}</p>
-              <p><span className="font-bold">Departure Time:</span> {trip.logistics.departureTime}</p>
+              <p><span className="font-bold">Meeting Point:</span> {trip.logistics?.meetingPoint}</p>
+              <p><span className="font-bold">Reporting Time:</span> {trip.logistics?.reportingTime}</p>
+              <p><span className="font-bold">Departure Time:</span> {trip.logistics?.departureTime}</p>
             </div>
           </div>
 

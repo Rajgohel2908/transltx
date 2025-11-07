@@ -5,22 +5,37 @@ import Trip from "../models/trip.js";
 // @access  Admin
 export const createTrip = async (req, res) => {
   try {
-    const { name, description, duration, price, image, features } = req.body;
+    const {
+      name, description, longDescription, type, from, to, departureTime,
+      arrivalTime, duration, price, image, features, itinerary,
+      inclusions, exclusions, whatToCarry, logistics
+    } = req.body;
 
     // More robust validation: Check for all required fields, allowing 'features' to be an empty array.
-    if (!name || !description || !duration || !price || !image || !Array.isArray(features)) {
+    if (!name || !description || !duration || !price || !image) {
       return res
         .status(400)
-        .json({ message: "Please provide all required fields, including name, description, duration, price, image, and features." });
+        .json({ message: "Please provide all required fields: name, description, duration, price, and image." });
     }
 
     const newTrip = new Trip({
       name,
       description,
+      longDescription,
+      type,
+      from,
+      to,
+      departureTime,
+      arrivalTime,
       duration,
       price,
       image,
-      features,
+      features: Array.isArray(features) ? features : [],
+      itinerary: Array.isArray(itinerary) ? itinerary : [],
+      inclusions: Array.isArray(inclusions) ? inclusions : [],
+      exclusions: Array.isArray(exclusions) ? exclusions : [],
+      whatToCarry: Array.isArray(whatToCarry) ? whatToCarry : [],
+      logistics,
     });
 
     const savedTrip = await newTrip.save();
@@ -68,17 +83,25 @@ export const getTrip = async (req, res) => {
 export const updateTrip = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, duration, price, image, features } = req.body;
+    const {
+      name, description, longDescription, type, from, to, departureTime,
+      arrivalTime, duration, price, image, features, itinerary,
+      inclusions, exclusions, whatToCarry, logistics
+    } = req.body;
 
     if (!name || !description || !duration || !price || !image) {
       return res
         .status(400)
         .json({ message: "Please provide all required fields for update." });
     }
-
+    
     const updatedTrip = await Trip.findByIdAndUpdate(
       id,
-      { name, description, duration, price, image, features },
+      {
+        name, description, longDescription, type, from, to, departureTime,
+        arrivalTime, duration, price, image, features, itinerary,
+        inclusions, exclusions, whatToCarry, logistics
+      },
       { new: true, runValidators: true }
     );
 

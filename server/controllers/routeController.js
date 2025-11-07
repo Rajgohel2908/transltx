@@ -95,7 +95,7 @@ export const getAllRoutes = async (req, res) => {
 // @access  Public
 export const searchRoutes = async (req, res) => {
   try {
-    const { from, to, date, type } = req.query;
+    const { from, to, date, type, class: classType } = req.query; // classType is e.g., "Economy", "Sleeper"
 
     let baseQuery = {};
     if (type) baseQuery.type = type.toLowerCase();
@@ -143,29 +143,49 @@ export const searchRoutes = async (req, res) => {
       }
 
       if (iIndex !== -1 && jIndex !== -1 && jIndex > iIndex) {
-        // compute dynamic price
+        // --- PRICE LOGIC FOR STOP-TO-STOP ---
         const priceFromStartI = Number(stops[iIndex].priceFromStart || 0);
         const priceFromStartJ = Number(stops[jIndex].priceFromStart || 0);
-        const dynamicPrice = Math.max(0, priceFromStartJ - priceFromStartI);
+        
+        let finalPrice = 0;
+        if (type === 'bus') {
+          finalPrice = Number(route.price || 0);
+        } else if (classType && typeof route.price === 'object' && route.price !== null) {
+          finalPrice = Number(route.price[classType] || 0);
+        }
+        
+        // If stop-to-stop pricing is more specific, use it
+        if (priceFromStartJ > priceFromStartI) {
+          finalPrice = priceFromStartJ - priceFromStartI;
+        }
 
         // slice stops between i and j inclusive
         const slicedStops = stops.slice(iIndex, jIndex+1);
 
         const result = route.toObject();
-        result.price = dynamicPrice;
+        result.price = finalPrice;
         result.stops = slicedStops;
         result.from = stops[iIndex].stopName || result.from || from;
         result.to = stops[jIndex].stopName || result.endPoint || to;
         matches.push(result);
       } else if (!from && !to) {
-        // no stop-to-stop search requested, return route as-is
+        // No stop search, bas route return kar (price pehle se hi sahi hai)
         matches.push(route);
       } else {
-        // If stops array empty or no match, fall back to matching startPoint/endPoint strings
+        // Fallback to startPoint/endPoint matching
         if (from && to) {
           const startsWithFrom = normalize(route.startPoint) === normalize(from);
           const endsWithTo = normalize(route.endPoint) === normalize(to);
-          if (startsWithFrom && endsWithTo) matches.push(route);
+          if (startsWithFrom && endsWithTo) {
+            const result = route.toObject();
+            // Set the price based on the selected class for Train/Air
+            if (type !== 'bus' && classType && typeof result.price === 'object') {
+              result.price = result.price[classType] || 0;
+            } else if (type === 'bus') {
+              result.price = Number(result.price) || 0;
+            }
+            matches.push(result);
+          }
         }
       }
     }

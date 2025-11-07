@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin } from 'lucide-react';
@@ -23,6 +23,19 @@ const Booking = () => {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [departureDate, setDepartureDate] = useState('');
+  
+  // --- 'classType' KO SAHI DEFAULT DE ---
+  const [classType, setClassType] = useState('Sleeper'); // Default for Train
+  
+  // --- YEH NAYA 'useEffect' ADD KAR (jab tab change ho toh class reset ho) ---
+  useEffect(() => {
+    if (activeTab === 'Train') {
+      setClassType('Sleeper');
+    } else if (activeTab === 'Air') {
+      setClassType('Economy');
+    }
+  }, [activeTab]);
+  // --- END ---
   
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
@@ -83,7 +96,8 @@ const Booking = () => {
         searchType: activeTab,
         from,
         to,
-        departureDate
+        departureDate,
+        class: classType, // Pass class to results page
       } 
     });
   };
@@ -351,32 +365,36 @@ const Booking = () => {
                 </div>
 
                 {/* ... Class ... */}
-                {(activeTab === 'Train' || activeTab === 'Air') && (
+                {/* --- 'activeTab !== 'Bus'' WALA CONDITION HATA --- */}
+                {activeTab !== 'Bus' && (
                   <div className="lg:col-span-4">
                     <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                    <select id="class" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                    <select 
+                      id="class" 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                      value={classType}
+                      onChange={e => setClassType(e.target.value)}
+                    >
                       {activeTab === 'Air' && (
                         <>
-                          <option>Economy</option>
-                          <option>Business</option>
-                          <option>First</option>
+                          <option value="Economy">Economy</option>
+                          <option value="Business">Business</option>
                         </>
                       )}
                       {activeTab === 'Train' && (
                         <>
-                          <option>Sleeper</option>
-                          <option>AC</option>
-                          <option>First</option>
+                          <option value="Sleeper">Sleeper</option>
+                          <option value="AC">AC</option>
+                          <option value="First Class">First Class</option>
                         </>
                       )}
                     </select>
                   </div>
                 )}
 
-                {activeTab === 'Bus' && <div className="hidden lg:block lg:col-span-4"></div>}
-
                 {/* ... Search Button (Desktop) ... */}
-                <div className="hidden lg:flex items-end lg:col-span-3">
+                {/* --- ISKA COL-SPAN ADJUST KAR --- */}
+                <div className="hidden lg:flex items-end lg:col-span-3"> 
                   <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
                     Search
                   </button>

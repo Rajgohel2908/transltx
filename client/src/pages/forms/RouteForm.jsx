@@ -19,7 +19,10 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const [stops, setStops] = useState([]);
   const [flightNumber, setFlightNumber] = useState("");
   const [airline, setAirline] = useState("");
-  const [price, setPrice] = useState("");
+  // --- PRICE STATE IS NOW AN OBJECT ---
+  const [price, setPrice] = useState({ default: "" });
+  // Example for train: { "Sleeper": 500, "AC": 1500 }
+  // Example for bus: { "default": 700 }
   const [scheduleType, setScheduleType] = useState("daily");
   const [daysOfWeek, setDaysOfWeek] = useState([]);
   const [specificDate, setSpecificDate] = useState('');
@@ -41,7 +44,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const todayString = getTodayString();
 
   useEffect(() => {
-    if (editingRoute) {
+    if (editingRoute) { // This block runs when you click "Edit" on a route
       setId(editingRoute.id);
       setName(editingRoute.name);
       setType(editingRoute.type);
@@ -58,30 +61,53 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setStops(normalized);
       setFlightNumber(editingRoute.flightNumber || "");
       setAirline(editingRoute.airline || "");
-      setPrice(editingRoute.price || "");
+      // --- PRICE LOGIC UPDATE ---
+      if (typeof editingRoute.price === 'object' && editingRoute.price !== null) {
+        setPrice(editingRoute.price);
+      } else {
+        // Handle old data or bus data
+        setPrice({ default: editingRoute.price || "" });
+      }
+      // --- END ---
       setScheduleType(editingRoute.scheduleType || (editingRoute.type === 'air' ? 'specific_date' : 'daily'));
       setDaysOfWeek(editingRoute.daysOfWeek || []);
       setSpecificDate(editingRoute.specificDate ? new Date(editingRoute.specificDate).toISOString().split('T')[0] : '');
       setAmenitiesInput(Array.isArray(editingRoute.amenities) ? editingRoute.amenities.join(', ') : (editingRoute.amenities || ''));
-    } else {
+    } else { // This block runs for a new form or when "Cancel" is clicked
       setId("");
       setName("");
       setStartPoint("");
       setEndPoint("");
-      setType("bus");
       setOperator('');
       setEstimatedArrivalTime('12:00');
       setStartTime("06:00");
       setStops([]);
       setFlightNumber("");
       setAirline("");
-      setPrice("");
-      setScheduleType("bus" === 'air' ? 'specific_date' : 'daily');
+      setPrice({ default: "" }); // Reset price state
       setDaysOfWeek([]);
       setSpecificDate('');
       setAmenitiesInput('');
+      // Reset type and its dependent fields only when editingRoute changes to null
+      setType("bus");
+      setScheduleType('daily');
     }
   }, [editingRoute]);
+
+  // Separate useEffect to handle logic when 'type' changes
+  useEffect(() => {
+    // Reset price structure when type changes
+    setPrice({ default: "" });
+    // Flights are always on a specific date
+    if (type === 'air') {
+      setScheduleType('specific_date');
+    } else {
+      // Reset to daily if switching away from air
+      if (scheduleType === 'specific_date') {
+        setScheduleType('daily');
+      }
+    }
+  }, [type]);
 
   // ... (handleSubmit, handleAddStop, handleRemoveStop same rahenge)
   const handleSubmit = async (e) => {
@@ -94,6 +120,19 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     }
 
     try {
+      // --- PRICE LOGIC UPDATE ---
+      let finalPrice;
+      if (type === 'bus') {
+        finalPrice = parseFloat(price.default) || 0;
+      } else {
+        finalPrice = {};
+        for (const key in price) {
+          if (price[key]) { // Ensure value is not empty
+            finalPrice[key] = parseFloat(price[key]);
+          }
+        }
+      }
+
       let routeData = {
         id,
         name,
@@ -103,7 +142,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         estimatedArrivalTime: estimatedArrivalTime,
         startPoint,
         endPoint,
-        price: parseFloat(price) || 0,
+        price: finalPrice,
       };
 
       if (type === 'air') {
@@ -135,6 +174,13 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setIsSubmitting(false);
     }
   };
+
+  // --- NEW HELPER FOR PRICE INPUTS ---
+  const handlePriceChange = (key, value) => {
+    setPrice(prev => ({ ...prev, [key]: value }));
+  };
+
+  // --- END NEW HELPER ---
 
   const handleAddStop = () => {
     setStops(prev => ([...prev, { stopName: '', priceFromStart: 0, estimatedTimeAtStop: '' }]));
@@ -231,8 +277,29 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* ... (input fields same rahenge) ... */}
         <input type="text" placeholder="Route ID (e.g., bus-101)" value={id} onChange={(e) => setId(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-        <input type="text" placeholder="Route Name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
-        <input type="number" placeholder="Price (INR)" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+        <input type="text" placeholder="Route Name (e.g., Mumbai-Delhi Express, AC Sleeper)" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+        
+        {/* --- DYNAMIC PRICE INPUTS --- */}
+        <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
+          <h4 className="font-semibold text-gray-700">Pricing</h4>
+          {type === 'bus' && (
+            <input type="number" placeholder="Price (INR)" value={price.default || ''} onChange={(e) => handlePriceChange('default', e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+          )}
+          {type === 'train' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input type="number" placeholder="Sleeper Price" value={price.Sleeper || ''} onChange={(e) => handlePriceChange('Sleeper', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+              <input type="number" placeholder="AC Price" value={price.AC || ''} onChange={(e) => handlePriceChange('AC', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+              <input type="number" placeholder="First Class Price" value={price['First Class'] || ''} onChange={(e) => handlePriceChange('First Class', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+            </div>
+          )}
+          {type === 'air' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input type="number" placeholder="Economy Price" value={price.Economy || ''} onChange={(e) => handlePriceChange('Economy', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+              <input type="number" placeholder="Business Price" value={price.Business || ''} onChange={(e) => handlePriceChange('Business', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+            </div>
+          )}
+        </div>
+        {/* --- END DYNAMIC PRICE --- */}
         
         {/* --- Start Point (Patched JSX) --- */}
         <div className="relative">
@@ -282,8 +349,8 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
             <option value="train">Train</option>
             <option value="air">Air</option>
           </select>
-          <input type="text" placeholder="Operator (e.g., RedBus)" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         </div>
+        <input type="text" placeholder="Operator (e.g., RedBus)" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         {type === 'air' ? (
           <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
             <h4 className="font-semibold text-gray-700">Flight Details</h4>
