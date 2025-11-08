@@ -47,7 +47,7 @@ const TripViewPage = () => {
   const formatPrice = (price) => {
     const numPrice = Number(price);
     if (isNaN(numPrice)) {
-        return price;
+      return price;
     }
     return numPrice.toLocaleString('en-IN');
   };
@@ -96,14 +96,11 @@ const TripViewPage = () => {
 
           <div className="my-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Inclusions</h2>
-            <div className="grid md:grid-cols-2 gap-6">
+            <ul className="list-disc list-inside text-gray-600 space-y-2">
               {(trip.inclusions || []).map((item, index) => (
-                <div key={index}>
-                  <h3 className="font-bold text-gray-800">{item.category}</h3>
-                  <p className="text-gray-600">{item.description}</p>
-                </div>
+                <li key={index}>{item}</li>
               ))}
-            </div>
+            </ul>
           </div>
 
           <div className="my-8">
@@ -140,6 +137,7 @@ const TripViewPage = () => {
       </div>
       <Footer />
     </>
-  );};
+  );
+};
 
 export default TripViewPage;

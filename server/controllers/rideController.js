@@ -93,14 +93,14 @@ export const getRideQuote = async (req, res) => {
     }
 
     const route = osrmResponse.data.routes[0];
-    const distanceInKm = (route.distance / 1000).toFixed(2);
-    const durationInMin = (route.duration / 60).toFixed(0);
+    const distanceInKm = route.distance / 1000; // Keep as number for calculation
+    const durationInMin = Math.round(route.duration / 60);
     
     // Example pricing: ₹12 per km.
-    const price = (distanceInKm * 12).toFixed(0); 
+    const price = Math.round(distanceInKm * 12); 
 
     res.status(200).json({
-      distance: `${distanceInKm} km`,
+      distance: `${distanceInKm.toFixed(2)} km`, // Format for display here
       duration: `${durationInMin} min`,
       price: parseFloat(price)
     });

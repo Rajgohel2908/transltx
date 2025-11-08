@@ -17,12 +17,13 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
   const [features, setFeatures] = useState("");
-  const [itinerary, setItinerary] = useState("[]");
-  const [inclusions, setInclusions] = useState("[]");
+  const [itinerary, setItinerary] = useState("");
+  const [inclusions, setInclusions] = useState("");
   const [exclusions, setExclusions] = useState("");
-  const [whatToCarry, setWhatToCarry] = useState("");  
+  const [whatToCarry, setWhatToCarry] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [logistics, setLogistics] = useState('');
 
   useEffect(() => {
     if (editingTrip) {
@@ -43,6 +44,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setInclusions(JSON.stringify(editingTrip.inclusions || [], null, 2));
       setExclusions((editingTrip.exclusions || []).join(", "));
       setWhatToCarry((editingTrip.whatToCarry || []).join(", "));
+      setLogistics(JSON.stringify(editingTrip.logistics || {}, null, 2));
     } else {
       setName("");
       setDescription("");
@@ -56,10 +58,11 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setPrice("");
       setImage("");
       setFeatures("");
-      setItinerary("[]");
-      setInclusions("[]");
+      setItinerary("");
+      setInclusions("");
       setExclusions("");
       setWhatToCarry("");
+      setLogistics('');
     }
   }, [editingTrip]);
 
@@ -80,10 +83,11 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
         price: parseFloat(price),
         image,
         features: features.split(",").map((f) => f.trim()).filter(f => f),
-        itinerary: JSON.parse(itinerary),
-        inclusions: JSON.parse(inclusions),
+        itinerary: JSON.parse(itinerary || '[]'),
+        inclusions: JSON.parse(inclusions || '[]'),
         exclusions: exclusions.split(",").map(item => item.trim()).filter(item => item),
         whatToCarry: whatToCarry.split(",").map(item => item.trim()).filter(item => item),
+        logistics: JSON.parse(logistics || '{}'),
       };
       let response;
       setIsSubmitting(true);
@@ -130,10 +134,17 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
         <textarea placeholder="Long Description" value={longDescription} onChange={(e) => setLongDescription(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <input type="text" placeholder="Image URL" value={image} onChange={(e) => setImage(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="Features (comma-separated)" value={features} onChange={(e) => setFeatures(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-        <textarea placeholder="Itinerary (JSON format)" value={itinerary} onChange={(e) => setItinerary(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
-        <textarea placeholder="Inclusions (JSON format)" value={inclusions} onChange={(e) => setInclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
+        <textarea placeholder='Itinerary (JSON format): [{"day": "1", "title": "...", "description": "..."}]' value={itinerary} onChange={(e) => setItinerary(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
+        <textarea placeholder='Inclusions (JSON format): ["Accommodation", "Breakfast", "Guide"]' value={inclusions} onChange={(e) => setInclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <input type="text" placeholder="Exclusions (comma-separated)" value={exclusions} onChange={(e) => setExclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="What to Carry (comma-separated)" value={whatToCarry} onChange={(e) => setWhatToCarry(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+        <textarea 
+  placeholder='Logistics (JSON format): {"meetingPoint": "Surat Station", "reportingTime": "8:00 AM"}' 
+  value={logistics} 
+  onChange={(e) => setLogistics(e.target.value)} 
+  className="w-full p-3 border border-gray-300 rounded-lg" 
+  rows="4">
+</textarea>
 
         <div className="flex gap-4 pt-4">
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">{isSubmitting ? "Saving..." : (editingTrip ? "Save Changes" : "Create Trip")}</button>

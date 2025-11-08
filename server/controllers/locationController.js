@@ -11,25 +11,22 @@ export const getLocations = async (req, res) => {
       return res.status(200).json([]);
     }
 
+    // --- YEH HAI TERA "Starts-With" LOGIC ( ^ ) ---
     const regex = new RegExp("^" + searchQuery, "i");
 
-    // --- YEH HAI NAYA LOGIC ---
-    let queryFilter = { name: regex }; // Default search query
+    let queryFilter = { name: regex };
 
     if (requestedType) {
-      // Agar 'type' (bus/train/air) bheja hai, toh usko map karo
       let typeToSearch = "city"; // Default
       if (requestedType.toLowerCase() === "train") {
-        typeToSearch = "train_station"; // <-- "station" ko "train_station" kar diya
+        typeToSearch = "train_station"; // Yeh ab model se match karega
       } else if (requestedType.toLowerCase() === "air") {
         typeToSearch = "airport";
       }
-      queryFilter.type = typeToSearch; // Filter me 'type' add kar
+      queryFilter.type = typeToSearch;
     }
-    // Agar 'type' nahi bheja (jaise Admin form se), toh woh sab search karega.
-    // --- NAYA LOGIC KHATAM ---
 
-    const locations = await Location.find(queryFilter) // Naya filter use kar
+    const locations = await Location.find(queryFilter)
       .limit(15)
       .select("name");
 
@@ -46,7 +43,6 @@ export const getLocations = async (req, res) => {
 // @route   POST /api/locations
 export const addLocation = async (req, res) => {
   try {
-    // --- UPDATE: 'type' ko body se nikaal ---
     const { state, cities, type } = req.body; 
 
     if (!state || !cities || !type) {
@@ -66,17 +62,15 @@ export const addLocation = async (req, res) => {
       return res.status(400).json({ message: "No valid cities provided." });
     }
     
-    // --- UPDATE: 'type' ko database me save kar ---
     const operations = citiesArray.map(cityName => ({
       updateOne: {
-        filter: { name: cityName, state: state }, // Is city/state pair ko dhundo
-        update: { $set: { name: cityName, state: state, type: type } }, // 'type' ko set kar
+        filter: { name: cityName, state: state },
+        update: { $set: { name: cityName, state: state, type: type } }, 
         upsert: true 
       }
     }));
     
     const result = await Location.bulkWrite(operations);
-    // --- UPDATE KHATAM ---
 
     res.status(201).json({
       message: `Successfully processed ${citiesArray.length} cities for ${state}.`,

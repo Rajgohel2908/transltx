@@ -126,11 +126,7 @@ function MainLayout() {
           />
           <Route
             path="/contact"
-            element={
-              <PrivateRoute>
-                <Contact />
-              </PrivateRoute>
-            }
+            element={<Contact />}
           />
           <Route
             path="/my-trips"

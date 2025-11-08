@@ -190,12 +190,12 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     setStops(prev => prev.filter((_, i) => i !== index));
   };
   
-  // --- YEH HAI ASLI FIX ---
-  // Is function me 3 parameters hain: value, setSuggestions, setLoading
-  const searchHandler = (value, setSuggestions, setLoading) => {
+  // --- YEH HAI ASLI FIX 2 ---
+  // searchHandler ab 'type' bhi accept karega
+  const searchHandler = (value, searchType, setSuggestions, setLoading) => {
     if (value) {
-      // Admin form hamesha sab search karega (type=... nahi bhejenge)
-      api.get(`/api/locations?search=${value}`)
+      // API call me ab 'type' bhi jayega
+      api.get(`/api/locations?search=${value}&type=${searchType.toLowerCase()}`)
         .then(res => {
           setSuggestions(res.data || []);
         })
@@ -204,11 +204,11 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
           setSuggestions([]);
         })
         .finally(() => {
-          setLoading(false); // <-- YEH LOADING KO 'FALSE' KAREGA
+          setLoading(false); 
         });
     } else {
       setSuggestions([]);
-      setLoading(false); // <-- YEH BHI LOADING KO 'FALSE' KAREGA (jab input clear ho)
+      setLoading(false);
     }
   };
 
@@ -220,9 +220,9 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const handleStartPointChange = (e) => {
     const value = e.target.value;
     setStartPoint(value);
-    setLoadingSuggestions(true); // <-- Loading 'true' set kiya
-    // Aur 'setLoadingSuggestions' ko as a parameter pass kiya
-    debouncedSearch(value, setStartSuggestions, setLoadingSuggestions); 
+    setLoadingSuggestions(true);
+    // 'debouncedSearch' ko 'type' state (e.g., "bus", "train") pass kiya
+    debouncedSearch(value, type, setStartSuggestions, setLoadingSuggestions); 
   };
 
   const selectStartSuggestion = (city) => {
@@ -233,8 +233,9 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const handleEndPointChange = (e) => {
     const value = e.target.value;
     setEndPoint(value);
-    setLoadingSuggestions(true); // <-- Loading 'true' set kiya
-    debouncedSearch(value, setEndSuggestions, setLoadingSuggestions);
+    setLoadingSuggestions(true); 
+    // Yahaan bhi 'type' pass kiya
+    debouncedSearch(value, type, setEndSuggestions, setLoadingSuggestions);
   };
 
   const selectEndSuggestion = (city) => {
@@ -246,9 +247,9 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     setStops(prev => prev.map((s, i) => i === index ? { ...s, [field]: field === 'priceFromStart' ? Number(value) : value } : s));
     
     if (field === 'stopName') {
-      setLoadingSuggestions(true); // <-- Loading 'true' set kiya
-      debouncedSearch(value, (suggestions) => {
-        // Stop ka 'setter' function thoda alag hai
+      setLoadingSuggestions(true);
+      // Aur yahaan bhi 'type' pass kiya
+      debouncedSearch(value, type, (suggestions) => {
         setStopSuggestions(prev => ({ ...prev, [index]: suggestions }));
       }, setLoadingSuggestions);
     }

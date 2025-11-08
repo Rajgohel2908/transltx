@@ -13,7 +13,8 @@ const locationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["city", "station", "airport"],
+    // --- YEH HAI FIX: "station" ko "train_station" kar diya ---
+    enum: ["city", "train_station", "airport"],
     required: true,
   },
 });

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
-import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin } from 'lucide-react';
+import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin, Search } from 'lucide-react';
 import { api } from '../utils/api.js';
 import { debounce } from 'lodash';
 
@@ -19,23 +19,24 @@ const Booking = () => {
   const [searchError, setSearchError] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState(null);
-
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [departureDate, setDepartureDate] = useState('');
+  const [returnDate, setReturnDate] = useState('');
   
-  // --- 'classType' KO SAHI DEFAULT DE ---
-  const [classType, setClassType] = useState('Sleeper'); // Default for Train
+  const [classType, setClassType] = useState(initialTab === 'Train' ? 'Sleeper' : 'Economy'); 
   
-  // --- YEH NAYA 'useEffect' ADD KAR (jab tab change ho toh class reset ho) ---
   useEffect(() => {
+    // Jab bhi tab change ho, URL update kar aur class reset kar
+    navigate(`/booking/${activeTab.toLowerCase()}`, { replace: true });
     if (activeTab === 'Train') {
       setClassType('Sleeper');
     } else if (activeTab === 'Air') {
       setClassType('Economy');
+    } else {
+      setClassType(''); // Bus ke liye koi class nahi
     }
-  }, [activeTab]);
-  // --- END ---
+  }, [activeTab, navigate]);
   
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
@@ -97,7 +98,7 @@ const Booking = () => {
         from,
         to,
         departureDate,
-        class: classType, // Pass class to results page
+        class: classType,
       } 
     });
   };
@@ -151,6 +152,15 @@ const Booking = () => {
     setToSuggestions([]);
   };
 
+  // --- YEH HAI TERA SWAP BUTTON KA FIX (Task 4) ---
+  const handleSwap = () => {
+    setFrom(to);
+    setTo(from);
+    setFromSuggestions([]);
+    setToSuggestions([]);
+  };
+  // --- FIX KHATAM ---
+
   const PassengerInput = ({ label, count, onIncrement, onDecrement }) => (
     <div className="flex justify-between items-center py-2">
       <span className="text-gray-700">{label}</span>
@@ -166,34 +176,36 @@ const Booking = () => {
     </div>
   );
 
+  const totalPassengers = passengers.adults + passengers.children + passengers.infants;
+
   return (
     <>
-      <div className="bg-gradient-to-b from-white to-slate-100 min-h-screen">
+      <div className="bg-gray-50 min-h-screen">
         <main className="max-w-6xl mx-auto px-4 py-12">
-          {/* ... Find My Booking ... */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 mb-8">
+          {/* PNR Search Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Find My Booking</h2>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <input 
                 type="text" 
-                placeholder="Enter your PNR" 
+                placeholder="Enter your PNR or Booking ID" 
                 value={pnr}
                 onChange={e => setPnr(e.target.value)}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
-              <button onClick={handlePnrSearch} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">
-                Search
+              <button onClick={handlePnrSearch} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0">
+                <Search size={20} className="sm:hidden" />
+                <span className="hidden sm:inline">Search</span>
               </button>
             </div>
             {searchError && <p className="text-red-500 mt-2">{searchError}</p>}
             {foundBooking && (
-              <div className="mt-6 p-4 border border-gray-200 rounded-lg">
-                <h3 className="text-xl font-bold">Booking Details</h3>
+              <div className="mt-6 p-4 border border-green-200 bg-green-50 rounded-lg">
+                <h3 className="text-xl font-bold text-green-800">Booking Found</h3>
                 <p><strong>PNR:</strong> {foundBooking.pnrNumber}</p>
-                <p><strong>From:</strong> {foundBooking.from}</p>
-                <p><strong>To:</strong> {foundBooking.to}</p>
-                <p><strong>Departure:</strong> {foundBooking.departure}</p>
-                <p><strong>Status:</strong> {foundBooking.bookingStatus}</p>
+                <p><strong>Route:</strong> {foundBooking.from} <ArrowRight className="inline h-4 w-4" /> {foundBooking.to}</p>
+                <p><strong>Departure:</strong> {new Date(foundBooking.departure).toLocaleString()}</p>
+                <p><strong>Status:</strong> <span className="font-semibold text-green-700">{foundBooking.bookingStatus}</span></p>
                 <button 
                   className="mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors"
                   onClick={() => {
@@ -207,8 +219,9 @@ const Booking = () => {
             )}
           </div>
           
+          {/* Main Booking Section */}
           <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-            {/* ... Tabs ... */}
+            {/* Tabs */}
             <div className="flex border-b mb-6">
               {['Bus', 'Train', 'Air'].map(tab => (
                 <button
@@ -225,30 +238,18 @@ const Booking = () => {
             </div>
 
             {/* Search Form */}
-            <form onSubmit={handleSearch}>
-              {/* ... Trip type radio ... */}
-              {activeTab !== 'Bus' && (
-                <div className="flex gap-4 mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="tripType" value="one-way" checked={tripType === 'one-way'} onChange={() => setTripType('one-way')} className="form-radio text-blue-600" />
-                    One-way
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="tripType" value="round-trip" checked={tripType === 'round-trip'} onChange={() => setTripType('round-trip')} className="form-radio text-blue-600" />
-                    Round-trip
-                  </label>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 items-end">
-                {/* --- From field (FIXED) --- */}
-                <div className="lg:col-span-3 relative">
+            <form onSubmit={handleSearch} className="space-y-6">
+              
+              {/* Row 1: From/To */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                
+                {/* From */}
+                <div className="md:col-span-2 relative">
                   <label htmlFor="from" className="block text-sm font-medium text-gray-700 mb-1">From</label>
                   <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
                   <input type="text" id="from" placeholder="Source City" value={from} onChange={handleFromChange} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required autoComplete="off" />
-                  {/* --- YEH HAI ASLI LOGIC --- */}
                   {from && (
-                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                    <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                       {isFromLoading ? (
                         <li className="p-2 text-gray-500">Loading...</li>
                       ) : fromSuggestions.length > 0 ? (
@@ -262,24 +263,22 @@ const Booking = () => {
                       )}
                     </ul>
                   )}
-                  {/* --- LOGIC KHATAM --- */}
                 </div>
 
-                {/* ... Swap Button ... */}
-                <div className="hidden lg:flex justify-center items-center lg:col-span-1">
-                  <button type="button" className="p-2 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors">
+                {/* Swap Button */}
+                <div className="flex justify-center items-end h-full">
+                  <button type="button" onClick={handleSwap} className="p-3 mt-6 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors">
                     <ArrowLeftRight size={20} />
                   </button>
                 </div>
 
-                {/* --- To field (FIXED) --- */}
-                <div className="lg:col-span-3 relative">
+                {/* To */}
+                <div className="md:col-span-2 relative">
                   <label htmlFor="to" className="block text-sm font-medium text-gray-700 mb-1">To</label>
                   <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
                   <input type="text" id="to" placeholder="Destination City" value={to} onChange={handleToChange} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required autoComplete="off" />
-                  {/* --- YEH HAI ASLI LOGIC --- */}
                   {to && (
-                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                    <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                       {isToLoading ? (
                         <li className="p-2 text-gray-500">Loading...</li>
                       ) : toSuggestions.length > 0 ? (
@@ -293,12 +292,12 @@ const Booking = () => {
                       )}
                     </ul>
                   )}
-                  {/* --- LOGIC KHATAM --- */}
                 </div>
-                
-                {/* ... Dates ... */}
-                <div className="flex gap-4 lg:col-span-5">
-                  <div className="w-full relative">
+              </div>
+
+              {/* Row 2: Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="md:col-span-2 relative">
                     <label htmlFor="departure" className="block text-sm font-medium text-gray-700 mb-1">Departure</label>
                     <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
                     <input 
@@ -311,31 +310,32 @@ const Booking = () => {
                       min={todayString}
                     />
                   </div>
-                  {activeTab !== 'Bus' && (
-                    <div className={`w-full relative transition-opacity duration-300 ${tripType === 'one-way' ? 'opacity-50' : 'opacity-100'}`}>
+                  
+                <div className="md:col-span-1"></div>
+
+                <div className={`md:col-span-2 relative transition-opacity duration-300 ${tripType === 'one-way' ? 'opacity-50' : 'opacity-100'}`}>
                       <label htmlFor="return" className="block text-sm font-medium text-gray-700 mb-1">Return</label>
                       <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-                      <input type="date" id="return" className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
+                  <input 
+                    type="date" 
+                    id="return" 
+                    value={returnDate}
+                    onChange={e => setReturnDate(e.target.value)}
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
                         disabled={tripType === 'one-way'} 
-                        min={departureDate || todayString} />
-                    </div>
-                  )}
+                    min={departureDate || todayString} 
+                  />
                 </div>
-
-                <button type="submit" className="lg:hidden w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                  Search
-                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 mt-6">
-                {/* ... Passengers ... */}
-                <div className="relative lg:col-span-5">
+              {/* Row 3: Passengers & Class */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                {/* Passengers */}
+                <div className="relative md:col-span-2">
                   <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
                   <button type="button" onClick={() => setShowPassengerDropdown(!showPassengerDropdown)} className="w-full text-left p-3 border border-gray-300 rounded-lg bg-white flex justify-between items-center">
                     <span>
-                      {passengers.adults} Adult{passengers.adults > 1 ? 's' : ''}
-                      {passengers.children > 0 && `, ${passengers.children} Child`}
-                      {passengers.infants > 0 && `, ${passengers.infants} Infant`}
+                      {totalPassengers} Traveler{totalPassengers > 1 ? 's' : ''}
                     </span>
                     <Users size={20} className="text-gray-500" />
                   </button>
@@ -364,10 +364,9 @@ const Booking = () => {
                   )}
                 </div>
 
-                {/* ... Class ... */}
-                {/* --- 'activeTab !== 'Bus'' WALA CONDITION HATA --- */}
+                {/* Class */}
                 {activeTab !== 'Bus' && (
-                  <div className="lg:col-span-4">
+                  <div className="md:col-span-2">
                     <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
                     <select 
                       id="class" 
