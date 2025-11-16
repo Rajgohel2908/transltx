@@ -1,64 +1,52 @@
 import React, { useContext, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { User, Mail, Phone, Calendar, GitCompareArrows } from 'lucide-react'; // <-- Naye icons
+import { User, Mail, Phone, Calendar, GitCompareArrows, Plane, Bus, Train } from 'lucide-react'; 
 import Footer from '../components/Footer';
 import { DataContext } from '../context/Context';
 import { handlePayment } from '../utils/cashfree';
 import axios from 'axios';
 import TripPassengerForm from './TripPassengerForm';
 
-// --- Naya InputField component (Reuse logic) ---
 const InputField = ({ icon, id, placeholder, value, onChange, type = "text", required = false }) => (
   <div className="relative">
     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">{icon}</span>
     <input
-      type={type}
-      id={id}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
+      type={type} id={id} value={value} onChange={onChange} placeholder={placeholder}
       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
       required={required}
     />
   </div>
 );
-
-// --- Naya SelectField component (Reuse logic) ---
 const SelectField = ({ icon, id, value, onChange, children }) => (
     <div className="relative">
       <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">{icon}</span>
       <select
-        id={id}
-        value={value}
-        onChange={onChange}
+        id={id} value={value} onChange={onChange}
         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow appearance-none"
       >
         {children}
       </select>
     </div>
   );
-// --- End Naye components ---
-
 
 const PassengerDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { mode } = useParams();
   const { user } = useContext(DataContext);
-  const { selectedTicket, searchType } = location.state || {};
+  
+  const { selectedTicket, searchType, departureDate, classType } = location.state || {};
 
-  // If this booking flow is for a Trip (from MyTrips -> TripView)
   if (String(searchType || '').toLowerCase() === 'trips') {
     return <TripPassengerForm selectedTicket={selectedTicket} />;
   }
 
-  // State for form inputs
   const [fullName, setFullName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('Male');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false); // <-- State for loading
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
   if (!selectedTicket) {
     return (
@@ -73,24 +61,32 @@ const PassengerDetails = () => {
 
   const handleProceedToPayment = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true); // <-- Start loading
+    setIsSubmitting(true); 
+    
+    const departureDateTime = new Date(`${departureDate}T${selectedTicket.startTime}`);
+    const arrivalDateTime = new Date(`${departureDate}T${selectedTicket.estimatedArrivalTime}`);
+    if (arrivalDateTime < departureDateTime) {
+        arrivalDateTime.setDate(arrivalDateTime.getDate() + 1);
+    }
     
     const onPaymentSuccess = async (paymentResult) => {
       try {
         const bookingPayload = { 
           userId: user._id,
           bookingType: searchType,
+          routeId: selectedTicket._id, 
+          classType: classType || 'default', 
+          departureDateTime: departureDateTime, 
+          arrivalDateTime: arrivalDateTime, 
           service: selectedTicket.name,
-          serviceLogo: selectedTicket.image || selectedTicket.airline, // Fallback
+          serviceLogo: selectedTicket.image || selectedTicket.airline,
           from: selectedTicket.startPoint || selectedTicket.from,
           to: selectedTicket.endPoint || selectedTicket.to,
-          departure: selectedTicket.startTime || selectedTicket.departureTime,
-          arrival: selectedTicket.estimatedArrivalTime || selectedTicket.arrivalTime,
           duration: selectedTicket.duration,
           passengers: [{ fullName, age, gender }],
           contactEmail: email,
           contactPhone: phone,
-          fare: priceToPay, // Use the calculated price
+          fare: priceToPay, 
           paymentId: paymentResult.cf_payment_id || paymentResult.payment_id,
           orderId: paymentResult.order_id,
           paymentStatus: 'SUCCESS',
@@ -106,7 +102,7 @@ const PassengerDetails = () => {
 
         navigate(`/booking/${mode}/confirmation`, { 
           state: { 
-            selectedTicket: { ...selectedTicket, price: priceToPay }, // Pass the price that was paid
+            selectedTicket: { ...selectedTicket, price: priceToPay }, 
             passengerData: { name: fullName, email, phone }, 
             bookingId: newBooking.pnrNumber,
             searchType 
@@ -115,23 +111,23 @@ const PassengerDetails = () => {
       } catch (error) {
         console.error('Failed to save booking:', error);
         alert('Payment was successful, but we failed to save your booking. Please contact support.');
-        setIsSubmitting(false); // Stop loading on error
+        setIsSubmitting(false); 
       }
     };
 
     try {
         await handlePayment({
-          item: { ...selectedTicket, price: priceToPay }, // Ensure correct price is sent
+          item: { ...selectedTicket, price: priceToPay },
           user: user,
           onPaymentSuccess: onPaymentSuccess
         });
     } catch (err) {
         console.error("Payment initiation failed:", err);
         alert("Payment initiation failed. Please try again.");
-        setIsSubmitting(false); // Stop loading on payment initiation error
+        setIsSubmitting(false); 
     }
   };
-
+  
   const TicketSummary = () => (
     <div className="bg-white rounded-xl shadow-lg p-6 sticky top-24">
       <h3 className="text-xl font-bold mb-4">Your Selection</h3>
@@ -166,8 +162,8 @@ const PassengerDetails = () => {
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-lg p-8">
                 
+                {/* --- YEH RAHA TERA FORM (POORA WAPAS) --- */}
                 <form onSubmit={handleProceedToPayment} className="space-y-6">
-
                   {/* --- SECTION 1: PASSENGER --- */}
                   <h2 className="text-2xl font-bold mb-6 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">1</span> Add Passenger Information</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -236,6 +232,7 @@ const PassengerDetails = () => {
                     {isSubmitting ? 'Processing...' : `Proceed to Pay ₹${priceToPay.toLocaleString()}`}
                   </button>
                 </form>
+                {/* --- END FORM --- */}
 
               </div>
             </div>

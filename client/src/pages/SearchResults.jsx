@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Filter, Plane, Bus, Train, ChevronDown, Wind, Wifi, Utensils, Users, Calendar } from 'lucide-react'; // <-- Calendar icon add kiya
+import { ArrowRight, Filter, Plane, Bus, Train, ChevronDown, Wind, Wifi, Utensils, Users, Calendar } from 'lucide-react'; 
 import Footer from '../components/Footer';
 import axios from 'axios';
 
-// --- NAYA COMPONENT (FEATURE REQUEST) ---
 const ScheduleDisplay = ({ scheduleType, daysOfWeek = [], specificDate }) => {
+  // ... (Poora ScheduleDisplay component jaisa tha waisa hi rakho) ...
   const weekInitials = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const dayStringMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
-  
   let activeDays = new Set();
-
   if (scheduleType === 'daily') {
     activeDays = new Set([0, 1, 2, 3, 4, 5, 6]);
   } else if (scheduleType === 'weekly' && Array.isArray(daysOfWeek)) {
@@ -22,17 +20,10 @@ const ScheduleDisplay = ({ scheduleType, daysOfWeek = [], specificDate }) => {
   } else if (scheduleType === 'specific_date' && specificDate) {
     try {
       const date = new Date(specificDate);
-      activeDays.add(date.getUTCDay()); // Use getUTCDay for consistency
-    } catch (e) {
-      console.error("Invalid specificDate for ScheduleDisplay", e);
-    }
+      activeDays.add(date.getUTCDay());
+    } catch (e) { console.error("Invalid specificDate", e); }
   }
-
-  if (activeDays.size === 0 && scheduleType !== 'specific_date') {
-    // Hide if no schedule info
-    return null;
-  }
-  
+  if (activeDays.size === 0 && scheduleType !== 'specific_date') return null;
   if (scheduleType === 'specific_date' && activeDays.size === 0) {
      return (
         <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -41,7 +32,6 @@ const ScheduleDisplay = ({ scheduleType, daysOfWeek = [], specificDate }) => {
         </div>
      );
   }
-
   return (
     <div className="flex space-x-1.5" aria-label="Weekly schedule">
       {weekInitials.map((initial, index) => (
@@ -55,7 +45,6 @@ const ScheduleDisplay = ({ scheduleType, daysOfWeek = [], specificDate }) => {
     </div>
   );
 };
-// --- END NAYA COMPONENT ---
 
 
 const SearchResults = () => {
@@ -90,7 +79,6 @@ const SearchResults = () => {
         setLoading(false);
       }
     };
-
     if (searchType && from && to && departureDate) {
       fetchResults();
     } else {
@@ -99,28 +87,33 @@ const SearchResults = () => {
     }
   }, [searchType, from, to, departureDate, classType]);
 
+
   const handleBookNow = (result) => {
     const { priceToShow } = getDisplayData(result, classType);
     
     const ticketToBook = {
       ...result,
-      price: priceToShow, // Override price with the selected class price
+      price: priceToShow, 
     };
 
-    navigate(`/booking/${mode}/passenger-details`, { state: { selectedTicket: ticketToBook, searchType: mode } });
+    navigate(`/booking/${mode}/passenger-details`, { 
+      state: { 
+        selectedTicket: ticketToBook, 
+        searchType: mode,
+        departureDate: departureDate, // <-- Naya logic
+        classType: classType || 'default' // <-- Naya logic
+      } 
+    });
   };
 
   const classTypeToPriceKey = {
-    // Train
     "Sleeper": "Sleeper",
     "AC 3 Tier": "AC",
     "AC 2 Tier": "AC",
     "First Class": "First Class",
     "AC Chair car": "AC",
-    // Air
     "Economy": "Economy",
     "Business": "Business",
-    // Default
     "default": "default"
   };
 
@@ -146,7 +139,8 @@ const SearchResults = () => {
       }
     }
     
-    const seatsData = result.totalSeats;
+    // Naya logic: 'availableSeats' use kar
+    const seatsData = result.availableSeats || result.totalSeats;
     let seatsLabel = 'Total Seats';
 
     if (typeof seatsData === 'number') { 
@@ -154,13 +148,13 @@ const SearchResults = () => {
     } else if (typeof seatsData === 'object' && seatsData !== null) {
       if (isBus && seatsData.default) {
         seats = seatsData.default;
-        seatsLabel = 'Total Seats';
+        seatsLabel = 'Available Seats';
       } else if (seatsData[mappedKey]) { 
         seats = seatsData[mappedKey];
         seatsLabel = `${classType} Seats`; 
       } else if (seatsData.default) { 
         seats = seatsData.default;
-        seatsLabel = 'Total Seats';
+        seatsLabel = 'Available Seats';
       } else if (!isBus) {
         seats = Object.values(seatsData).reduce((acc, val) => acc + (Number(val) || 0), 0);
         seatsLabel = 'Total Seats';
@@ -168,6 +162,8 @@ const SearchResults = () => {
         seats = 'N/A';
       }
     }
+    
+    if (Number(seats) <= 0) seats = 'N/A';
 
     return {
       priceToShow: price,
@@ -181,10 +177,59 @@ const SearchResults = () => {
     const isExpanded = expandedCard === result._id;
     const { priceToShow, seatsToShow, seatsLabel } = getDisplayData(result, classType);
 
+    if (seatsToShow === 'N/A') {
+        return (
+             <div className="bg-white rounded-xl shadow-md transition-shadow opacity-50">
+                <div className="pt-4 px-6 flex justify-center">
+                  <ScheduleDisplay 
+                    scheduleType={result.scheduleType}
+                    daysOfWeek={result.daysOfWeek}
+                    specificDate={result.specificDate}
+                  />
+                </div>
+                <div className="px-6 pb-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex items-start gap-4 w-full sm:w-1/4">
+                        <div className="h-12 w-12 rounded-md flex items-center justify-center flex-shrink-0 bg-gray-200">
+                          {result.type === 'air' && <Plane className="text-gray-500" />}
+                          {result.type === 'bus' && <Bus className="text-gray-500" />}
+                          {result.type === 'train' && <Train className="text-gray-500" />}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <p className="font-bold text-lg text-gray-500">{result.airline || result.name}</p>
+                          <p className="text-sm text-gray-400">{result.flightNumber || result.id}</p>
+                        </div>
+                    </div>
+                     <div className="flex items-center justify-between w-full sm:w-2/4">
+                        <div className="text-center">
+                          <p className="text-xl font-semibold text-gray-400">{result.startTime || 'N/A'}</p>
+                          <p className="text-gray-500">{result.startPoint || 'Source'}</p>
+                        </div>
+                        <div className="text-center px-4">
+                           <div className="w-full h-px bg-gray-200 my-1 relative"></div>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xl font-semibold text-gray-400">{result.estimatedArrivalTime || 'N/A'}</p>
+                          <p className="text-gray-500">{result.endPoint || 'Destination'}</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 w-full sm:w-auto sm:w-1/4">
+                        <p className="text-2xl font-bold text-gray-500">{priceToShow !== 'N/A' ? `₹${Number(priceToShow).toLocaleString()}` : 'Fare N/A'}</p>
+                        <p className="text-sm font-semibold text-red-500 flex items-center gap-1">
+                          <Users size={14} />
+                          Not Available
+                        </p>
+                        <button disabled className="bg-gray-200 text-gray-500 font-semibold py-2 px-6 rounded-lg w-full sm:w-auto cursor-not-allowed">
+                          Book Now
+                        </button>
+                    </div>
+                </div>
+             </div>
+        );
+    }
+
     return (
       <div className="bg-white rounded-xl shadow-md transition-shadow hover:shadow-lg">
         
-        {/* --- YEH HAI NAYI LOCATION --- */}
         <div className="pt-4 px-6 flex justify-center">
           <ScheduleDisplay 
             scheduleType={result.scheduleType}
@@ -192,26 +237,20 @@ const SearchResults = () => {
             specificDate={result.specificDate}
           />
         </div>
-        {/* --- END NAYI LOCATION --- */}
         
-        {/* --- Padding change: p-6 se px-6 pb-6 pt-4 --- */}
         <div className="px-6 pb-6 pt-4 flex flex-col sm:flex-row items-start justify-between gap-6">
-          
-          {/* Left Column */}
           <div className="flex items-start gap-4 w-full sm:w-1/4">
             <div className="h-12 w-12 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: result.color || '#3B82F6' }}>
               {result.type === 'air' && <Plane className="text-white" />}
               {result.type === 'bus' && <Bus className="text-white" />}
               {result.type === 'train' && <Train className="text-white" />}
             </div>
-            <div className="flex flex-col gap-1"> {/* Gap kam kiya */}
+            <div className="flex flex-col gap-1">
               <p className="font-bold text-lg">{result.airline || result.name}</p>
               <p className="text-sm text-gray-500">{result.flightNumber || result.id}</p>
-              {/* --- ScheduleDisplay yahan se HATA diya --- */}
             </div>
           </div>
           
-          {/* Middle Column */}
           <div className="flex items-center justify-between w-full sm:w-2/4">
             <div className="text-center">
               <p className="text-xl font-semibold">{result.startTime || 'N/A'}</p>
@@ -229,7 +268,6 @@ const SearchResults = () => {
             </div>
           </div>
           
-          {/* Right Column */}
           <div className="flex flex-col items-end gap-2 w-full sm:w-auto sm:w-1/4">
             <p className="text-2xl font-bold text-gray-800">{priceToShow !== 'N/A' ? `₹${Number(priceToShow).toLocaleString()}` : 'Fare N/A'}</p>
             <p className="text-sm font-semibold text-green-600 flex items-center gap-1">
@@ -242,14 +280,12 @@ const SearchResults = () => {
           </div>
         </div>
 
-        {/* Details Toggle */}
         <div className="border-t border-gray-200 px-6 py-2 flex justify-end">
           <button onClick={() => setExpandedCard(isExpanded ? null : result._id)} className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
             View Details <ChevronDown className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} size={16} />
           </button>
         </div>
         
-        {/* Expanded View */}
         {isExpanded && (
           <div className="border-t bg-gray-50 p-6">
             <h4 className="font-bold mb-2">Details & Amenities</h4>
@@ -282,6 +318,7 @@ const SearchResults = () => {
     );
   };
 
+  // --- FILTER PANEL (POORA CODE WAPAS) ---
   const FilterPanel = () => (
     <div className="bg-white rounded-xl shadow-md p-6">
       <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Filter size={20} /> Filters</h3>
@@ -328,10 +365,12 @@ const SearchResults = () => {
       </div>
     </div>
   );
+  // --- END FILTER PANEL ---
 
+  // --- LOADING SKELETON (POORA CODE WAPAS) ---
   const LoadingSkeleton = () => (
     <div className="bg-white rounded-xl shadow-md p-6 animate-pulse">
-      <div className="h-5 bg-gray-200 rounded w-1/3 mx-auto mb-4"></div> {/* Placeholder for schedule */}
+      <div className="h-5 bg-gray-200 rounded w-1/3 mx-auto mb-4"></div>
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4 w-full sm:w-1/3">
           <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
@@ -358,6 +397,7 @@ const SearchResults = () => {
       </div>
     </div>
   );
+  // --- END LOADING SKELETON ---
 
   return (
     <>

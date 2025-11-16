@@ -1,43 +1,59 @@
 import mongoose from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 
 const passengerSchema = new mongoose.Schema({
   fullName: { type: String, required: true },
-  age: { type: Number, required: true },
+  age: { type: String, required: true },
   gender: { type: String, required: true },
 }, { _id: false });
 
 const bookingSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  pnrNumber: { type: String, unique: true },
-  bookingType: { type: String, enum: ['Bus', 'Train', 'Air', 'Parcel'], required: true },
-  bookingStatus: { type: String, enum: ['Confirmed', 'Pending', 'Cancelled'], default: 'Confirmed' },
+  bookingType: { type: String, required: true, enum: ['Bus', 'Train', 'Air', 'Ride', 'Trips'] },
   
-  service: { type: String, required: true },
+  // --- YEH HAI NAYA DATA ---
+  routeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' }, // Route se direct link
+  classType: { type: String, default: 'default' }, // e.g., 'Sleeper', 'Economy'
+  departureDateTime: { type: Date }, // Poori date + time
+  arrivalDateTime: { type: Date }, // Poori date + time
+  // -------------------------
+
+  // --- YEH PURANA DATA MODIFY KIYA ---
+  service: { type: String, required: true }, // Bus/Train/Flight/Trip name
   serviceLogo: { type: String },
   from: { type: String, required: true },
   to: { type: String, required: true },
-  departure: { type: String, required: true },
-  arrival: { type: String, required: true },
   duration: { type: String },
-
-  passengers: [passengerSchema],
+  // 'departure' aur 'arrival' ko 'departureDateTime' / 'arrivalDateTime' se replace kar diya
+  
+  passengers: { type: [passengerSchema], required: true },
   contactEmail: { type: String, required: true },
   contactPhone: { type: String, required: true },
-
+  
   fare: { type: Number, required: true },
+  pnrNumber: { type: String, unique: true, required: true },
   paymentId: { type: String },
   orderId: { type: String },
-  paymentStatus: { type: String },
+  paymentStatus: { type: String, default: 'Pending' },
+  bookingStatus: { type: String, default: 'Pending', enum: ['Pending', 'Confirmed', 'Cancelled'] },
+
 }, { timestamps: true });
 
-// Middleware to generate a PNR before saving
-bookingSchema.pre('save', function(next) {
-  if (!this.pnrNumber) {
-    // Generate a simple, unique PNR, e.g., "TRN-" + 6 random alphanumeric chars
-    this.pnrNumber = `TRN-${uuidv4().slice(0, 6).toUpperCase()}`;
+// PNR generator (yeh pehle jaisa hi hai)
+bookingSchema.pre('save', async function (next) {
+  if (this.isNew) {
+    let pnr = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    do {
+      pnr = '';
+      for (let i = 0; i < 6; i++) {
+        pnr += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      pnr = `${this.bookingType.slice(0, 1)}${pnr}`;
+    } while (await mongoose.models.Booking.findOne({ pnrNumber: pnr }));
+    this.pnrNumber = pnr;
   }
   next();
 });
 
-export default mongoose.model('Booking', bookingSchema);
+const Booking = mongoose.model('Booking', bookingSchema);
+export default Booking;

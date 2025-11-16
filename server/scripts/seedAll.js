@@ -1,53 +1,95 @@
+// server/scripts/seedAll.js
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
-import Route from '../models/route.js';
-import Trip from '../models/trip.js';
-import Ride from '../models/ride.js';
-import User from '../models/userModel.js';
+import { faker } from '@faker-js/faker'; // <-- Yeh hai tera 'जादू'
 
-dotenv.config();
+// Apne Models import kar
+import Trip from '../models/trip.js';
+import Route from '../models/route.js';
+import Parking from '../models/parking.js';
+
+dotenv.config({ path: './server/.env' });
 const DB = process.env.MONGODB_URL;
 
-const hardcodedRoutes = [];
-
-async function loadRoutesFromFiles() {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-  const routeDataPromises = files
-    .filter(file =>
-      (file.startsWith('seed') && (file.endsWith('Cities.js') || file.endsWith('Islands.js'))) &&
-      file !== 'seedAll.js'
-    )
-    .map(async (file) => {
-      const modulePath = path.join(__dirname, file);
-      const module = await import(pathToFileURL(modulePath).href);
-      return module.routeData;
-    });
-
-  const routesFromFiles = await Promise.all(routeDataPromises);
-  return routesFromFiles;
-}
-
-
-const trips = [];
-
-async function run() {
+const seedDB = async () => {
   if (!DB) {
-    console.error('MONGODB_URL not set in .env');
+    console.error('MONGODB_URL not found in .env');
     process.exit(1);
   }
 
-  await mongoose.connect(DB, {});
+  try {
+    await mongoose.connect(DB, {});
+    console.log('DB Connection successful. FAKE data generation chalu...');
 
-  console.log('Seeding script is clean. No data was seeded.');
-  await mongoose.disconnect();
-}
+    // 1. Sab kuch saaf kar
+    await Trip.deleteMany({});
+    await Route.deleteMany({});
+    await Parking.deleteMany({});
+    console.log('Purana data delete ho gaya...');
 
-run().catch(async err => {
-  console.error('Seed error:', err);
-  await mongoose.disconnect();
-  process.exit(1);
-});
+    // 2. Naye FAKE Trips bana (Maan le 50)
+    const tripsArray = [];
+    for (let i = 0; i < 50; i++) {
+      const newTrip = {
+        name: `${faker.location.city()} Adventure`,
+        description: faker.lorem.sentence(),
+        longDescription: faker.lorem.paragraphs(3),
+        type: faker.helpers.arrayElement(['Bus', 'Train', 'Air']),
+        from: faker.location.city(),
+        to: faker.location.city(),
+        departureTime: faker.date.future().toLocaleTimeString(),
+        arrivalTime: faker.date.future().toLocaleTimeString(),
+        duration: `${faker.number.int({ min: 2, max: 10 })} Days`,
+        price: faker.number.int({ min: 5000, max: 50000 }),
+        image: faker.image.urlLoremFlickr({ category: 'nature' }),
+        features: faker.helpers.arrayElements(['Free WiFi', 'Meals', 'Guide', 'Sightseeing'], { min: 1, max: 3 }),
+        itinerary: [
+          { day: "1", title: "Arrival", description: faker.lorem.sentence() },
+          { day: "2", title: "Exploring", description: faker.lorem.sentence() }
+        ],
+        logistics: {
+            meetingPoint: faker.location.streetAddress(),
+            reportingTime: "08:00 AM"
+        }
+      };
+      tripsArray.push(newTrip);
+    }
+    await Trip.insertMany(tripsArray);
+    console.log('50 FAKE Trips database mein daal diye!');
+
+    // 3. Naye FAKE Routes bana (Maan le 1000)
+    const routesArray = [];
+    for (let i = 0; i < 1000; i++) {
+      const type = faker.helpers.arrayElement(['bus', 'train', 'air']);
+      const newRoute = {
+        id: `${type.toUpperCase()}-${faker.string.alphanumeric(5)}`,
+        name: `${faker.location.city()} to ${faker.location.city()} Express`,
+        type: type,
+        operator: faker.company.name(),
+        amenities: faker.helpers.arrayElements(['WiFi', 'AC', 'Charging Point'], { min: 1, max: 2 }),
+        estimatedArrivalTime: faker.date.future().toLocaleTimeString(),
+        startPoint: faker.location.city(),
+        endPoint: faker.location.city(),
+        scheduleType: 'daily',
+        startTime: '09:00',
+        totalSeats: { default: faker.number.int({ min: 40, max: 100 }) },
+        price: { default: faker.number.int({ min: 500, max: 3000 }) }
+      };
+      routesArray.push(newRoute);
+    }
+    await Route.insertMany(routesArray);
+    console.log('1000 FAKE Routes database mein daal diye!');
+    
+    // ... Aise hi Parking ke liye bhi kar sakta hai ...
+
+    console.log('--- FAKE Database Seeding Complete! ---');
+
+  } catch (error) {
+    console.error('Error seeding database:', error.message);
+  } finally {
+    await mongoose.disconnect();
+    console.log('DB Disconnected.');
+  }
+};
+
+seedDB();
