@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-const PAYMENT_API_URL = `${VITE_BACKEND_BASE_URL}/payment`;
+const PAYMENT_API_URL = `${VITE_BACKEND_BASE_URL}/payment`; // Path: /api/payment
 
 let cashfree;
 
@@ -41,15 +41,23 @@ export const handlePayment = async ({ item, user, onPaymentSuccess }) => {
       itemId: item._id || `parcel_${Date.now()}`
     };
 
+    // --- STEP 1: Server ko call kar ---
     const response = await axios.post(`${PAYMENT_API_URL}/create-order`, orderDetails);
     const { payment_session_id } = response.data;
 
+    // --- STEP 2: Popup khol ---
     cashfreeInstance.checkout({ paymentSessionId: payment_session_id }).then((result) => {
       if (result.error) return alert(result.error.message);
-      if (result.payment.status === "SUCCESS" && onPaymentSuccess) onPaymentSuccess(result.order);
+      if (result.payment.status === "SUCCESS" && onPaymentSuccess) {
+        onPaymentSuccess(result.order);
+      }
     });
   } catch (error) {
     console.error("Payment initiation failed:", error);
     alert("Could not initiate payment. Please try again.");
+    
+    // --- YEH HAI SABSE IMPORTANT FIX ---
+    // 'PassengerDetails.jsx' ko bata ki error hua hai
+    throw error; 
   }
 };

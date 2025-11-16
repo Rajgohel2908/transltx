@@ -5,7 +5,11 @@ const app = express();
 // Middleware
 import cors from "cors";
 import morgan from "morgan";
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173", // Sirf tere client ko allow kar
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // Saare methods allow kar
+  credentials: true 
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev")); // to see all requests in the console

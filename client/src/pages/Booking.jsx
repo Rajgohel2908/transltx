@@ -6,6 +6,7 @@ import { api } from '../utils/api.js';
 import { debounce } from 'lodash';
 
 // --- TrainBookingForm ---
+// --- FIX: Inline style (backgroundColor) hata diya ---
 const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartureDate, classType, setClassType, handleSwap, handleSearch }) => {
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
@@ -17,7 +18,6 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
   const [railwayPass, setRailwayPass] = useState(false);
   const [quota, setQuota] = useState('GENERAL');
   
-  // --- NAYA STATE (BUG 1 FIX) ---
   const [isFromFocused, setIsFromFocused] = useState(false);
   const [isToFocused, setIsToFocused] = useState(false);
 
@@ -31,13 +31,11 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
 
   const searchHandler = (value, type, setSuggestions, setLoading) => {
     setLoading(true);
-    // --- (FIX) Prevent API call on empty search ---
     if (!value || value.trim() === '') {
       setSuggestions([]);
       setLoading(false);
       return;
     }
-    // --- 'PATH' 'FIXED' (baseURL mein /api hai) ---
     api.get(`/locations?search=${value}&type=${type.toLowerCase()}`)
       .then(res => setSuggestions(res.data || []))
       .catch(err => {
@@ -63,43 +61,41 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
     debouncedSearch(value, 'train', setToSuggestions, setIsToLoading);
   };
 
-  // --- MODIFIED (BUG 1 & 2 FIX) ---
   const selectFromSuggestion = (cityObj) => {
-    setFrom(cityObj.name); // Sirf 'name' set kar
+    setFrom(cityObj.name); 
     setFromSuggestions([]);
-    setIsFromFocused(false); // List 'hide' kar
+    setIsFromFocused(false); 
   };
 
   const selectToSuggestion = (cityObj) => {
-    setTo(cityObj.name); // Sirf 'name' set kar
+    setTo(cityObj.name); 
     setToSuggestions([]);
-    setIsToFocused(false); // List 'hide' kar
+    setIsToFocused(false); 
   };
 
   return (
-    <form onSubmit={handleSearch} className="space-y-6 p-4 md:p-8" style={{ backgroundColor: '#F7F9FC' }}>
+    // --- YAHAN SE STYLE HATA DIYA ---
+    <form onSubmit={handleSearch} className="space-y-6 p-4 md:p-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Column: Stations & Quota */}
         <div className="space-y-4">
           {/* From Station */}
           <div className="relative">
-            <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <label htmlFor="from" className="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
             <input 
               type="text" placeholder="From Station" 
               value={from} 
               onChange={handleFromChange} 
-              // --- 'Focus' 'Events' ADD KIYE (BUG 1 FIX) ---
               onFocus={() => setIsFromFocused(true)}
-              onBlur={() => setTimeout(() => setIsFromFocused(false), 200)} // Delay taaki 'click' 'register' ho jaye
+              onBlur={() => setTimeout(() => setIsFromFocused(false), 200)} 
               className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
               required autoComplete="off" 
             />
-            {/* --- 'Render Condition' MODIFIED (BUG 1 FIX) --- */}
             {isFromFocused && from && (
               <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                 {isFromLoading ? <li className="p-2 text-gray-500">Loading...</li> : 
                  fromSuggestions.length > 0 ? 
-                   // --- 'List Item' 'Render' 'MODIFIED' (FEATURE 2 FIX) ---
                    fromSuggestions.map(cityObj => (
                     <li key={cityObj.name} onClick={() => selectFromSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
                       {cityObj.name}
@@ -113,30 +109,28 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
 
           {/* Swap Button */}
           <div className="flex justify-center">
-            <button type="button" onClick={handleSwap} className="p-3 rounded-full bg-white hover:bg-gray-100 border border-gray-300 text-gray-600 hover:text-blue-600 transition-colors">
+            <button type="button" onClick={handleSwap} className="p-3 rounded-full bg-gray-100 hover:bg-blue-100 border border-gray-300 text-gray-600 hover:text-blue-600 transition-colors">
               <ArrowLeftRight size={20} />
             </button>
           </div>
 
           {/* To Station */}
           <div className="relative">
-            <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <label htmlFor="to" className="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
             <input 
               type="text" placeholder="To Station" 
               value={to} 
               onChange={handleToChange} 
-              // --- 'Focus' 'Events' ADD KIYE (BUG 1 FIX) ---
               onFocus={() => setIsToFocused(true)}
               onBlur={() => setTimeout(() => setIsToFocused(false), 200)}
               className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
               required autoComplete="off" 
             />
-             {/* --- 'Render Condition' MODIFIED (BUG 1 FIX) --- */}
              {isToFocused && to && (
               <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                 {isToLoading ? <li className="p-2 text-gray-500">Loading...</li> : 
                  toSuggestions.length > 0 ? 
-                   // --- 'List Item' 'Render' 'MODIFIED' (FEATURE 2 FIX) ---
                    toSuggestions.map(cityObj => (
                     <li key={cityObj.name} onClick={() => selectToSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
                       {cityObj.name}
@@ -148,9 +142,10 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
             )}
           </div>
 
-          {/* Quota (Same) */}
+          {/* Quota */}
           <div className="relative">
-             <Users className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <label htmlFor="quota" className="block text-sm font-medium text-gray-700 mb-1">Quota</label>
+             <Users className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
             <select 
               id="quota" 
               className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white appearance-none"
@@ -166,14 +161,19 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
           </div>
         </div>
 
-        {/* Right Column: Date & Class (Same) */}
+        {/* Right Column: Date & Class */}
         <div className="space-y-4">
+          {/* Departure Date */}
           <div className="relative">
-            <Calendar className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <label htmlFor="departure" className="block text-sm font-medium text-gray-700 mb-1">Departure</label>
+            <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
             <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required min={todayString} />
           </div>
+          
+          {/* Train Class */}
           <div className="relative">
-            <Ticket className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+            <Ticket className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
             <select 
               id="class" 
               className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white appearance-none"
@@ -188,11 +188,13 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
               <option value="AC Chair car">AC Chair car (CC)</option>
             </select>
           </div>
-          <div className="h-14"></div>
-          <div className="h-14"></div>
+          {/* Empty placeholders for alignment */}
+          <div className="h-14 hidden md:block"></div>
+          <div className="h-14 hidden md:block"></div>
         </div>
       </div>
-      {/* Checkboxes (Same) */}
+      
+      {/* Checkboxes */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
         <label className="flex items-center text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" checked={disabilityConcession} onChange={e => setDisabilityConcession(e.target.checked)} className="form-checkbox h-4 w-4 text-blue-600 rounded" />
@@ -211,18 +213,16 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
           <span className="ml-2">Railway Pass Concession</span>
         </label>
       </div>
-      {/* Search Buttons (Same) */}
-      <div className="flex flex-col sm:flex-row gap-4 pt-6">
-        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-          Search
-        </button>
-      </div>
+      
+      {/* --- Search Button (Full width) --- */}
+      <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 mt-6">
+        Search
+      </button>
     </form>
   );
 };
-// --- END TrainBookingForm ---
 
-// --- BusAirBookingForm ---
+// --- BusAirBookingForm (REFACTORED) ---
 const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setDepartureDate, returnDate, setReturnDate, classType, setClassType, handleSwap, handleSearch }) => {
   const [tripType, setTripType] = useState('one-way');
   const [passengers, setPassengers] = useState({ adults: 1, children: 0, infants: 0 });
@@ -232,7 +232,6 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
   const [isFromLoading, setIsFromLoading] = useState(false);
   const [isToLoading, setIsToLoading] = useState(false);
   
-  // --- NAYA STATE (BUG 1 FIX) ---
   const [isFromFocused, setIsFromFocused] = useState(false);
   const [isToFocused, setIsToFocused] = useState(false);
 
@@ -246,13 +245,11 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
 
   const searchHandler = (value, type, setSuggestions, setLoading) => {
     setLoading(true);
-    // --- (FIX) Prevent API call on empty search ---
     if (!value || value.trim() === '') {
       setSuggestions([]);
       setLoading(false);
       return;
     }
-    // --- 'PATH' 'FIXED' (baseURL mein /api hai) ---
     api.get(`/locations?search=${value}&type=${type.toLowerCase()}`)
       .then(res => setSuggestions(res.data || []))
       .catch(err => {
@@ -278,7 +275,6 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
     debouncedSearch(value, mode, setToSuggestions, setIsToLoading);
   };
 
-  // --- MODIFIED (BUG 1 & 2 FIX) ---
   const selectFromSuggestion = (cityObj) => {
     setFrom(cityObj.name);
     setFromSuggestions([]);
@@ -310,138 +306,134 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
   
   return (
     <form onSubmit={handleSearch} className="space-y-6 p-4 md:p-8">
-      {/* Row 1: From/To */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-        {/* From */}
-        <div className="md:col-span-2 relative">
-          <label htmlFor="from" className="block text-sm font-medium text-gray-700 mb-1">From</label>
-          <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-          <input 
-            type="text" id="from" placeholder="Source City" 
-            value={from} 
-            onChange={handleFromChange} 
-            // --- 'Focus' 'Events' ADD KIYE (BUG 1 FIX) ---
-            onFocus={() => setIsFromFocused(true)}
-            onBlur={() => setTimeout(() => setIsFromFocused(false), 200)}
-            className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
-            required autoComplete="off" 
-          />
-          {/* --- 'Render Condition' MODIFIED (BUG 1 FIX) --- */}
-          {isFromFocused && from && (
-            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-              {isFromLoading ? (
-                <li className="p-2 text-gray-500">Loading...</li>
-              ) : fromSuggestions.length > 0 ? (
-                // --- 'List Item' 'Render' 'MODIFIED' (FEATURE 2 FIX) ---
-                fromSuggestions.map(cityObj => (
-                  <li key={cityObj.name} onClick={() => selectFromSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
-                    {cityObj.name}
-                    <span className="text-xs text-gray-500 block">{cityObj.state}</span>
-                  </li>
-                ))
-              ) : ( <li className="p-2 text-gray-500">No results found</li> )}
-            </ul>
-          )}
-        </div>
+      {/* --- REFACTORED 2-COLUMN LAYOUT --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* --- Column 1: From, To, Passengers --- */}
+        <div className="space-y-4">
+          {/* From */}
+          <div className="relative">
+            <label htmlFor="from" className="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
+            <input 
+              type="text" id="from" placeholder="Source City" 
+              value={from} 
+              onChange={handleFromChange} 
+              onFocus={() => setIsFromFocused(true)}
+              onBlur={() => setTimeout(() => setIsFromFocused(false), 200)}
+              className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
+              required autoComplete="off" 
+            />
+            {isFromFocused && from && (
+              <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                {isFromLoading ? (
+                  <li className="p-2 text-gray-500">Loading...</li>
+                ) : fromSuggestions.length > 0 ? (
+                  fromSuggestions.map(cityObj => (
+                    <li key={cityObj.name} onClick={() => selectFromSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                      {cityObj.name}
+                      <span className="text-xs text-gray-500 block">{cityObj.state}</span>
+                    </li>
+                  ))
+                ) : ( <li className="p-2 text-gray-500">No results found</li> )}
+              </ul>
+            )}
+          </div>
 
-        {/* Swap Button */}
-        <div className="flex justify-center items-end h-full">
-          <button type="button" onClick={handleSwap} className="p-3 mt-6 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors">
-            <ArrowLeftRight size={20} />
-          </button>
-        </div>
+          {/* Swap Button */}
+          <div className="flex justify-center">
+            <button type="button" onClick={handleSwap} className="p-3 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors">
+              <ArrowLeftRight size={20} />
+            </button>
+          </div>
 
-        {/* To */}
-        <div className="md:col-span-2 relative">
-          <label htmlFor="to" className="block text-sm font-medium text-gray-700 mb-1">To</label>
-          <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-          <input 
-            type="text" id="to" placeholder="Destination City" 
-            value={to} 
-            onChange={handleToChange} 
-            // --- 'Focus' 'Events' ADD KIYE (BUG 1 FIX) ---
-            onFocus={() => setIsToFocused(true)}
-            onBlur={() => setTimeout(() => setIsToFocused(false), 200)}
-            className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
-            required autoComplete="off" 
-          />
-          {/* --- 'Render Condition' MODIFIED (BUG 1 FIX) --- */}
-          {isToFocused && to && (
-            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-              {isToLoading ? (
-                <li className="p-2 text-gray-500">Loading...</li>
-              ) : toSuggestions.length > 0 ? (
-                // --- 'List Item' 'Render' 'MODIFIED' (FEATURE 2 FIX) ---
-                toSuggestions.map(cityObj => (
-                  <li key={cityObj.name} onClick={() => selectToSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
-                    {cityObj.name}
-                    <span className="text-xs text-gray-500 block">{cityObj.state}</span>
-                  </li>
-                ))
-              ) : ( <li className="p-2 text-gray-500">No results found</li> )}
-            </ul>
-          )}
-        </div>
-      </div>
+          {/* To */}
+          <div className="relative">
+            <label htmlFor="to" className="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <MapPin className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
+            <input 
+              type="text" id="to" placeholder="Destination City" 
+              value={to} 
+              onChange={handleToChange} 
+              onFocus={() => setIsToFocused(true)}
+              onBlur={() => setTimeout(() => setIsToFocused(false), 200)}
+              className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
+              required autoComplete="off" 
+            />
+            {isToFocused && to && (
+              <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                {isToLoading ? (
+                  <li className="p-2 text-gray-500">Loading...</li>
+                ) : toSuggestions.length > 0 ? (
+                  toSuggestions.map(cityObj => (
+                    <li key={cityObj.name} onClick={() => selectToSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                      {cityObj.name}
+                      <span className="text-xs text-gray-500 block">{cityObj.state}</span>
+                    </li>
+                  ))
+                ) : ( <li className="p-2 text-gray-500">No results found</li> )}
+              </ul>
+            )}
+          </div>
 
-      {/* Row 2: Dates (Same) */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="md:col-span-2 relative">
+          {/* Passenger Dropdown */}
+          <div className="relative">
+            <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
+            <button type="button" onClick={() => setShowPassengerDropdown(!showPassengerDropdown)} className="w-full text-left p-3 border border-gray-300 rounded-lg bg-white flex justify-between items-center">
+              <span>{totalPassengers} Traveler{totalPassengers > 1 ? 's' : ''}</span>
+              <Users size={20} className="text-gray-500" />
+            </button>
+            {showPassengerDropdown && (
+              <div className="absolute top-full left-0 mt-1 w-full bg-white rounded-lg shadow-xl p-4 z-10">
+                <PassengerInput label="Adults" count={passengers.adults} onIncrement={() => setPassengers(p => ({ ...p, adults: p.adults + 1 }))} onDecrement={() => setPassengers(p => ({ ...p, adults: Math.max(1, p.adults - 1) }))} />
+                <PassengerInput label="Children" count={passengers.children} onIncrement={() => setPassengers(p => ({ ...p, children: p.children + 1 }))} onDecrement={() => setPassengers(p => ({ ...p, children: Math.max(0, p.children - 1) }))} />
+                <PassengerInput label="Infants" count={passengers.infants} onIncrement={() => setPassengers(p => ({ ...p, infants: p.infants + 1 }))} onDecrement={() => setPassengers(p => ({ ...p, infants: Math.max(0, p.infants - 1) }))} />
+                <button type="button" onClick={() => setShowPassengerDropdown(false)} className="mt-4 w-full bg-blue-600 text-white font-semibold py-2 rounded-lg">Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* --- Column 2: Dates, Class --- */}
+        <div className="space-y-4">
+          {/* Departure Date */}
+          <div className="relative">
             <label htmlFor="departure" className="block text-sm font-medium text-gray-700 mb-1">Departure</label>
             <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
             <input type="date" id="departure" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required min={todayString} />
           </div>
-        <div className="md:col-span-1"></div>
-        <div className={`md:col-span-2 relative transition-opacity duration-300 ${tripType === 'one-way' ? 'opacity-50' : 'opacity-100'}`}>
-              <label htmlFor="return" className="block text-sm font-medium text-gray-700 mb-1">Return</label>
-              <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-          <input type="date" id="return" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" disabled={tripType === 'one-way'} min={departureDate || todayString} />
-        </div>
-      </div>
 
-      {/* Row 3: Passengers & Class (Same) */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-        <div className="relative md:col-span-2">
-          <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
-          <button type="button" onClick={() => setShowPassengerDropdown(!showPassengerDropdown)} className="w-full text-left p-3 border border-gray-300 rounded-lg bg-white flex justify-between items-center">
-            <span>{totalPassengers} Traveler{totalPassengers > 1 ? 's' : ''}</span>
-            <Users size={20} className="text-gray-500" />
-          </button>
-          {showPassengerDropdown && (
-            <div className="absolute top-full left-0 mt-1 w-full md:w-80 bg-white rounded-lg shadow-xl p-4 z-10">
-              <PassengerInput label="Adults" count={passengers.adults} onIncrement={() => setPassengers(p => ({ ...p, adults: p.adults + 1 }))} onDecrement={() => setPassengers(p => ({ ...p, adults: Math.max(1, p.adults - 1) }))} />
-              <PassengerInput label="Children" count={passengers.children} onIncrement={() => setPassengers(p => ({ ...p, children: p.children + 1 }))} onDecrement={() => setPassengers(p => ({ ...p, children: Math.max(0, p.children - 1) }))} />
-              <PassengerInput label="Infants" count={passengers.infants} onIncrement={() => setPassengers(p => ({ ...p, infants: p.infants + 1 }))} onDecrement={() => setPassengers(p => ({ ...p, infants: Math.max(0, p.infants - 1) }))} />
-              <button type="button" onClick={() => setShowPassengerDropdown(false)} className="mt-4 w-full bg-blue-600 text-white font-semibold py-2 rounded-lg">Done</button>
+          {/* Return Date */}
+          <div className={`relative transition-opacity duration-300 ${tripType === 'one-way' ? 'opacity-50' : 'opacity-100'}`}>
+            <label htmlFor="return" className="block text-sm font-medium text-gray-700 mb-1">Return</label>
+            <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
+            <input type="date" id="return" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" disabled={tripType === 'one-way'} min={departureDate || todayString} />
+          </div>
+
+          {/* Class (Air only) */}
+          {mode === 'Air' && (
+            <div className="relative">
+              <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+              <Ticket className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
+              <select id="class" className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white appearance-none" value={classType} onChange={e => setClassType(e.target.value)}>
+                <option value="Economy">Economy</option>
+                <option value="Business">Business</option>
+              </select>
             </div>
           )}
         </div>
-        {mode !== 'Bus' && (
-          <div className="md:col-span-2">
-            <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-            <select id="class" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white" value={classType} onChange={e => setClassType(e.target.value)}>
-              {mode === 'Air' && (
-                <>
-                  <option value="Economy">Economy</option>
-                  <option value="Business">Business</option>
-                </>
-              )}
-            </select>
-          </div>
-        )}
-        <div className="hidden lg:flex items-end lg:col-span-3"> 
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-            Search
-          </button>
-        </div>
       </div>
+      
+      {/* --- Search Button (Full width) --- */}
+      <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 mt-6">
+        Search
+      </button>
     </form>
   );
 };
-// --- END PURANA FORM ---
 
 
-// --- MAIN 'Booking' COMPONENT ('Unchanged') ---
+// --- MAIN 'Booking' COMPONENT ---
 const Booking = () => {
   const { mode } = useParams();
   const navigate = useNavigate();
@@ -486,7 +478,6 @@ const Booking = () => {
     };
 
     try {
-      // --- API 'prefix' 'FIXED' ---
       const response = await api.put(`/bookings/${editingBooking._id}`, updatedBooking);
       setFoundBooking(response.data);
       setIsEditModalOpen(false);
@@ -503,7 +494,6 @@ const Booking = () => {
     setSearchError('');
     setFoundBooking(null);
     try {
-      // --- API 'prefix' 'FIXED' ---
       const response = await api.get(`/bookings/pnr/${trimmedPnr}`);
       setFoundBooking(response.data);
     } catch (error) {
@@ -541,28 +531,49 @@ const Booking = () => {
       <div className="bg-gray-50 min-h-screen">
         <main className="max-w-6xl mx-auto px-4 py-12">
           
+          {/* --- SLIDING TOGGLE (ROUNDED) --- */}
           <div className="flex justify-center mb-8">
-            <div className="flex p-1 bg-gray-200 rounded-lg">
+            <div className="relative flex w-full max-w-lg p-1 bg-gray-200 rounded-full">
+              
+              <div
+                className="absolute top-1 bottom-1 left-1 w-1/3 bg-white rounded-full shadow-md transition-transform duration-500 ease-in-out" // <-- 'rounded-full'
+                style={{
+                  transform: 
+                    mainTab === 'Book Ticket' ? 'translateX(0%)' :
+                    mainTab === 'PNR Status' ? 'translateX(100%)' :
+                    'translateX(200%)',
+                }}
+              />
+
               <button 
                 onClick={() => setMainTab('Book Ticket')}
-                className={`px-6 py-2 rounded-md font-semibold ${mainTab === 'Book Ticket' ? 'bg-white shadow' : 'text-gray-600'}`}
+                className={`relative z-10 w-1/3 px-4 py-2 rounded-full font-semibold flex items-center justify-center gap-2 transition-colors duration-300 ${ // <-- 'rounded-full'
+                  mainTab === 'Book Ticket' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-800'
+                }`}
               >
-                <Ticket className="inline-block mr-2" size={20} /> BOOK TICKET
+                <Ticket size={20} /> BOOK TICKET
               </button>
+              
               <button 
                 onClick={() => setMainTab('PNR Status')}
-                className={`px-6 py-2 rounded-md font-semibold ${mainTab === 'PNR Status' ? 'bg-white shadow' : 'text-gray-600'}`}
+                className={`relative z-10 w-1/3 px-4 py-2 rounded-full font-semibold flex items-center justify-center gap-2 transition-colors duration-300 ${ // <-- 'rounded-full'
+                  mainTab === 'PNR Status' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-800'
+                }`}
               >
-                <Search className="inline-block mr-2" size={20} /> PNR STATUS
+                <Search size={20} /> PNR STATUS
               </button>
+              
               <button 
                 onClick={() => setMainTab('Charts / Vacancy')}
-                className={`px-6 py-2 rounded-md font-semibold ${mainTab === 'Charts / Vacancy' ? 'bg-white shadow' : 'text-gray-600'}`}
+                className={`relative z-10 w-1/3 px-4 py-2 rounded-full font-semibold flex items-center justify-center gap-2 transition-colors duration-300 ${ // <-- 'rounded-full'
+                  mainTab === 'Charts / Vacancy' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-800'
+                }`}
               >
-                <BarChart3 className="inline-block mr-2" size={20} /> CHARTS / VACANCY
+                <BarChart3 size={20} /> CHARTS
               </button>
             </div>
           </div>
+          {/* --- END SLIDING TOGGLE --- */}
           
           <div className="bg-white rounded-2xl shadow-xl">
             
@@ -628,6 +639,7 @@ const Booking = () => {
                   ))}
                 </div>
 
+                {/* --- RENDER THE CORRECT FORM --- */}
                 {activeTab === 'Train' ? (
                   <TrainBookingForm 
                     from={from} setFrom={setFrom}
@@ -635,7 +647,7 @@ const Booking = () => {
                     departureDate={departureDate} setDepartureDate={setDepartureDate}
                     classType={classType} setClassType={setClassType}
                     handleSwap={handleSwap}
-                    handleSearch={handleSearch}
+                    handleSearch={handleSearch} 
                   />
                 ) : (
                   <BusAirBookingForm 
@@ -646,7 +658,7 @@ const Booking = () => {
                     returnDate={returnDate} setReturnDate={setReturnDate}
                     classType={classType} setClassType={setClassType}
                     handleSwap={handleSwap}
-                    handleSearch={handleSearch}
+                    handleSearch={handleSearch} 
                   />
                 )}
               </>
