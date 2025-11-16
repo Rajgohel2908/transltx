@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
 import { api } from "../utils/api.js";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { AlertCircle, DollarSign, Users, Package, Map, Ticket } from 'lucide-react';
+import { AlertCircle, DollarSign, Users, Package, Map, Ticket, Search, Filter as FilterIcon, X as XIcon, Bus, Train, Plane } from 'lucide-react'; // --- ICONS ADD KIYE ---
 import Footer from '../components/Footer';
 import AlertForm from "./forms/AlertForm.jsx";
 import TripForm from "./forms/TripForm.jsx";
 import RouteForm from "./forms/RouteForm.jsx";
-import LocationForm from "./forms/LocationForm.jsx"; // <-- 1. NAYA FORM IMPORT KAR
+import LocationForm from "./forms/LocationForm.jsx";
 import ParkingForm from "./forms/ParkingForm.jsx";
 import ConfirmationModal from "../components/ConfirmationModal.jsx";
 import Pagination from "../components/Pagination.jsx";
@@ -118,10 +118,7 @@ const AdminDashboard = () => {
   const [editingParking, setEditingParking] = useState(null);
   const [editingRoute, setEditingRoute] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showTripForm, setShowTripForm] = useState(false);
   const [allBookings, setAllBookings] = useState([]); // State for all bookings
-  const [showParkingForm, setShowParkingForm] = useState(false);
-  const [showRouteForm, setShowRouteForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false); // For individual actions
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
@@ -131,6 +128,14 @@ const AdminDashboard = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // --- NAYA STATE (TASK 4) ---
+  const [formMode, setFormMode] = useState('none'); // 'none', 'selectType', 'showTripForm', 'showRouteForm', 'showParkingForm'
+  const [routeTypeToCreate, setRouteTypeToCreate] = useState(null); // 'bus', 'train', 'air'
+
+  // --- NAYA STATE (TASK 5) ---
+  const [routeSearch, setRouteSearch] = useState('');
+  const [routeFilter, setRouteFilter] = useState('All');
 
   const [bookingsData, setBookingsData] = useState([]); // New state for chart data
   const [error, setError] = useState('');
@@ -143,6 +148,16 @@ const AdminDashboard = () => {
     carpoolRides: 0,
     activeRoutes: 0,
   });
+
+  // --- (TASK 4 FIX) NAYA HELPER: Close all forms ---
+  const closeAllForms = () => {
+    setFormMode('none');
+    setEditingAlert(null);
+    setEditingTrip(null);
+    setEditingRoute(null);
+    setEditingParking(null);
+    setRouteTypeToCreate(null);
+  };
 
   // Helper to get day of the week
   const getDayOfWeek = (date) => {
@@ -184,14 +199,14 @@ const AdminDashboard = () => {
     setError(''); // Clear previous errors
     try {
       const results = await Promise.allSettled([
-        api.get(ALERTS_API_URL).catch(() => ({ data: [] })),
-        api.get(TRIPS_API_URL).catch(() => ({ data: [] })),
-        api.get(`${PARCELS_API_URL}/all`).catch(() => ({ data: [] })),
-        api.get(ROUTES_API_URL).catch(() => ({ data: [] })),
-        api.get(RIDES_API_URL).catch(() => ({ data: [] })),
-        api.get(PARKING_API_URL).catch(() => ({ data: [] })),
+        api.get(ALERTS_API_URL),
+        api.get(TRIPS_API_URL),
+        api.get(`${PARCELS_API_URL}/all`),
+        api.get(ROUTES_API_URL),
+        api.get(RIDES_API_URL),
+        api.get(PARKING_API_URL),
         api.get(`${USERS_API_URL}?page=${page}`),
-        api.get(BOOKINGS_API_URL).catch(() => ({ data: [] })),
+        api.get(BOOKINGS_API_URL),
       ]);
 
       const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes, bookingsRes] = results;
@@ -448,20 +463,107 @@ const AdminDashboard = () => {
     { name: 'Rides', revenue: ridesRevenue },
   ];
 
+  // --- (TASK 4) NAYA COMPONENT: RouteTypeSelector ---
+  const RouteTypeSelector = () => (
+    <div className="bg-white rounded-lg shadow-lg p-6 mb-8 border border-gray-200">
+      <h3 className="text-xl font-bold text-gray-800 mb-4">Select Route Type</h3>
+      <p className="text-gray-600 mb-6">What type of transport route do you want to add?</p>
+      <div className="grid grid-cols-3 gap-4">
+        <button 
+          onClick={() => { setRouteTypeToCreate('bus'); setEditingRoute(null); setFormMode('showRouteForm'); }}
+          className="p-6 bg-blue-100 text-blue-800 rounded-lg flex flex-col items-center justify-center hover:bg-blue-200 hover:shadow-lg transition-all"
+        >
+          <Bus size={32} />
+          <span className="font-semibold mt-2">Bus Route</span>
+        </button>
+        <button 
+          onClick={() => { setRouteTypeToCreate('train'); setEditingRoute(null); setFormMode('showRouteForm'); }}
+          className="p-6 bg-green-100 text-green-800 rounded-lg flex flex-col items-center justify-center hover:bg-green-200 hover:shadow-lg transition-all"
+        >
+          <Train size={32} />
+          <span className="font-semibold mt-2">Train Route</span>
+        </button>
+        <button 
+          onClick={() => { setRouteTypeToCreate('air'); setEditingRoute(null); setFormMode('showRouteForm'); }}
+          className="p-6 bg-indigo-100 text-indigo-800 rounded-lg flex flex-col items-center justify-center hover:bg-indigo-200 hover:shadow-lg transition-all"
+        >
+          <Plane size={32} />
+          <span className="font-semibold mt-2">Air Route</span>
+        </button>
+      </div>
+      <button onClick={closeAllForms} className="w-full mt-6 bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Cancel</button>
+    </div>
+  );
+  
+  // --- (TASK 5) NAYA COMPONENT: RouteFilters ---
+  const RouteFilters = () => (
+    <div className="bg-white p-4 rounded-xl shadow-lg mb-6 flex flex-col md:flex-row gap-4">
+      <div className="relative flex-grow">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <input 
+          type="text"
+          placeholder="Search by route name or ID..."
+          value={routeSearch}
+          onChange={(e) => setRouteSearch(e.target.value)}
+          className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-sm font-medium text-gray-600">Filter:</span>
+        {['All', 'Bus', 'Train', 'Air'].map(type => (
+          <button 
+            key={type}
+            onClick={() => setRouteFilter(type)}
+            className={`px-4 py-2 rounded-lg font-semibold text-sm ${routeFilter === type ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'routes':
+        // --- (TASK 5) FILTER LOGIC ---
+        const filteredRoutes = routes.filter(route => {
+          const matchesFilter = routeFilter === 'All' || (route.type && route.type.toLowerCase() === routeFilter.toLowerCase());
+          const matchesSearch = !routeSearch || 
+                                (route.name && route.name.toLowerCase().includes(routeSearch.toLowerCase())) || 
+                                (route.id && route.id.toLowerCase().includes(routeSearch.toLowerCase()));
+          return matchesFilter && matchesSearch;
+        });
+
         return ( // This is now the "Transport" tab
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Manage Transport Routes</h2>
-              <button onClick={() => setShowRouteForm(!showRouteForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                {showRouteForm ? 'Hide Form' : 'Add New Transport Route'}
+              <button onClick={() => setFormMode('selectType')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Add New Transport Route
               </button>
             </div>
-            {showRouteForm && <RouteForm onRouteSaved={handleRouteSaved} editingRoute={editingRoute} setEditingRoute={setEditingRoute} />}
+            
+            {/* --- (TASK 4 & 5) FORMS AUR FILTERS RENDER KAR --- */}
+            {formMode === 'selectType' && <RouteTypeSelector />}
+            {formMode === 'showRouteForm' && (
+              <RouteForm 
+                onRouteSaved={handleRouteSaved} 
+                editingRoute={editingRoute} 
+                setEditingRoute={(route) => {
+                  setEditingRoute(route);
+                  if (route) setFormMode('showRouteForm');
+                  else closeAllForms();
+                }}
+                // --- (TASK 4 FIX) Pass correct type for new or existing routes ---
+                routeType={editingRoute ? editingRoute.type : routeTypeToCreate}
+              />
+            )}
+            
+            <RouteFilters /> {/* --- YEH TERA NAYA FILTER BAR HAI --- */}
+
             <div className="space-y-4">
-              {routes.map((route) => (
+              {filteredRoutes.map((route) => ( // Ab 'filteredRoutes' use kar
                 <div key={route._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-lg" style={{ color: route.color || '#3B82F6' }}>{route.name} <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full ml-2">{route.type || 'Bus'}</span></p>
@@ -474,13 +576,15 @@ const AdminDashboard = () => {
                     )}
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => { setEditingRoute(route); setShowRouteForm(true); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                    {/* --- (TASK 4 FIX) Don't nullify routeTypeToCreate here --- */}
+                    <button onClick={() => { setEditingRoute(route); setFormMode('showRouteForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
                       Edit
                     </button>
                     <button onClick={() => handleDeleteRoute(route._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                   </div>
                 </div>
               ))}
+              {filteredRoutes.length === 0 && <p className="text-center text-gray-500">No routes match your filters.</p>}
             </div>
           </div>
         );
@@ -489,17 +593,17 @@ const AdminDashboard = () => {
           <div>
             <div className="flex justify-between items-center mb-6"> 
               <h2 className="text-2xl font-bold text-gray-800">Available Trips</h2>
-              <button onClick={() => setShowTripForm(!showTripForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                {showTripForm ? 'Hide Form' : 'Add New Trip'}
+              <button onClick={() => setFormMode('showTripForm')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Add New Trip
               </button>
             </div>
-            {showTripForm && <TripForm onTripSaved={handleTripSaved} editingTrip={editingTrip} setEditingTrip={setEditingTrip} />}
+            {formMode === 'showTripForm' && <TripForm onTripSaved={handleTripSaved} editingTrip={editingTrip} setEditingTrip={(trip) => { setEditingTrip(trip); if (trip) setFormMode('showTripForm'); else closeAllForms(); }} />}
             <div className="space-y-4">
               {trips.map((trip) => (
                 <div key={trip._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
                   <div><p className="font-bold text-lg">{trip.name}</p></div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => { setEditingTrip(trip); setShowTripForm(true); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                    <button onClick={() => { setEditingTrip(trip); setFormMode('showTripForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
                       Edit
                     </button>
                     <button onClick={() => handleDeleteTrip(trip._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
@@ -546,11 +650,11 @@ const AdminDashboard = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Available Parking Lots</h2>
-              <button onClick={() => setShowParkingForm(!showParkingForm)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                {showParkingForm ? 'Hide Form' : 'Add New Parking Lot'}
+              <button onClick={() => setFormMode('showParkingForm')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Add New Parking Lot
               </button>
             </div>
-            {showParkingForm && <ParkingForm onParkingSaved={handleParkingSaved} editingParking={editingParking} setEditingParking={setEditingParking} />}
+            {formMode === 'showParkingForm' && <ParkingForm onParkingSaved={handleParkingSaved} editingParking={editingParking} setEditingParking={(parking) => { setEditingParking(parking); if(parking) setFormMode('showParkingForm'); else closeAllForms(); }} />}
             <div className="space-y-4">
               {parkingLots.map((lot) => (
                 <div key={lot._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
@@ -559,7 +663,7 @@ const AdminDashboard = () => {
                     <p className="text-gray-600 text-sm">{lot.location} - {lot.availableSlots}/{lot.totalSlots} available</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => { setEditingParking(lot); setShowParkingForm(true); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                    <button onClick={() => { setEditingParking(lot); setFormMode('showParkingForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
                       Edit
                     </button>
                     <button onClick={() => handleDeleteParkingLot(lot._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
@@ -688,15 +792,12 @@ const AdminDashboard = () => {
           </div>
         );
       // --- NAYA CASE ADD KAR ---
-      case 'locations':
-        return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Locations</h2>
-            <LocationForm />
-          </div>
-        );
-      // --- END NAYA CASE ---
-      default:
+      case 'overview':
+        const revenueData = [
+          { name: 'Parcels', revenue: (allBookings || []).filter(b => b.bookingType === 'Parcel').reduce((s, b) => s + (b.fare || 0), 0) },
+          { name: 'Transport', revenue: (allBookings || []).filter(b => ['Bus', 'Train', 'Air'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0) },
+          { name: 'Rides', revenue: (allBookings || []).filter(b => b.bookingType === 'Ride').reduce((s, b) => s + (b.fare || 0), 0) },
+        ];
         return (
           <>
             {error && (
@@ -760,7 +861,7 @@ const AdminDashboard = () => {
                           <p className="text-sm text-gray-500">{(route.stops || []).length} stops</p>
                         )}
                       </div>
-                      <button onClick={() => { setActiveTab('routes'); setEditingRoute(route); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
+                      <button onClick={() => { setActiveTab('routes'); setEditingRoute(route); setFormMode('showRouteForm'); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
                     </div>
                   ))}
                 </div>
@@ -776,7 +877,7 @@ const AdminDashboard = () => {
                         <p className="font-semibold">{trip.name}</p>
                         <p className="text-sm text-gray-500">{trip.price}</p>
                       </div>
-                      <button onClick={() => { setActiveTab('trips'); setEditingTrip(trip); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
+                      <button onClick={() => { setActiveTab('trips'); setEditingTrip(trip); setFormMode('showTripForm'); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
                     </div>
                   ))}
                 </div>
@@ -784,12 +885,20 @@ const AdminDashboard = () => {
             </div>
           </>
         );
+      case 'locations':
+        return (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Locations</h2>
+            <LocationForm />
+          </div>
+        );
+      default: return (<div>...Overview content...</div>);
     }
   };
 
   const TabButton = ({ tabName, label, currentTab, setTab }) => (
     <button
-      onClick={() => setTab(tabName)}
+      onClick={() => { setTab(tabName); closeAllForms(); }} // Close forms jab tab change kare
       className={`px-4 py-2 font-semibold rounded-lg transition-colors ${
         currentTab === tabName
           ? 'bg-blue-600 text-white shadow'

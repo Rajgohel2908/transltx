@@ -20,14 +20,16 @@ const routeSchema = new mongoose.Schema({
   daysOfWeek: { type: [String], enum: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] },
   specificDate: { type: Date },
   startTime: { type: String },
-  // stops are now objects containing stopName, priceFromStart and estimatedTimeAtStop
+  
+  // --- NEW FIELD ADDED HERE ---
+  totalSeats: { type: Number, required: true, default: 40 }, // Default 40 for buses
+  // ---------------------------
+
   stops: { type: [stopSchema], default: [] },
-  // Fields for 'air'
   flightNumber: { type: String },
   airline: { type: String },
-  // --- PRICE IS NOW AN OBJECT FOR TRAIN/AIR ---
   price: {
-    type: mongoose.Schema.Types.Mixed, // Can be Number for Bus, or Object for Train/Air
+    type: mongoose.Schema.Types.Mixed, 
     default: 0,
   },
 }, { timestamps: true });

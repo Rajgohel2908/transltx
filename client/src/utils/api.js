@@ -1,10 +1,10 @@
 import axios from "axios";
 import { getToken } from "../pages/users/auth.js";
 
-const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL; // Yeh ab 'http://localhost:3000/api' hai
 
 const api = axios.create({
-  baseURL: VITE_BACKEND_BASE_URL,
+  baseURL: VITE_BACKEND_BASE_URL, // baseURL ab '/api' pe 'point' karta hai
   headers: {
     "Content-Type": "application/json",
   },
@@ -26,11 +26,11 @@ async function fetchCurrentUser() {
   }
 
   try {
+    // MODIFIED: '/api' 'prefix' ki zaroorat nahi, kyuki woh 'baseURL' mein hai
     const res = await api.get(`/users/me`);
     return res.data;
   } catch (err) {
     console.log("fetchCurrentUser error:", err.response?.data || err.message);
-    // Clear both storages on auth error
     localStorage.removeItem("token");
     sessionStorage.removeItem("token");
     return {
@@ -45,6 +45,7 @@ async function fetchCurrentUser() {
 // Signup user
 async function signupUser(data) {
   try {
+    // MODIFIED: '/api' 'prefix' ki zaroorat nahi
     const res = await api.post(`/users/signup`, data);
     return res.data;
   } catch (err) {
@@ -55,6 +56,7 @@ async function signupUser(data) {
 // Login user
 async function loginUser(data) {
   try {
+    // MODIFIED: '/api' 'prefix' ki zaroorat nahi
     const res = await api.post(`/users/login`, data);
     return res.data;
   } catch (err) {
@@ -64,6 +66,7 @@ async function loginUser(data) {
 
 async function getAdminUsers() {
   try {
+    // MODIFIED: '/api' 'prefix' ki zaroorat nahi
     const response = await api.get(`/users/admin/users`);
     return response.data;
   } catch (error) {

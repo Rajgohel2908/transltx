@@ -19,7 +19,7 @@ export const getLocations = async (req, res) => {
     if (requestedType) {
       let typeToSearch = "city"; // Default
       if (requestedType.toLowerCase() === "train") {
-        typeToSearch = "train_station"; // Yeh ab model se match karega
+        typeToSearch = "train_station";
       } else if (requestedType.toLowerCase() === "air") {
         typeToSearch = "airport";
       }
@@ -28,17 +28,23 @@ export const getLocations = async (req, res) => {
 
     const locations = await Location.find(queryFilter)
       .limit(15)
-      .select("name");
+      // --- MODIFICATION 1: 'name' ke saath 'state' bhi 'select' kar ---
+      .select("name state"); 
 
-    const cities = locations.map((loc) => loc.name);
+    // --- MODIFICATION 2: 'String array' ki jagah 'Object array' bhej ---
+    const cities = locations.map((loc) => ({ 
+      name: loc.name, 
+      state: loc.state 
+    }));
 
-    res.status(200).json(cities);
+    res.status(200).json(cities); // Ab response hoga [{name: "Surat", state: "Gujarat"}, ...]
   } catch (error) {
     console.error("Error fetching locations:", error);
     res.status(500).json({ message: "Server error while fetching locations." });
   }
 };
 
+// ... (baki 'addLocation' function same rahega)
 // @desc    Add new cities to a state (or create a new state)
 // @route   POST /api/locations
 export const addLocation = async (req, res) => {
