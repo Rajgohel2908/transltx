@@ -1,11 +1,44 @@
 import React, { useContext, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, User, Mail, Phone } from 'lucide-react';
+import { User, Mail, Phone, Calendar, GitCompareArrows } from 'lucide-react'; // <-- Naye icons
 import Footer from '../components/Footer';
 import { DataContext } from '../context/Context';
 import { handlePayment } from '../utils/cashfree';
 import axios from 'axios';
 import TripPassengerForm from './TripPassengerForm';
+
+// --- Naya InputField component (Reuse logic) ---
+const InputField = ({ icon, id, placeholder, value, onChange, type = "text", required = false }) => (
+  <div className="relative">
+    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">{icon}</span>
+    <input
+      type={type}
+      id={id}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+      required={required}
+    />
+  </div>
+);
+
+// --- Naya SelectField component (Reuse logic) ---
+const SelectField = ({ icon, id, value, onChange, children }) => (
+    <div className="relative">
+      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">{icon}</span>
+      <select
+        id={id}
+        value={value}
+        onChange={onChange}
+        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow appearance-none"
+      >
+        {children}
+      </select>
+    </div>
+  );
+// --- End Naye components ---
+
 
 const PassengerDetails = () => {
   const location = useLocation();
@@ -25,6 +58,7 @@ const PassengerDetails = () => {
   const [gender, setGender] = useState('Male');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false); // <-- State for loading
 
   if (!selectedTicket) {
     return (
@@ -34,33 +68,35 @@ const PassengerDetails = () => {
       </div>
     );
   }
+  
+  const priceToPay = Number(selectedTicket.price) || 0;
 
   const handleProceedToPayment = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true); // <-- Start loading
     
     const onPaymentSuccess = async (paymentResult) => {
       try {
         const bookingPayload = { 
           userId: user._id,
           bookingType: searchType,
-          service: selectedTicket.name, // from Trip model
-          serviceLogo: selectedTicket.image, // from Trip model
-          from: selectedTicket.from,
-          to: selectedTicket.to,
-          departure: selectedTicket.departureTime,
-          arrival: selectedTicket.arrivalTime,
+          service: selectedTicket.name,
+          serviceLogo: selectedTicket.image || selectedTicket.airline, // Fallback
+          from: selectedTicket.startPoint || selectedTicket.from,
+          to: selectedTicket.endPoint || selectedTicket.to,
+          departure: selectedTicket.startTime || selectedTicket.departureTime,
+          arrival: selectedTicket.estimatedArrivalTime || selectedTicket.arrivalTime,
           duration: selectedTicket.duration,
           passengers: [{ fullName, age, gender }],
           contactEmail: email,
           contactPhone: phone,
-          fare: selectedTicket.price,
-          paymentId: paymentResult.cf_payment_id,
+          fare: priceToPay, // Use the calculated price
+          paymentId: paymentResult.cf_payment_id || paymentResult.payment_id,
           orderId: paymentResult.order_id,
           paymentStatus: 'SUCCESS',
           bookingStatus: 'Confirmed'
         };
 
-        // You need to create this endpoint on your server
         const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
         const res = await axios.post(`${VITE_BACKEND_BASE_URL}/bookings`, bookingPayload, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -68,47 +104,53 @@ const PassengerDetails = () => {
 
         const newBooking = res.data;
 
-        // Navigate to confirmation with real data
         navigate(`/booking/${mode}/confirmation`, { 
           state: { 
-            selectedTicket, 
+            selectedTicket: { ...selectedTicket, price: priceToPay }, // Pass the price that was paid
             passengerData: { name: fullName, email, phone }, 
-            bookingId: newBooking.pnrNumber, // Use PNR from backend
+            bookingId: newBooking.pnrNumber,
             searchType 
           } 
         });
       } catch (error) {
         console.error('Failed to save booking:', error);
         alert('Payment was successful, but we failed to save your booking. Please contact support.');
+        setIsSubmitting(false); // Stop loading on error
       }
     };
 
-    await handlePayment({
-      item: selectedTicket,
-      user: user,
-      onPaymentSuccess: onPaymentSuccess
-    });
+    try {
+        await handlePayment({
+          item: { ...selectedTicket, price: priceToPay }, // Ensure correct price is sent
+          user: user,
+          onPaymentSuccess: onPaymentSuccess
+        });
+    } catch (err) {
+        console.error("Payment initiation failed:", err);
+        alert("Payment initiation failed. Please try again.");
+        setIsSubmitting(false); // Stop loading on payment initiation error
+    }
   };
 
   const TicketSummary = () => (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white rounded-xl shadow-lg p-6 sticky top-24">
       <h3 className="text-xl font-bold mb-4">Your Selection</h3>
       <div className="flex items-center justify-between border-b pb-4 mb-4">
         <div className="flex items-center gap-4">
-          <img src={selectedTicket.image} alt={`${selectedTicket.name} logo`} className="h-12 w-12 object-cover rounded-md" />
+          <div className="h-12 w-12 rounded-md flex items-center justify-center bg-blue-100">
+             {searchType === 'Air' && <Plane className="text-blue-600" />}
+             {searchType === 'Bus' && <Bus className="text-blue-600" />}
+             {searchType === 'Train' && <Train className="text-blue-600" />}
+          </div>
           <div>
             <p className="font-bold text-lg">{selectedTicket.name}</p>
-            <p className="text-sm text-gray-500">{selectedTicket.from} to {selectedTicket.to}</p>
+            <p className="text-sm text-gray-500">{selectedTicket.startPoint || selectedTicket.from} to {selectedTicket.endPoint || selectedTicket.to}</p>
           </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xl font-bold">₹{selectedTicket.price.toLocaleString()}</p>
-          <p className="text-sm text-gray-500">Per Person</p>
         </div>
       </div>
       <div className="flex justify-between font-bold text-lg">
         <span>Total Fare</span>
-        <span>₹{selectedTicket.price.toLocaleString()}</span>
+        <span className="text-2xl font-bold text-green-600">₹{priceToPay.toLocaleString()}</span>
       </div>
     </div>
   );
@@ -123,29 +165,78 @@ const PassengerDetails = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">1</span> Add Passenger Information</h2>
+                
                 <form onSubmit={handleProceedToPayment} className="space-y-6">
+
+                  {/* --- SECTION 1: PASSENGER --- */}
+                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">1</span> Add Passenger Information</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <input type="text" placeholder="Full Name" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg md:col-span-3" required />
-                    <input type="number" placeholder="Age" value={age} onChange={e => setAge(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" required />
-                    <select value={gender} onChange={e => setGender(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg bg-white md:col-span-2">
-                      <option>Male</option>
-                      <option>Female</option>
-                      <option>Other</option>
-                    </select>
+                    <div className="md:col-span-3">
+                      <InputField
+                        icon={<User className="text-gray-400" />}
+                        id="fullName"
+                        placeholder="Full Name"
+                        value={fullName}
+                        onChange={e => setFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <InputField
+                      icon={<Calendar className="text-gray-400" />}
+                      id="age"
+                      placeholder="Age"
+                      type="number"
+                      value={age}
+                      onChange={e => setAge(e.target.value)}
+                      required
+                    />
+                    <div className="md:col-span-2">
+                      <SelectField
+                        icon={<GitCompareArrows className="text-gray-400" />}
+                        id="gender"
+                        value={gender}
+                        onChange={e => setGender(e.target.value)}
+                      >
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                      </SelectField>
+                    </div>
                   </div>
+                  {/* --- END SECTION 1 --- */}
+
+                  {/* --- SECTION 2: CONTACT --- */}
                   <div className="pt-6 border-t">
                     <h3 className="text-2xl font-bold mb-6 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">2</span> Contact Information</h3>
                     <p className="text-gray-500 mb-4 -mt-4">Your ticket and booking details will be sent here.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" required />
-                    <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" required />
+                      <InputField
+                        icon={<Mail className="text-gray-400" />}
+                        id="email"
+                        placeholder="Email Address"
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                      <InputField
+                        icon={<Phone className="text-gray-400" />}
+                        id="phone"
+                        placeholder="Phone Number"
+                        type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
-                  </div>
-                  <button type="submit" className="w-full mt-6 bg-green-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-700 transition-colors text-lg">
-                    Proceed to Secure Payment
+                  {/* --- END SECTION 2 --- */}
+                  
+                  <button type="submit" disabled={isSubmitting} className="w-full mt-6 bg-green-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-700 transition-colors text-lg disabled:opacity-50">
+                    {isSubmitting ? 'Processing...' : `Proceed to Pay ₹${priceToPay.toLocaleString()}`}
                   </button>
                 </form>
+
               </div>
             </div>
             <div className="lg:col-span-1">

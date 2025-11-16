@@ -20,8 +20,8 @@ export const createRoute = async (req, res) => {
       specificDate: req.body.specificDate,
       startTime: req.body.startTime,
       stops: req.body.stops || [],
-      // --- ADDED ---
-      totalSeats: req.body.totalSeats || 40,
+      // --- MODIFIED ---
+      totalSeats: req.body.totalSeats, // Pass the object directly
     };
 
     if (type === 'air') {
@@ -58,8 +58,8 @@ export const updateRoute = async (req, res) => {
       specificDate: req.body.specificDate,
       startTime: req.body.startTime,
       stops: req.body.stops,
-      // --- ADDED ---
-      totalSeats: req.body.totalSeats,
+      // --- MODIFIED ---
+      totalSeats: req.body.totalSeats, // Pass the object directly
     };
 
     if (type === 'air') {

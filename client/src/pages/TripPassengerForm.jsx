@@ -1,10 +1,53 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, User, Mail, Phone } from 'lucide-react';
+import { User, Mail, Phone, Users, Plus, Minus, Calendar, GitCompareArrows } from 'lucide-react'; // <-- Naye icons
 import Footer from '../components/Footer';
 import { DataContext } from '../context/Context';
 import { handlePayment } from '../utils/cashfree';
 import axios from 'axios';
+
+// --- Naya InputField component (Parcel.jsx se inspired) ---
+const InputField = ({ icon, id, placeholder, value, onChange, type = "text", required = false }) => (
+  <div className="relative">
+    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">{icon}</span>
+    <input
+      type={type}
+      id={id}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+      required={required}
+    />
+  </div>
+);
+
+const SelectField = ({ icon, id, value, onChange, children }) => (
+    <div className="relative">
+      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">{icon}</span>
+      <select
+        id={id}
+        value={value}
+        onChange={onChange}
+        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow appearance-none"
+      >
+        {children}
+      </select>
+    </div>
+  );
+
+const CounterButton = ({ onClick, icon, disabled }) => (
+    <button 
+        type="button" 
+        onClick={onClick} 
+        disabled={disabled}
+        className="bg-gray-200 p-2 rounded-full text-gray-700 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+        {icon}
+    </button>
+);
+// --- End Naye components ---
+
 
 const TripPassengerForm = ({ selectedTicket }) => {
   const navigate = useNavigate();
@@ -21,14 +64,16 @@ const TripPassengerForm = ({ selectedTicket }) => {
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     // initialize passengers array with default objects
-    const arr = [];
+    const newPassengers = [];
     for (let i = 0; i < totalTravellers; i++) {
-      arr.push({ fullName: '', age: '', gender: 'Male' });
+        // Purane passenger data ko rakho agar woh exist karta hai
+        newPassengers.push(passengers[i] || { fullName: '', age: '', gender: 'Male' });
     }
-    setPassengers(arr);
+    setPassengers(newPassengers);
   }, [totalTravellers]);
 
   const updatePassenger = (index, field, value) => {
@@ -41,13 +86,13 @@ const TripPassengerForm = ({ selectedTicket }) => {
     try {
       const bookingPayload = {
         userId: user?._id,
-        bookingType: 'Trips',
+        bookingType: 'Trips', // 'Trips' type hardcode kar sakte hai
         service: trip.name,
         serviceLogo: trip.image,
         from: trip.startPoint || trip.from,
         to: trip.endPoint || trip.to,
-        departure: trip.startTime || trip.departure,
-        arrival: trip.estimatedArrivalTime || trip.arrival,
+        departure: trip.startTime || trip.departureTime, // departureTime use kar (TripView se)
+        arrival: trip.estimatedArrivalTime || trip.arrivalTime, // arrivalTime use kar (TripView se)
         duration: trip.duration,
         passengers: passengers.map(p => ({ fullName: p.fullName, age: p.age, gender: p.gender })),
         contactEmail: email,
@@ -68,7 +113,7 @@ const TripPassengerForm = ({ selectedTicket }) => {
 
       navigate(`/booking/${mode}/confirmation`, {
         state: {
-          selectedTicket: trip,
+          selectedTicket: { ...trip, price: totalFare }, // Total fare pass karo
           passengerData: { name: passengers[0]?.fullName, email, phone },
           bookingId: newBooking.pnrNumber,
           searchType: 'Trips'
@@ -76,18 +121,27 @@ const TripPassengerForm = ({ selectedTicket }) => {
       });
     } catch (error) {
       console.error('Failed to save booking after payment:', error);
-      alert('Payment succeeded but saving booking failed. Please contact support.');
+      setError('Payment succeeded but saving booking failed. Please contact support.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleProceedToPayment = async (e) => {
     e.preventDefault();
+    setError(""); // Purane errors clear karo
 
     // Validate fields
-    if (!phone) return alert('Contact phone is required');
+    if (!phone) {
+        setError('Contact phone is required');
+        return;
+    }
     for (let i = 0; i < passengers.length; i++) {
       const p = passengers[i];
-      if (!p.fullName || !p.age) return alert(`Please fill name and age for traveler ${i+1}`);
+      if (!p.fullName || !p.age) {
+        setError(`Please fill name and age for traveler ${i+1}`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -99,9 +153,11 @@ const TripPassengerForm = ({ selectedTicket }) => {
       });
     } catch (err) {
       console.error('Payment flow error:', err);
-      alert('Payment initiation failed.');
+      setError('Payment initiation failed.');
     } finally {
-      setIsSubmitting(false);
+      // Payment fail hone pe hi submitting ko false set karo
+      // Success pe toh navigation ho jayega
+      if (error) setIsSubmitting(false);
     }
   };
 
@@ -115,80 +171,148 @@ const TripPassengerForm = ({ selectedTicket }) => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold mb-4">Traveler Count & Fare</h2>
-                <div className="flex items-center gap-6 mb-6">
-                  <div>
-                    <p className="text-sm text-gray-500">Adults</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button type="button" onClick={() => setAdults(a => Math.max(1, a-1))} className="bg-gray-200 p-2 rounded">-</button>
-                      <div className="w-10 text-center">{adults}</div>
-                      <button type="button" onClick={() => setAdults(a => a+1)} className="bg-gray-200 p-2 rounded">+</button>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Children</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button type="button" onClick={() => setChildren(c => Math.max(0, c-1))} className="bg-gray-200 p-2 rounded">-</button>
-                      <div className="w-10 text-center">{children}</div>
-                      <button type="button" onClick={() => setChildren(c => c+1)} className="bg-gray-200 p-2 rounded">+</button>
-                    </div>
-                  </div>
-                  <div className="ml-auto text-right">
-                    <p className="text-sm text-gray-500">Total Travelers</p>
-                    <p className="text-xl font-bold">{totalTravellers}</p>
-                  </div>
-                </div>
+                
+                <form onSubmit={handleProceedToPayment} className="space-y-6">
 
-                <div className="border-t pt-6">
-                  <h3 className="text-xl font-bold mb-4">Passenger Details</h3>
-                  {passengers.map((p, idx) => (
-                    <div key={idx} className="mb-4 p-4 bg-gray-50 rounded">
-                      <h4 className="font-semibold mb-2">Traveler {idx+1}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <input type="text" placeholder="Full Name" value={p.fullName} onChange={(e) => updatePassenger(idx, 'fullName', e.target.value)} className="p-2 border rounded" required />
-                        <input type="number" placeholder="Age" value={p.age} onChange={(e) => updatePassenger(idx, 'age', e.target.value)} className="p-2 border rounded" required />
-                        <select value={p.gender} onChange={(e) => updatePassenger(idx, 'gender', e.target.value)} className="p-2 border rounded">
-                          <option>Male</option>
-                          <option>Female</option>
-                          <option>Other</option>
-                        </select>
+                  {/* --- SECTION 1: TRAVELER COUNT --- */}
+                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Users className="text-blue-600"/>Traveler Count</h2>
+                  <div className="flex items-center gap-8 mb-6">
+                    {/* Adults Counter */}
+                    <div className="flex flex-col items-center">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Adults</p>
+                      <div className="flex items-center gap-3">
+                        <CounterButton onClick={() => setAdults(a => Math.max(1, a-1))} icon={<Minus size={16} />} disabled={adults <= 1} />
+                        <div className="w-10 text-center text-lg font-bold">{adults}</div>
+                        <CounterButton onClick={() => setAdults(a => a+1)} icon={<Plus size={16} />} />
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                <div className="border-t pt-6">
-                  <h3 className="text-xl font-bold mb-4">Primary Contact</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="p-3 border rounded" />
-                    <input type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="p-3 border rounded" required />
+                    {/* Children Counter */}
+                    <div className="flex flex-col items-center">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Children (0-12)</p>
+                      <div className="flex items-center gap-3">
+                        <CounterButton onClick={() => setChildren(c => Math.max(0, c-1))} icon={<Minus size={16} />} disabled={children <= 0} />
+                        <div className="w-10 text-center text-lg font-bold">{children}</div>
+                        <CounterButton onClick={() => setChildren(c => c+1)} icon={<Plus size={16} />} />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                  {/* --- END SECTION 1 --- */}
 
-                <div className="mt-6 text-right">
-                  <p className="text-sm text-gray-500">Total Fare</p>
-                  <p className="text-2xl font-bold">₹{totalFare.toLocaleString()}</p>
-                </div>
+                  {/* --- SECTION 2: PASSENGER DETAILS --- */}
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-2xl font-bold mb-4">Passenger Details</h3>
+                    <div className="space-y-4">
+                        {passengers.map((p, idx) => (
+                        <div key={idx} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <h4 className="font-semibold mb-3 text-gray-800">Traveler {idx+1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <InputField 
+                                icon={<User className="text-gray-400" />} 
+                                id={`name-${idx}`}
+                                placeholder="Full Name" 
+                                value={p.fullName} 
+                                onChange={(e) => updatePassenger(idx, 'fullName', e.target.value)} 
+                                required 
+                            />
+                            <InputField 
+                                icon={<Calendar className="text-gray-400" />} 
+                                id={`age-${idx}`}
+                                placeholder="Age" 
+                                type="number"
+                                value={p.age} 
+                                onChange={(e) => updatePassenger(idx, 'age', e.target.value)} 
+                                required 
+                            />
+                            <SelectField
+                                icon={<GitCompareArrows className="text-gray-400" />}
+                                id={`gender-${idx}`}
+                                value={p.gender}
+                                onChange={(e) => updatePassenger(idx, 'gender', e.target.value)}
+                            >
+                                <option>Male</option>
+                                <option>Female</option>
+                                <option>Other</option>
+                            </SelectField>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+                  </div>
+                  {/* --- END SECTION 2 --- */}
 
-                <div className="mt-6">
-                  <button onClick={handleProceedToPayment} disabled={isSubmitting} className="w-full bg-green-600 text-white py-3 rounded font-bold">{isSubmitting ? 'Processing...' : 'Proceed to Payment'}</button>
-                </div>
+                  {/* --- SECTION 3: CONTACT --- */}
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-2xl font-bold mb-4">Primary Contact</h3>
+                    <p className="text-gray-500 mb-4 -mt-4">Your ticket and booking details will be sent here.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <InputField 
+                        icon={<Mail className="text-gray-400" />}
+                        id="email"
+                        placeholder="Email Address"
+                        type="email"
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        required 
+                      />
+                      <InputField 
+                        icon={<Phone className="text-gray-400" />}
+                        id="phone"
+                        placeholder="Phone Number"
+                        type="tel"
+                        value={phone} 
+                        onChange={(e) => setPhone(e.target.value)} 
+                        required 
+                      />
+                    </div>
+                  </div>
+                  {/* --- END SECTION 3 --- */}
 
+                  {error && <p className="text-red-500 text-sm text-center py-2">{error}</p>}
+
+                  <div className="mt-6">
+                    <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+                        {isSubmitting ? 'Processing...' : `Pay ₹${totalFare.toLocaleString()}`}
+                    </button>
+                  </div>
+
+                </form>
               </div>
             </div>
 
+            {/* --- RIGHT COLUMN (SUMMARY) --- */}
             <div className="lg:col-span-1">
-              <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold mb-4">Trip Summary</h3>
-                <img src={trip.image} alt={trip.name} className="w-full h-36 object-cover rounded mb-4" />
-                <p className="font-bold">{trip.name}</p>
+              <div className="bg-white p-6 rounded-xl shadow-lg sticky top-24"> {/* Sticky bana diya */}
+                <h3 className="text-xl font-bold mb-4">Trip Summary</h3>
+                <img src={trip.image.startsWith('http') ? trip.image : `${import.meta.env.VITE_BACKEND_BASE_URL}${trip.image}`} alt={trip.name} className="w-full h-36 object-cover rounded-lg mb-4" />
+                <p className="font-bold text-lg">{trip.name}</p>
                 <p className="text-sm text-gray-500">{trip.duration}</p>
-                <div className="mt-4">
-                  <p className="text-sm text-gray-500">Price per person</p>
-                  <p className="text-xl font-bold">₹{perPersonPrice.toLocaleString()}</p>
+                
+                <div className="border-t mt-4 pt-4 space-y-2">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Price per person</span>
+                        <span className="font-medium">₹{perPersonPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Adults</span>
+                        <span className="font-medium">x {adults}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Children</span>
+                        <span className="font-medium">x {children}</span>
+                    </div>
                 </div>
+                
+                <div className="border-t mt-4 pt-4">
+                    <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-800">Total Fare</span>
+                        <span className="text-2xl font-bold text-green-600">₹{totalFare.toLocaleString()}</span>
+                    </div>
+                </div>
+
               </div>
             </div>
+            {/* --- END RIGHT COLUMN --- */}
+
           </div>
         </main>
       </div>

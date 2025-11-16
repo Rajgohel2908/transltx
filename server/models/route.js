@@ -21,8 +21,11 @@ const routeSchema = new mongoose.Schema({
   specificDate: { type: Date },
   startTime: { type: String },
   
-  // --- NEW FIELD ADDED HERE ---
-  totalSeats: { type: Number, required: true, default: 40 }, // Default 40 for buses
+  // --- MODIFIED FIELD HERE ---
+  totalSeats: { 
+    type: mongoose.Schema.Types.Mixed, 
+    default: { default: 40 } 
+  },
   // ---------------------------
 
   stops: { type: [stopSchema], default: [] },

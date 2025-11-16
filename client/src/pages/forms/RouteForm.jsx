@@ -20,8 +20,8 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const [airline, setAirline] = useState("");
   const [price, setPrice] = useState({ default: "" });
   
-  // --- NEW STATE FOR SEATS ---
-  const [totalSeats, setTotalSeats] = useState(40);
+  // --- STATE MODIFIED ---
+  const [totalSeats, setTotalSeats] = useState({ default: 40 });
   // --------------------------
 
   const [scheduleType, setScheduleType] = useState("daily");
@@ -53,8 +53,12 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setStartTime(editingRoute.startTime || "06:00");
       setStartPoint(editingRoute.startPoint || "");
       setEndPoint(editingRoute.endPoint || "");
-      // --- SET SEATS ---
-      setTotalSeats(editingRoute.totalSeats || 40);
+      // --- SET SEATS (MODIFIED) ---
+      if (typeof editingRoute.totalSeats === 'object' && editingRoute.totalSeats !== null) {
+        setTotalSeats(editingRoute.totalSeats);
+      } else {
+        setTotalSeats({ default: editingRoute.totalSeats || 40 });
+      }
       // ----------------
       const normalized = (editingRoute.stops || []).map(s => ({
         stopName: s.stopName || s.name || '',
@@ -85,7 +89,9 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setFlightNumber("");
       setAirline("");
       setPrice({ default: "" });
-      setTotalSeats(40); // Reset seats
+      // --- RESET SEATS (MODIFIED) ---
+      setTotalSeats({ default: 40 }); 
+      // ----------------
       setDaysOfWeek([]);
       setSpecificDate('');
       setAmenitiesInput('');
@@ -98,12 +104,15 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     setPrice({ default: "" });
     if (type === 'air') {
       setScheduleType('specific_date');
-      setTotalSeats(150); // Default for air
+      // --- MODIFIED ---
+      setTotalSeats({ Economy: 150, Business: 20 });
     } else if (type === 'train') {
-        setTotalSeats(600); // Default for train
-        if (scheduleType === 'specific_date') setScheduleType('daily');
+      // --- MODIFIED ---
+      setTotalSeats({ Sleeper: 300, AC: 200, "First Class": 100 });
+      if (scheduleType === 'specific_date') setScheduleType('daily');
     } else {
-      setTotalSeats(40); // Default for bus
+      // --- MODIFIED ---
+      setTotalSeats({ default: 40 });
       if (scheduleType === 'specific_date') setScheduleType('daily');
     }
   }, [type]);
@@ -129,6 +138,20 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
           }
         }
       }
+      
+      // --- LOGIC FOR finalSeats (NEW) ---
+      let finalSeats;
+      if (type === 'bus') {
+        finalSeats = { default: Number(totalSeats.default) || 40 };
+      } else {
+        finalSeats = {};
+        for (const key in totalSeats) {
+          if (totalSeats[key]) {
+            finalSeats[key] = Number(totalSeats[key]);
+          }
+        }
+      }
+      // ---------------------------------
 
       let routeData = {
         id,
@@ -140,8 +163,8 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         startPoint,
         endPoint,
         price: finalPrice,
-        // --- PASS SEATS TO BACKEND ---
-        totalSeats: Number(totalSeats),
+        // --- PASS finalSeats (MODIFIED) ---
+        totalSeats: finalSeats,
       };
 
       if (type === 'air') {
@@ -177,6 +200,12 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const handlePriceChange = (key, value) => {
     setPrice(prev => ({ ...prev, [key]: value }));
   };
+  
+  // --- NEW FUNCTION ---
+  const handleSeatsChange = (key, value) => {
+    setTotalSeats(prev => ({ ...prev, [key]: value }));
+  };
+  // ------------------
 
   const handleAddStop = () => setStops(prev => ([...prev, { stopName: '', priceFromStart: 0, estimatedTimeAtStop: '' }]));
   const handleRemoveStop = (index) => setStops(prev => prev.filter((_, i) => i !== index));
@@ -203,7 +232,12 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     debouncedSearch(value, type, setStartSuggestions, setLoadingSuggestions); 
   };
 
-  const selectStartSuggestion = (city) => { setStartPoint(city); setStartSuggestions([]); };
+  // --- BUG FIX ---
+  const selectStartSuggestion = (cityObj) => { 
+    setStartPoint(cityObj.name); 
+    setStartSuggestions([]); 
+  };
+  // -------------
 
   const handleEndPointChange = (e) => {
     const value = e.target.value;
@@ -212,7 +246,12 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     debouncedSearch(value, type, setEndSuggestions, setLoadingSuggestions);
   };
 
-  const selectEndSuggestion = (city) => { setEndPoint(city); setEndSuggestions([]); };
+  // --- BUG FIX ---
+  const selectEndSuggestion = (cityObj) => { 
+    setEndPoint(cityObj.name); 
+    setEndSuggestions([]); 
+  };
+  // -------------
 
   const handleStopChange = (index, field, value) => {
     setStops(prev => prev.map((s, i) => i === index ? { ...s, [field]: field === 'priceFromStart' ? Number(value) : value } : s));
@@ -224,10 +263,12 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     }
   };
 
-  const selectStopSuggestion = (index, city) => {
-    handleStopChange(index, 'stopName', city);
+  // --- BUG FIX ---
+  const selectStopSuggestion = (index, cityObj) => {
+    handleStopChange(index, 'stopName', cityObj.name);
     setStopSuggestions(prev => ({ ...prev, [index]: [] }));
   };
+  // -------------
 
   const handleDayOfWeekChange = (day) => {
     setDaysOfWeek(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
@@ -250,11 +291,27 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
              <h4 className="font-semibold text-gray-700">Capacity & Pricing</h4>
           </div>
           
-          {/* --- TOTAL SEATS INPUT --- */}
+          {/* --- TOTAL SEATS INPUT (MODIFIED) --- */}
           <div>
              <label className="block text-sm font-medium text-gray-700 mb-1">Total Seats/Capacity</label>
-             <input type="number" placeholder="Total Seats" value={totalSeats} onChange={(e) => setTotalSeats(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" min="1" />
+             {type === 'bus' && (
+                 <input type="number" placeholder="Total Seats" value={totalSeats.default || ''} onChange={(e) => handleSeatsChange('default', e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" min="1" />
+             )}
+             {type === 'train' && (
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <input type="number" placeholder="Sleeper Seats" value={totalSeats.Sleeper || ''} onChange={(e) => handleSeatsChange('Sleeper', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                 <input type="number" placeholder="AC Seats" value={totalSeats.AC || ''} onChange={(e) => handleSeatsChange('AC', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                 <input type="number" placeholder="First Class Seats" value={totalSeats['First Class'] || ''} onChange={(e) => handleSeatsChange('First Class', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                 </div>
+             )}
+             {type === 'air' && (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <input type="number" placeholder="Economy Seats" value={totalSeats.Economy || ''} onChange={(e) => handleSeatsChange('Economy', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                 <input type="number" placeholder="Business Seats" value={totalSeats.Business || ''} onChange={(e) => handleSeatsChange('Business', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                 </div>
+             )}
           </div>
+          {/* --------------------------------- */}
 
           <div className="pt-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Base Fare</label>
@@ -279,10 +336,14 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         
         <div className="relative">
           <input type="text" placeholder={type === 'air' ? "Departure Airport" : "Start Point"} value={startPoint} onChange={handleStartPointChange} required className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
+          {/* --- BUG FIX YAHAN HAI --- */}
           {(loadingSuggestions || startSuggestions.length > 0) && startPoint ? (
             <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-              {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : startSuggestions.map(city => (
-                  <li key={city} onClick={() => selectStartSuggestion(city)} className="p-2 hover:bg-gray-100 cursor-pointer">{city}</li>
+              {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : startSuggestions.map(cityObj => (
+                  <li key={cityObj.name} onClick={() => selectStartSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                    {cityObj.name}
+                    <span className="text-xs text-gray-500 block">{cityObj.state}</span>
+                  </li>
               ))}
             </ul>
           ) : null}
@@ -290,10 +351,14 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         
         <div className="relative">
           <input type="text" placeholder={type === 'air' ? "Arrival Airport" : "End Point"} value={endPoint} onChange={handleEndPointChange} required className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
+          {/* --- BUG FIX YAHAN HAI --- */}
           {(loadingSuggestions || endSuggestions.length > 0) && endPoint ? (
             <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-              {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : endSuggestions.map(city => (
-                  <li key={city} onClick={() => selectEndSuggestion(city)} className="p-2 hover:bg-gray-100 cursor-pointer">{city}</li>
+              {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : endSuggestions.map(cityObj => (
+                  <li key={cityObj.name} onClick={() => selectEndSuggestion(cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                    {cityObj.name}
+                    <span className="text-xs text-gray-500 block">{cityObj.state}</span>
+                  </li>
               ))}
             </ul>
           ) : null}
@@ -361,10 +426,14 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
                 <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
                   <div className="relative md:col-span-2">
                     <input type="text" placeholder={`Stop ${index + 1} Name`} value={stop.stopName} onChange={(e) => handleStopChange(index, 'stopName', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
+                    {/* --- BUG FIX YAHAN HAI --- */}
                     {(loadingSuggestions || stopSuggestions[index]?.length > 0) && stop.stopName ? (
                       <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-                        {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : stopSuggestions[index]?.map(city => (
-                            <li key={city} onClick={() => selectStopSuggestion(index, city)} className="p-2 hover:bg-gray-100 cursor-pointer">{city}</li>
+                        {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : stopSuggestions[index]?.map(cityObj => (
+                            <li key={cityObj.name} onClick={() => selectStopSuggestion(index, cityObj)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                              {cityObj.name}
+                              <span className="text-xs text-gray-500 block">{cityObj.state}</span>
+                            </li>
                         ))}
                       </ul>
                     ) : null}
