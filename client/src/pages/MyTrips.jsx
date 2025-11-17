@@ -3,6 +3,7 @@ import axios from "axios";
 import { Clock, ArrowRight, Heart, Search, Filter } from "lucide-react";
 import Footer from "../components/Footer";
 import { Link } from "react-router-dom";
+import Pagination from "../components/Pagination"; // <-- YEH ADD KAR
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
@@ -18,6 +19,11 @@ const MyTripsPage = () => {
   const [uniqueDurations, setUniqueDurations] = useState([]);
   const [uniqueFeatures, setUniqueFeatures] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // --- YEH NAYA STATE ADD KAR ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6; // Ek page pe 6 card dikha
+  // -----------------------------
 
   // Fetch trips from the API when the component mounts
   useEffect(() => {
@@ -98,6 +104,14 @@ const MyTripsPage = () => {
       }
       return 0;
     });
+
+  // --- YEH NAYA PAGINATION LOGIC ADD KAR ---
+  const totalPages = Math.ceil(filteredTrips.length / ITEMS_PER_PAGE);
+  const paginatedTrips = filteredTrips.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  // ---------------------------------
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -182,79 +196,91 @@ const MyTripsPage = () => {
           )}
 
           {!loading && !error && filteredTrips.length > 0 && (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredTrips.map((trip) => (
-                <div
-                  key={trip._id}
-                  className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group flex flex-col"
-                >
-                  <div className="relative h-56 overflow-hidden">
-                    <img
-                      src={trip.image.startsWith('http') 
-                        ? trip.image 
-                        : `${API_BASE_URL}${trip.image}`}
-                      alt={trip.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
-                    <div className="absolute top-4 right-4">
-                      <button
-                        onClick={() => toggleLike(trip._id)}
-                        className="bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-all transform active:scale-90"
+            <> {/* <-- Yahan se replacement chalu */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* 'filteredTrips' ko 'paginatedTrips' se replace kar */}
+                {paginatedTrips.map((trip) => (
+                  <div
+                    key={trip._id}
+                    className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group flex flex-col"
+                  >
+                    <div className="relative h-56 overflow-hidden">
+                      <img
+                        src={trip.image.startsWith('http') 
+                          ? trip.image 
+                          : `${API_BASE_URL}${trip.image}`}
+                        alt={trip.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+                      <div className="absolute top-4 right-4">
+                        <button
+                          onClick={() => toggleLike(trip._id)}
+                          className="bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-all transform active:scale-90"
+                        >
+                          <Heart
+                            className={`h-5 w-5 ${
+                              likedTrips.includes(trip._id)
+                                ? "text-red-500 fill-red-500"
+                                : "text-gray-600"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-6 flex flex-col flex-grow">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
+                        {trip.name}
+                      </h3>
+                      <p className="text-gray-600 mb-4 flex-grow">{trip.description}</p>
+
+                      <div className="flex items-center justify-between mb-5 text-gray-700">
+                        <div className="flex items-center space-x-2 text-gray-500">
+                          <Clock className="h-4 w-4" />
+                          <span className="text-sm">{trip.duration}</span>
+                        </div>
+                        <div className="text-2xl font-bold text-green-600">
+                          ₹{formatPrice(trip.price)}
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex flex-wrap gap-2">
+                          {(Array.isArray(trip.features) ? trip.features : []).map(
+                            (feature, index) => (
+                              <span
+                                key={index}
+                                className="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full"
+                              >
+                                {feature}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <Link
+                        to={`/my-trips/${trip._id}`}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 transform group-hover:scale-105"
                       >
-                        <Heart
-                          className={`h-5 w-5 ${
-                            likedTrips.includes(trip._id)
-                              ? "text-red-500 fill-red-500"
-                              : "text-gray-600"
-                          }`}
-                        />
-                      </button>
+                        <span>Select Trip</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="p-6 flex flex-col flex-grow">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
-                      {trip.name}
-                    </h3>
-                    <p className="text-gray-600 mb-4 flex-grow">{trip.description}</p>
-
-                    <div className="flex items-center justify-between mb-5 text-gray-700">
-                      <div className="flex items-center space-x-2 text-gray-500">
-                        <Clock className="h-4 w-4" />
-                        <span className="text-sm">{trip.duration}</span>
-                      </div>
-                      <div className="text-2xl font-bold text-green-600">
-                        ₹{formatPrice(trip.price)}
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-2">
-                        {(Array.isArray(trip.features) ? trip.features : []).map(
-                          (feature, index) => (
-                            <span
-                              key={index}
-                              className="bg-cyan-100 text-cyan-800 text-xs px-2 py-1 rounded-full"
-                            >
-                              {feature}
-                            </span>
-                          )
-                        )}
-                      </div>
-                    </div>
-
-                    <Link
-                      to={`/my-trips/${trip._id}`}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 transform group-hover:scale-105"
-                    >
-                      <span>Select Trip</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
+              {/* --- YEH NAYA PAGINATION BLOCK ADD KAR --- */}
+              <div className="mt-12">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => setCurrentPage(page)}
+                />
+              </div>
+            </> /* <-- Yahan tak replace kar */
           )}
         </div>
       </section>

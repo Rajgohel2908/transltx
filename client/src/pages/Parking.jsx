@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { MapPin, Car, Bike, Bus } from "lucide-react";
 import Footer from "../components/Footer";
+import Pagination from "../components/Pagination"; // <-- YEH ADD KAR
 
 // Use environment variable for API base URL
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
@@ -87,6 +88,11 @@ const ParkingPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // --- YEH NAYA STATE ADD KAR ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
+  // -----------------------------
+
   useEffect(() => {
     const fetchParkingLots = async () => {
       try {
@@ -105,6 +111,14 @@ const ParkingPage = () => {
     };
     fetchParkingLots();
   }, []);
+
+  // --- YEH NAYA PAGINATION LOGIC ADD KAR ---
+  const totalPages = Math.ceil(parkingLots.length / ITEMS_PER_PAGE);
+  const paginatedLots = parkingLots.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  // ---------------------------------
 
   return (
     <>
@@ -125,8 +139,8 @@ const ParkingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {loading
               ? [...Array(3)].map((_, i) => <SkeletonCard key={i} />)
-              : parkingLots.length > 0
-              ? parkingLots.map((lot) => (
+              : paginatedLots.length > 0 // <-- 'parkingLots' ko 'paginatedLots' se replace kar
+              ? paginatedLots.map((lot) => ( // <-- 'parkingLots' ko 'paginatedLots' se replace kar
                   <ParkingCard key={lot._id} lot={lot} />
                 ))
               : (
@@ -135,6 +149,18 @@ const ParkingPage = () => {
                 </p>
               )}
           </div>
+
+          {/* --- YEH POORA BLOCK ADD KAR (div ke andar) --- */}
+          {!loading && parkingLots.length > 0 && (
+            <div className="mt-12">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            </div>
+          )}
+          {/* -------------------------------------- */}
         </main>
       </div>
       <Footer />
