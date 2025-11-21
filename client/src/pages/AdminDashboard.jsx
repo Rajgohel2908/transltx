@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
 import { api } from "../utils/api.js";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { AlertCircle, DollarSign, Users, Package, Map, Ticket, Search, Filter as FilterIcon, X as XIcon, Bus, Train, Plane } from 'lucide-react'; // --- ICONS ADD KIYE ---
+import { AlertCircle } from 'lucide-react';
 import Footer from '../components/Footer';
-import AlertForm from "./forms/AlertForm.jsx";
-import TripForm from "./forms/TripForm.jsx";
-import RouteForm from "./forms/RouteForm.jsx";
-import LocationForm from "./forms/LocationForm.jsx";
-import ParkingForm from "./forms/ParkingForm.jsx";
 import ConfirmationModal from "../components/ConfirmationModal.jsx";
-import Pagination from "../components/Pagination.jsx";
 import { DataContext } from "../context/Context.jsx";
+
+// Tab Components
+import TabButton from "../components/admin/TabButton.jsx";
+import OverviewTab from "../components/admin/tabs/OverviewTab.jsx";
+import RoutesTab from "../components/admin/tabs/RoutesTab.jsx";
+import TripsTab from "../components/admin/tabs/TripsTab.jsx";
+import AlertsTab from "../components/admin/tabs/AlertsTab.jsx";
+import ParcelsTab from "../components/admin/tabs/ParcelsTab.jsx";
+import ParkingTab from "../components/admin/tabs/ParkingTab.jsx";
+import UsersTab from "../components/admin/tabs/UsersTab.jsx";
+import BookingsTab from "../components/admin/tabs/BookingsTab.jsx";
+import LocationsTab from "../components/admin/tabs/LocationsTab.jsx";
+
 // API Endpoints
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/admin/alerts`;
@@ -20,91 +26,8 @@ const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
 const RIDES_API_URL = `${VITE_BACKEND_BASE_URL}/rides`;
 const PARKING_API_URL = `${VITE_BACKEND_BASE_URL}/parking`;
 const USERS_API_URL = `${VITE_BACKEND_BASE_URL}/users/admin/users`;
-const BOOKINGS_API_URL = `${VITE_BACKEND_BASE_URL}/bookings`; // New endpoint for all bookings
+const BOOKINGS_API_URL = `${VITE_BACKEND_BASE_URL}/bookings`;
 
-// --- Helper Components ---
-const StatCard = ({ title, value, icon, color }) => (
-  <div className="bg-white p-6 rounded-xl shadow-lg flex items-center space-x-4">
-    <div className={`rounded-full p-3 ${color}`}>
-      {icon}
-    </div>
-    <div>
-      <p className="text-sm text-gray-500">{title}</p>
-      <p className="text-2xl font-bold text-gray-800">{value}</p>
-    </div>
-  </div>
-);
-
-// --- Component to manage a single parcel ---
-const ParcelManagerCard = ({ parcel, onUpdate }) => {
-  const [status, setStatus] = useState(parcel.status);
-  const [adminTag, setAdminTag] = useState(parcel.adminTag);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await onUpdate(parcel._id, { status, adminTag });
-      console.log("hello")
-    } catch (error) {
-      console.error("Failed to update parcel", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-6 space-y-4 flex flex-col">
-      <div className="flex-grow">
-        <p className="font-bold text-lg">
-          {parcel.source} → {parcel.destination}
-        </p>
-        <p className="text-sm text-gray-500">
-          User: {parcel.user?.name || 'N/A'} ({parcel.user?.email || 'N/A'})
-        </p>
-        <p className="text-xs text-gray-400">Order ID: {parcel._id}</p>
-      </div>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Update Status
-          </label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="pending">Pending</option>
-            <option value="in-transit">In-Transit</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Admin Tag / Message
-          </label>
-          <input
-            type="text"
-            value={adminTag}
-            onChange={(e) => setAdminTag(e.target.value)}
-            placeholder="e.g., Arriving in 15 mins"
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-      <button
-        onClick={handleSave}
-        disabled={isSaving}
-        className="mt-4 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-400"
-      >
-        {isSaving ? "Saving..." : "Save Changes"}
-      </button>
-    </div>
-  );
-};
-
-// --- Main Admin Dashboard Page ---
 const AdminDashboard = () => {
   const { user, loading: userLoading } = useContext(DataContext);
   const [alerts, setAlerts] = useState([]);
@@ -113,43 +36,42 @@ const AdminDashboard = () => {
   const [editingTrip, setEditingTrip] = useState(null);
   const [parcels, setParcels] = useState([]);
   const [routes, setRoutes] = useState([]);
-  const [allUsers, setAllUsers] = useState([]); // State for the user list
+  const [allUsers, setAllUsers] = useState([]);
   const [parkingLots, setParkingLots] = useState([]);
   const [editingParking, setEditingParking] = useState(null);
   const [editingRoute, setEditingRoute] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [allBookings, setAllBookings] = useState([]); // State for all bookings
-  const [isSubmitting, setIsSubmitting] = useState(false); // For individual actions
+  const [allBookings, setAllBookings] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // --- NAYA STATE (TASK 4) ---
-  const [formMode, setFormMode] = useState('none'); // 'none', 'selectType', 'showTripForm', 'showRouteForm', 'showParkingForm'
-  const [routeTypeToCreate, setRouteTypeToCreate] = useState(null); // 'bus', 'train', 'air'
+  const [formMode, setFormMode] = useState('none');
+  const [routeTypeToCreate, setRouteTypeToCreate] = useState(null);
 
-  // --- NAYA STATE (TASK 5) ---
   const [routeSearch, setRouteSearch] = useState('');
   const [routeFilter, setRouteFilter] = useState('All');
 
-  const [bookingsData, setBookingsData] = useState([]); // New state for chart data
+  const [bookingsData, setBookingsData] = useState([]);
   const [error, setError] = useState('');
-  // State for new dashboard stats
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalUsers: 0,
     parcelBookings: 0,
-    tripBookings: 0, // Assuming a way to track this
+    tripBookings: 0,
     carpoolRides: 0,
     activeRoutes: 0,
   });
 
-  // --- (TASK 4 FIX) NAYA HELPER: Close all forms ---
+  const [activeTab, setActiveTab] = useState('overview');
+  const [bookingFilter, setBookingFilter] = useState('All');
+
   const closeAllForms = () => {
     setFormMode('none');
     setEditingAlert(null);
@@ -159,13 +81,11 @@ const AdminDashboard = () => {
     setRouteTypeToCreate(null);
   };
 
-  // Helper to get day of the week
   const getDayOfWeek = (date) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return days[new Date(date).getDay()];
   };
 
-  // Helper to process data for the bookings chart
   const processBookingsData = (parcels, trips, rides) => {
     const bookings = {
       Sun: { parcels: 0, trips: 0, carpools: 0 },
@@ -181,22 +101,13 @@ const AdminDashboard = () => {
       const day = getDayOfWeek(p.createdAt);
       if (bookings[day]) bookings[day].parcels += 1;
     });
-    // Assuming trips and rides also have a 'createdAt' field
-    // trips.forEach(t => {
-    //   const day = getDayOfWeek(t.createdAt);
-    //   if (bookings[day]) bookings[day].trips += 1;
-    // });
-    // rides.forEach(r => {
-    //   const day = getDayOfWeek(r.createdAt);
-    //   if (bookings[day]) bookings[day].carpools += 1;
-    // });
 
     return Object.keys(bookings).map(day => ({ date: day, ...bookings[day] }));
   };
 
   const fetchAllData = useCallback(async (page = 1) => {
     setLoading(true);
-    setError(''); // Clear previous errors
+    setError('');
     try {
       const results = await Promise.allSettled([
         api.get(ALERTS_API_URL),
@@ -235,12 +146,9 @@ const AdminDashboard = () => {
       const bookingsData = bookingsRes.status === 'fulfilled' ? (Array.isArray(bookingsRes.value.data) ? bookingsRes.value.data : []) : [];
       setAllBookings(bookingsData);
 
-      // Process and set the real data for the bookings chart
       setBookingsData(processBookingsData(parcelsData, tripsData, ridesData));
 
-      // Calculate stats
       const parcelRevenue = parcelsData.reduce((sum, p) => sum + (p.fare || 0), 0);
-      // Assuming trip price is a number, not a string like '$149'
       const tripRevenue = bookingsData.filter(b => b.bookingType !== 'Parcel').reduce((sum, b) => sum + (b.fare || 0), 0);
 
       setStats({
@@ -262,7 +170,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchAllData();
-  }, [fetchAllData]); // This will run once on mount with the default page
+  }, [fetchAllData]);
 
   const handleToggleAlertStatus = useCallback(async (alert) => {
     const newStatus = alert.status === "active" ? "inactive" : "active";
@@ -304,30 +212,25 @@ const AdminDashboard = () => {
     });
   }, [fetchAllData]);
 
-
   const handleTripSaved = useCallback((savedTrip) => {
     const isEditing = trips.some(t => t._id === savedTrip._id);
     if (isEditing) {
-      // Update existing trip in the local state
       setTrips(currentTrips => currentTrips.map(t => t._id === savedTrip._id ? savedTrip : t));
     } else {
-      // Add new trip to the local state
       setTrips(currentTrips => [savedTrip, ...currentTrips]);
     }
-    fetchAllData(); // Re-fetch all data to ensure consistency
+    fetchAllData();
     setEditingTrip(null);
   }, [trips, fetchAllData]);
 
   const handleRouteSaved = useCallback((savedRoute) => {
     const isEditing = routes.some(r => r._id === savedRoute._id);
     if (isEditing) {
-      // Update existing route in the local state
       setRoutes(currentRoutes => currentRoutes.map(r => r._id === savedRoute._id ? savedRoute : r));
     } else {
-      // Add new route to the local state
       setRoutes(currentRoutes => [savedRoute, ...currentRoutes]);
     }
-    fetchAllData(); // Re-fetch all data to ensure consistency
+    fetchAllData();
     setEditingRoute(null);
   }, [routes, fetchAllData]);
 
@@ -338,7 +241,7 @@ const AdminDashboard = () => {
     } else {
       setParkingLots(currentLots => [savedParking, ...currentLots]);
     }
-    fetchAllData(); // Re-fetch all data to ensure consistency
+    fetchAllData();
     setEditingParking(null);
   }, [parkingLots, fetchAllData]);
 
@@ -419,7 +322,7 @@ const AdminDashboard = () => {
       console.error("Failed to update parcel:", error);
       throw error;
     }
-  }, [fetchAllData]); // Empty dependency array means this function is created once and never changes
+  }, [fetchAllData]);
 
   const handleToggleAdmin = useCallback(async (userToUpdate) => {
     if (window.confirm(`Are you sure you want to ${userToUpdate.is_admin ? 'demote' : 'promote'} ${userToUpdate.name}?`)) {
@@ -428,8 +331,6 @@ const AdminDashboard = () => {
         setIsSubmitting(true);
         setError('');
         await api.patch(`${USERS_API_URL}/${userToUpdate._id}`, { is_admin: newAdminStatus });
-
-        // Update the user in the local state for an immediate UI update
         setAllUsers(currentUsers =>
           currentUsers.map(user => user._id === userToUpdate._id ? { ...user, is_admin: newAdminStatus } : user)
         );
@@ -442,17 +343,7 @@ const AdminDashboard = () => {
     }
   }, []);
 
-
-  const getPriorityColor = (priority) => {
-    if (priority === "Critical") return "border-red-500";
-    if (priority === "Warning") return "border-yellow-500";
-    return "border-blue-500";
-  };
-
-  const [activeTab, setActiveTab] = useState('overview');
-  const [bookingFilter, setBookingFilter] = useState('All');
-
-  // Compute revenue breakdown from allBookings
+  // Revenue Data Calculation
   const parcelRevenue = (allBookings || []).filter(b => b.bookingType === 'Parcel').reduce((s, b) => s + (b.fare || 0), 0);
   const transportRevenue = (allBookings || []).filter(b => ['Bus', 'Train', 'Air', 'bus', 'train', 'air'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0);
   const ridesRevenue = (allBookings || []).filter(b => ['Ride', 'ride', 'Rides', 'rides', 'Carpool', 'carpool'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0);
@@ -463,451 +354,117 @@ const AdminDashboard = () => {
     { name: 'Rides', revenue: ridesRevenue },
   ];
 
-  // --- (TASK 4) NAYA COMPONENT: RouteTypeSelector ---
-  const RouteTypeSelector = () => (
-    <div className="bg-white rounded-lg shadow-lg p-6 mb-8 border border-gray-200">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">Select Route Type</h3>
-      <p className="text-gray-600 mb-6">What type of transport route do you want to add?</p>
-      <div className="grid grid-cols-3 gap-4">
-        <button 
-          onClick={() => { setRouteTypeToCreate('bus'); setEditingRoute(null); setFormMode('showRouteForm'); }}
-          className="p-6 bg-blue-100 text-blue-800 rounded-lg flex flex-col items-center justify-center hover:bg-blue-200 hover:shadow-lg transition-all"
-        >
-          <Bus size={32} />
-          <span className="font-semibold mt-2">Bus Route</span>
-        </button>
-        <button 
-          onClick={() => { setRouteTypeToCreate('train'); setEditingRoute(null); setFormMode('showRouteForm'); }}
-          className="p-6 bg-green-100 text-green-800 rounded-lg flex flex-col items-center justify-center hover:bg-green-200 hover:shadow-lg transition-all"
-        >
-          <Train size={32} />
-          <span className="font-semibold mt-2">Train Route</span>
-        </button>
-        <button 
-          onClick={() => { setRouteTypeToCreate('air'); setEditingRoute(null); setFormMode('showRouteForm'); }}
-          className="p-6 bg-indigo-100 text-indigo-800 rounded-lg flex flex-col items-center justify-center hover:bg-indigo-200 hover:shadow-lg transition-all"
-        >
-          <Plane size={32} />
-          <span className="font-semibold mt-2">Air Route</span>
-        </button>
-      </div>
-      <button onClick={closeAllForms} className="w-full mt-6 bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Cancel</button>
-    </div>
-  );
-  
-  // --- (TASK 5) NAYA COMPONENT: RouteFilters ---
-  const RouteFilters = () => (
-    <div className="bg-white p-4 rounded-xl shadow-lg mb-6 flex flex-col md:flex-row gap-4">
-      <div className="relative flex-grow">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-        <input 
-          type="text"
-          placeholder="Search by route name or ID..."
-          value={routeSearch}
-          onChange={(e) => setRouteSearch(e.target.value)}
-          className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span className="text-sm font-medium text-gray-600">Filter:</span>
-        {['All', 'Bus', 'Train', 'Air'].map(type => (
-          <button 
-            key={type}
-            onClick={() => setRouteFilter(type)}
-            className={`px-4 py-2 rounded-lg font-semibold text-sm ${routeFilter === type ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            {type}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   const renderContent = () => {
     switch (activeTab) {
       case 'routes':
-        // --- (TASK 5) FILTER LOGIC ---
-        const filteredRoutes = routes.filter(route => {
-          const matchesFilter = routeFilter === 'All' || (route.type && route.type.toLowerCase() === routeFilter.toLowerCase());
-          const matchesSearch = !routeSearch || 
-                                (route.name && route.name.toLowerCase().includes(routeSearch.toLowerCase())) || 
-                                (route.id && route.id.toLowerCase().includes(routeSearch.toLowerCase()));
-          return matchesFilter && matchesSearch;
-        });
-
-        return ( // This is now the "Transport" tab
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Manage Transport Routes</h2>
-              <button onClick={() => setFormMode('selectType')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                Add New Transport Route
-              </button>
-            </div>
-            
-            {/* --- (TASK 4 & 5) FORMS AUR FILTERS RENDER KAR --- */}
-            {formMode === 'selectType' && <RouteTypeSelector />}
-            {formMode === 'showRouteForm' && (
-              <RouteForm 
-                onRouteSaved={handleRouteSaved} 
-                editingRoute={editingRoute} 
-                setEditingRoute={(route) => {
-                  setEditingRoute(route);
-                  if (route) setFormMode('showRouteForm');
-                  else closeAllForms();
-                }}
-                // --- (TASK 4 FIX) Pass correct type for new or existing routes ---
-                routeType={editingRoute ? editingRoute.type : routeTypeToCreate}
-              />
-            )}
-            
-            <RouteFilters /> {/* --- YEH TERA NAYA FILTER BAR HAI --- */}
-
-            <div className="space-y-4">
-              {filteredRoutes.map((route) => ( // Ab 'filteredRoutes' use kar
-                <div key={route._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-lg" style={{ color: route.color || '#3B82F6' }}>{route.name} <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full ml-2">{route.type || 'Bus'}</span></p>
-                    {route.type === 'air' ? (
-                      <p className="text-gray-600 text-sm">
-                        {route.airline} - Flight {route.flightNumber}
-                      </p>
-                    ) : (
-                      <p className="text-gray-600 text-sm">{(route.stops || []).length} stops · ETA: {route.estimatedArrivalTime || route.endTime || 'N/A'}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    {/* --- (TASK 4 FIX) Don't nullify routeTypeToCreate here --- */}
-                    <button onClick={() => { setEditingRoute(route); setFormMode('showRouteForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
-                      Edit
-                    </button>
-                    <button onClick={() => handleDeleteRoute(route._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
-                  </div>
-                </div>
-              ))}
-              {filteredRoutes.length === 0 && <p className="text-center text-gray-500">No routes match your filters.</p>}
-            </div>
-          </div>
+        return (
+          <RoutesTab
+            routes={routes}
+            formMode={formMode}
+            setFormMode={setFormMode}
+            routeTypeToCreate={routeTypeToCreate}
+            setRouteTypeToCreate={setRouteTypeToCreate}
+            editingRoute={editingRoute}
+            setEditingRoute={setEditingRoute}
+            closeAllForms={closeAllForms}
+            handleRouteSaved={handleRouteSaved}
+            routeSearch={routeSearch}
+            setRouteSearch={setRouteSearch}
+            routeFilter={routeFilter}
+            setRouteFilter={setRouteFilter}
+            handleDeleteRoute={handleDeleteRoute}
+            isSubmitting={isSubmitting}
+          />
         );
       case 'trips':
         return (
-          <div>
-            <div className="flex justify-between items-center mb-6"> 
-              <h2 className="text-2xl font-bold text-gray-800">Available Trips</h2>
-              <button onClick={() => setFormMode('showTripForm')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                Add New Trip
-              </button>
-            </div>
-            {formMode === 'showTripForm' && <TripForm onTripSaved={handleTripSaved} editingTrip={editingTrip} setEditingTrip={(trip) => { setEditingTrip(trip); if (trip) setFormMode('showTripForm'); else closeAllForms(); }} />}
-            <div className="space-y-4">
-              {trips.map((trip) => (
-                <div key={trip._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
-                  <div><p className="font-bold text-lg">{trip.name}</p></div>
-                  <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => { setEditingTrip(trip); setFormMode('showTripForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
-                      Edit
-                    </button>
-                    <button onClick={() => handleDeleteTrip(trip._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <TripsTab
+            trips={trips}
+            formMode={formMode}
+            setFormMode={setFormMode}
+            editingTrip={editingTrip}
+            setEditingTrip={setEditingTrip}
+            closeAllForms={closeAllForms}
+            handleTripSaved={handleTripSaved}
+            handleDeleteTrip={handleDeleteTrip}
+            isSubmitting={isSubmitting}
+          />
         );
       case 'alerts':
         return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Service Alerts</h2>
-            <AlertForm onAlertSaved={fetchAllData} editingAlert={editingAlert} setEditingAlert={setEditingAlert} />
-            <div className="space-y-4">
-              {alerts.map((alert) => (
-                <div key={alert._id} className={`bg-white rounded-lg shadow-md p-4 border-l-4 ${getPriorityColor(alert.priority)}`}>
-                  <p className="font-bold">{alert.title} <span className={`text-xs font-semibold ml-2 px-2 py-0.5 rounded-full ${alert.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>{alert.status}</span></p>
-                  <div className="flex gap-2 mt-2" style={{ minWidth: '250px' }}>
-                    <button onClick={() => handleToggleAlertStatus(alert)} disabled={isSubmitting} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-lg text-xs disabled:opacity-50">{isSubmitting ? '...' : 'Toggle Status'}</button>
-                    <button onClick={() => setEditingAlert(alert)} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-1 px-3 rounded-lg text-xs disabled:opacity-50">Edit</button>
-                    <button onClick={() => handleDeleteAlert(alert._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-xs disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AlertsTab
+            alerts={alerts}
+            editingAlert={editingAlert}
+            setEditingAlert={setEditingAlert}
+            fetchAllData={fetchAllData}
+            handleToggleAlertStatus={handleToggleAlertStatus}
+            handleDeleteAlert={handleDeleteAlert}
+            isSubmitting={isSubmitting}
+          />
         );
       case 'parcels':
         return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Parcel Orders</h2>
-            {loading ? <p>Loading parcel orders...</p> : parcels.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {parcels.map((parcel) => <ParcelManagerCard key={parcel._id} parcel={parcel} onUpdate={handleUpdateParcel} />)}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No pending parcel orders to manage.</p></div>
-            )}
-          </div>
+          <ParcelsTab
+            parcels={parcels}
+            loading={loading}
+            handleUpdateParcel={handleUpdateParcel}
+          />
         );
       case 'parking':
         return (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Available Parking Lots</h2>
-              <button onClick={() => setFormMode('showParkingForm')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                Add New Parking Lot
-              </button>
-            </div>
-            {formMode === 'showParkingForm' && <ParkingForm onParkingSaved={handleParkingSaved} editingParking={editingParking} setEditingParking={(parking) => { setEditingParking(parking); if(parking) setFormMode('showParkingForm'); else closeAllForms(); }} />}
-            <div className="space-y-4">
-              {parkingLots.map((lot) => (
-                <div key={lot._id} className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-lg">{lot.name}</p>
-                    <p className="text-gray-600 text-sm">{lot.location} - {lot.availableSlots}/{lot.totalSlots} available</p>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                    <button onClick={() => { setEditingParking(lot); setFormMode('showParkingForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
-                      Edit
-                    </button>
-                    <button onClick={() => handleDeleteParkingLot(lot._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ParkingTab
+            parkingLots={parkingLots}
+            formMode={formMode}
+            setFormMode={setFormMode}
+            editingParking={editingParking}
+            setEditingParking={setEditingParking}
+            closeAllForms={closeAllForms}
+            handleParkingSaved={handleParkingSaved}
+            handleDeleteParkingLot={handleDeleteParkingLot}
+            isSubmitting={isSubmitting}
+          />
         );
       case 'users':
         return (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
-              {/* Placeholder for a search or filter bar */}
-            </div>
-            {loading ? (
-              <p>Loading users...</p>
-            ) : allUsers.length > 0 ? (
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Admin Status
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Joined
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {allUsers.map((user) => (
-                      <tr key={user._id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500 break-all">{user.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${user.is_admin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
-                            {user.is_admin ? 'Admin' : 'User'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleToggleAdmin(user)}
-                            disabled={isSubmitting}
-                            className={`font-bold py-2 px-4 rounded-lg text-xs text-white transition-colors disabled:opacity-50 ${
-                              user.is_admin ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-                            }`}
-                          >
-                            {isSubmitting ? 'Updating...' : (user.is_admin ? 'Demote' : 'Promote')}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No users found.</p></div>
-            )}
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => fetchAllData(page)} />
-          </div>
+          <UsersTab
+            allUsers={allUsers}
+            loading={loading}
+            handleToggleAdmin={handleToggleAdmin}
+            isSubmitting={isSubmitting}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            fetchAllData={fetchAllData}
+          />
         );
       case 'bookings':
         return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">All Bookings</h2>
-            <div className="flex items-center gap-3 mb-4">
-              {['All','Bus','Train','Air','Trips','Parcel','Ride'].map((t) => (
-                <button key={t} onClick={() => setBookingFilter(t)} className={`px-3 py-1 rounded-full text-sm font-semibold ${bookingFilter === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            {loading ? (
-              <p>Loading bookings...</p>
-            ) : (() => {
-              const filtered = bookingFilter === 'All' ? allBookings : allBookings.filter(b => {
-                if (!b.bookingType) return false;
-                if (bookingFilter === 'Parcel') return String(b.bookingType).toLowerCase() === 'parcel';
-                if (bookingFilter === 'Trips') return !['parcel','ride','carpool'].includes(String(b.bookingType).toLowerCase());
-                return String(b.bookingType).toLowerCase() === String(bookingFilter).toLowerCase();
-              });
-
-              return filtered.length > 0 ? (
-                <div className="space-y-4">
-                  {filtered.map((booking) => (
-                    <div key={booking._id} className="bg-white rounded-lg shadow-md p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-lg">{booking.from} → {booking.to}</p>
-                          <p className="text-sm text-gray-500">PNR: {booking.pnrNumber}</p>
-                          <p className="text-sm text-gray-500">User: {booking.userId?.name || 'N/A'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600">₹{(booking.fare || 0).toLocaleString()}</p>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            booking.bookingStatus === 'Confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>{booking.bookingStatus}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg shadow-md p-8 text-center"><p className="text-gray-500">No bookings match the selected filter.</p></div>
-              );
-            })()}
-          </div>
-        );
-      // --- NAYA CASE ADD KAR ---
-      case 'overview':
-        const revenueData = [
-          { name: 'Parcels', revenue: (allBookings || []).filter(b => b.bookingType === 'Parcel').reduce((s, b) => s + (b.fare || 0), 0) },
-          { name: 'Transport', revenue: (allBookings || []).filter(b => ['Bus', 'Train', 'Air'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0) },
-          { name: 'Rides', revenue: (allBookings || []).filter(b => b.bookingType === 'Ride').reduce((s, b) => s + (b.fare || 0), 0) },
-        ];
-        return (
-          <>
-            {error && (
-              <div className="flex items-center justify-center p-4 mb-6 bg-red-100 text-red-700 rounded-lg">
-                <AlertCircle className="mr-2" /> {error}
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toFixed(2)}`} icon={<DollarSign className="h-6 w-6 text-green-600" />} color="bg-green-100" />
-              <StatCard title="Total Users" value={stats.totalUsers} icon={<Users className="h-6 w-6 text-blue-600" />} color="bg-blue-100" />
-              <StatCard title="Parcel Bookings" value={stats.parcelBookings} icon={<Package className="h-6 w-6 text-orange-600" />} color="bg-orange-100" />
-              <StatCard title="Trip Bookings" value={stats.tripBookings} icon={<Ticket className="h-6 w-6 text-purple-600" />} color="bg-purple-100" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Revenue by Service</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `₹${value}`} />
-                    <Legend />
-                    <Bar dataKey="revenue" fill="#2563EB" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Bookings This Week (Sample)</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={bookingsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="parcels" stroke="#8884d8" />
-                    <Line type="monotone" dataKey="trips" stroke="#82ca9d" />
-                    <Line type="monotone" dataKey="carpools" stroke="#ffc658" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Recent Routes and Trips Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-              {/* Recent Routes */}
-              <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Recently Added Routes</h3>
-                <div className="space-y-3 max-h-72 overflow-y-auto">
-                  {routes.slice(0, 5).map(route => (
-                    <div key={route._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold" style={{ color: route.color || '#3B82F6' }}>{route.name}</p>
-                        {route.type === 'air' ? (
-                          <p className="text-sm text-gray-500">
-                            {route.airline} - Flight {route.flightNumber}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-gray-500">{(route.stops || []).length} stops</p>
-                        )}
-                      </div>
-                      <button onClick={() => { setActiveTab('routes'); setEditingRoute(route); setFormMode('showRouteForm'); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recent Trips */}
-              <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Available Trips</h3>
-                <div className="space-y-3 max-h-72 overflow-y-auto">
-                  {trips.slice(0, 5).map(trip => (
-                    <div key={trip._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold">{trip.name}</p>
-                        <p className="text-sm text-gray-500">{trip.price}</p>
-                      </div>
-                      <button onClick={() => { setActiveTab('trips'); setEditingTrip(trip); setFormMode('showTripForm'); }} className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full hover:bg-yellow-200">Edit</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
+          <BookingsTab
+            allBookings={allBookings}
+            loading={loading}
+            bookingFilter={bookingFilter}
+            setBookingFilter={setBookingFilter}
+          />
         );
       case 'locations':
+        return <LocationsTab />;
+      case 'overview':
+      default:
         return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Locations</h2>
-            <LocationForm />
-          </div>
+          <OverviewTab
+            stats={stats}
+            revenueData={revenueData}
+            bookingsData={bookingsData}
+            routes={routes}
+            trips={trips}
+            setActiveTab={setActiveTab}
+            setEditingRoute={setEditingRoute}
+            setEditingTrip={setEditingTrip}
+            setFormMode={setFormMode}
+            error={error}
+          />
         );
-      default: return (<div>...Overview content...</div>);
     }
   };
-
-  const TabButton = ({ tabName, label, currentTab, setTab }) => (
-    <button
-      onClick={() => { setTab(tabName); closeAllForms(); }} // Close forms jab tab change kare
-      className={`px-4 py-2 font-semibold rounded-lg transition-colors ${
-        currentTab === tabName
-          ? 'bg-blue-600 text-white shadow'
-          : 'bg-white text-gray-600 hover:bg-gray-100'
-      }`}
-    >
-      {label}
-    </button>
-  );
 
   return (
     <>
@@ -933,16 +490,16 @@ const AdminDashboard = () => {
               <h1 className="text-4xl font-extrabold text-gray-800 mb-4">Admin Dashboard</h1>
               <p className="text-lg text-gray-500 mb-8">Welcome back, Admin! Here's your overview.</p>
 
-              <div className="bg-white rounded-lg shadow p-2 mb-8 flex space-x-2">
-                <TabButton tabName="overview" label="Overview" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="routes" label="Transport" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="trips" label="Bookable Trips" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="bookings" label="Bookings" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="locations" label="Locations" currentTab={activeTab} setTab={setActiveTab} /> {/* <-- NAYA TAB */}
-                <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} />
-                <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} />
+              <div className="bg-white rounded-lg shadow p-2 mb-8 flex space-x-2 overflow-x-auto">
+                <TabButton tabName="overview" label="Overview" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="routes" label="Transport" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="trips" label="Bookable Trips" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="parcels" label="Parcels" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="bookings" label="Bookings" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="parking" label="Parking" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="locations" label="Locations" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
               </div>
 
               <div className="mt-8">
@@ -954,7 +511,7 @@ const AdminDashboard = () => {
         </>
       )}
     </>
-  )
+  );
 };
 
 export default AdminDashboard;

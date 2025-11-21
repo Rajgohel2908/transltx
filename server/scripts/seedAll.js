@@ -56,7 +56,7 @@ const seedDB = async () => {
 
     // 2. Naye FAKE Trips bana (Maan le 50)
     const tripsArray = [];
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 20; i++) {
       const [tripFrom, tripTo] = pickRandomPair(cities); // <-- Asli cities use kar
       // server/scripts/seedAll.js
 
@@ -92,7 +92,7 @@ const seedDB = async () => {
 
     // 3. Naye FAKE Routes bana (Maan le 1000)
     const routesArray = [];
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 200; i++) {
       const type = faker.helpers.arrayElement(['bus', 'train', 'air']);
       
       let locationList, priceData, seatsData, operator;

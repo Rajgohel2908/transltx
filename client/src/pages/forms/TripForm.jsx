@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { Plus, Trash2 } from "lucide-react";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const TRIPS_API_URL = `${VITE_BACKEND_BASE_URL}/trips`;
@@ -17,7 +18,13 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
   const [features, setFeatures] = useState("");
-  const [itinerary, setItinerary] = useState("");
+
+  // --- CHANGED: Itinerary is now an array ---
+  const [itinerary, setItinerary] = useState([]);
+  const [newDay, setNewDay] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+
   const [inclusions, setInclusions] = useState("");
   const [exclusions, setExclusions] = useState("");
   const [whatToCarry, setWhatToCarry] = useState("");
@@ -40,7 +47,10 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setPrice(priceValue);
       setImage(editingTrip.image);
       setFeatures(editingTrip.features.join(", "));
-      setItinerary(JSON.stringify(editingTrip.itinerary || [], null, 2));
+
+      // --- CHANGED: Set itinerary directly ---
+      setItinerary(editingTrip.itinerary || []);
+
       setInclusions(JSON.stringify(editingTrip.inclusions || [], null, 2));
       setExclusions((editingTrip.exclusions || []).join(", "));
       setWhatToCarry((editingTrip.whatToCarry || []).join(", "));
@@ -58,13 +68,30 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
       setPrice("");
       setImage("");
       setFeatures("");
-      setItinerary("");
+      setItinerary([]); // Reset to empty array
       setInclusions("");
       setExclusions("");
       setWhatToCarry("");
       setLogistics('');
     }
   }, [editingTrip]);
+
+  // --- NEW: Handlers for Itinerary ---
+  const addItineraryItem = () => {
+    if (!newDay || !newTitle || !newDescription) {
+      alert("Please fill in all fields for the itinerary item.");
+      return;
+    }
+    setItinerary([...itinerary, { day: newDay, title: newTitle, description: newDescription }]);
+    setNewDay("");
+    setNewTitle("");
+    setNewDescription("");
+  };
+
+  const removeItineraryItem = (index) => {
+    const updatedItinerary = itinerary.filter((_, i) => i !== index);
+    setItinerary(updatedItinerary);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,7 +110,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
         price: parseFloat(price),
         image,
         features: features.split(",").map((f) => f.trim()).filter(f => f),
-        itinerary: JSON.parse(itinerary || '[]'),
+        itinerary: itinerary, // --- CHANGED: Send array directly ---
         inclusions: JSON.parse(inclusions || '[]'),
         exclusions: exclusions.split(",").map(item => item.trim()).filter(item => item),
         whatToCarry: whatToCarry.split(",").map(item => item.trim()).filter(item => item),
@@ -134,17 +161,80 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
         <textarea placeholder="Long Description" value={longDescription} onChange={(e) => setLongDescription(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <input type="text" placeholder="Image URL" value={image} onChange={(e) => setImage(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="Features (comma-separated)" value={features} onChange={(e) => setFeatures(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-        <textarea placeholder='Itinerary (JSON format): [{"day": "1", "title": "...", "description": "..."}]' value={itinerary} onChange={(e) => setItinerary(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
+
+        {/* --- CHANGED: Dynamic Itinerary UI --- */}
+        <div className="bg-white p-4 rounded-lg border border-gray-300">
+          <h4 className="font-bold text-gray-700 mb-2">Itinerary</h4>
+
+          {/* List of existing items */}
+          {itinerary.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {itinerary.map((item, index) => (
+                <div key={index} className="flex items-start justify-between bg-gray-50 p-3 rounded border border-gray-200">
+                  <div>
+                    <p className="font-bold text-sm text-blue-600">Day {item.day}: {item.title}</p>
+                    <p className="text-sm text-gray-600">{item.description}</p>
+                  </div>
+                  <button type="button" onClick={() => removeItineraryItem(index)} className="text-red-500 hover:text-red-700 p-1">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new item inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="md:col-span-2">
+              <input
+                type="text"
+                placeholder="Day (e.g. 1)"
+                value={newDay}
+                onChange={(e) => setNewDay(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <div className="md:col-span-4">
+              <input
+                type="text"
+                placeholder="Title (e.g. Arrival)"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <div className="md:col-span-5">
+              <input
+                type="text"
+                placeholder="Description"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <div className="md:col-span-1">
+              <button
+                type="button"
+                onClick={addItineraryItem}
+                className="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600 flex items-center justify-center"
+                title="Add Item"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+
         <textarea placeholder='Inclusions (JSON format): ["Accommodation", "Breakfast", "Guide"]' value={inclusions} onChange={(e) => setInclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="4"></textarea>
         <input type="text" placeholder="Exclusions (comma-separated)" value={exclusions} onChange={(e) => setExclusions(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         <input type="text" placeholder="What to Carry (comma-separated)" value={whatToCarry} onChange={(e) => setWhatToCarry(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
-        <textarea 
-  placeholder='Logistics (JSON format): {"meetingPoint": "Surat Station", "reportingTime": "8:00 AM"}' 
-  value={logistics} 
-  onChange={(e) => setLogistics(e.target.value)} 
-  className="w-full p-3 border border-gray-300 rounded-lg" 
-  rows="4">
-</textarea>
+        <textarea
+          placeholder='Logistics (JSON format): {"meetingPoint": "Surat Station", "reportingTime": "8:00 AM"}'
+          value={logistics}
+          onChange={(e) => setLogistics(e.target.value)}
+          className="w-full p-3 border border-gray-300 rounded-lg"
+          rows="4">
+        </textarea>
 
         <div className="flex gap-4 pt-4">
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">{isSubmitting ? "Saving..." : (editingTrip ? "Save Changes" : "Create Trip")}</button>
