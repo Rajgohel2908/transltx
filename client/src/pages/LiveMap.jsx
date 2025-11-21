@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Navigation, Route, Menu, X, AlertCircle, Calendar, MapPin } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Navigation, Route, Menu, X, MapPin } from "lucide-react";
 import Footer from "../components/Footer";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
-// --- REMOVED: handlePayment, DataContext, api, CarpoolOfferModal ---
 
 // --- Leaflet Icon Fix ---
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
@@ -32,11 +31,10 @@ const endIcon = L.icon({
     popupAnchor: [0, -40]
 });
 
-const viaIcon = new L.Icon.Default();
 const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || import.meta.env.VITE_API_BASE_URL || '/api';
 
+// Helper component to fit map bounds
 function ChangeView({ bounds }) {
-	const [locationName, setLocationName] = useState(null);
   const map = useMap();
   useEffect(() => {
     if (bounds) {
@@ -49,10 +47,8 @@ function ChangeView({ bounds }) {
 const RouteMap = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = "RouteMap";
+    document.title = "Live Map | TransItIx";
   }, []);
-
-
 
   const [routes, setRoutes] = useState([]);
   const [from, setFrom] = useState({ name: "", coords: null });
@@ -60,14 +56,12 @@ const RouteMap = () => {
 
   const [matchedRoute, setMatchedRoute] = useState(null);
   const [error, setError] = useState("");
-  const travelMode = "car";
+  // const travelMode = "car"; // Not strictly needed if just using OSRM driving
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [routePolyline, setRoutePolyline] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
   const [settingPinFor, setSettingPinFor] = useState(null);
-  // --- REMOVED: user, showCarpoolModal, bookedRideDetails state ---
 
-  // ... (keep dedupePoints, simplifyRDP, normalizePolyline, formatDurationSec) ...
   const dedupePoints = (pts) => {
     if (!Array.isArray(pts) || pts.length === 0) return [];
     const out = [pts[0]];
@@ -79,46 +73,15 @@ const RouteMap = () => {
     return out;
   };
 
-  const simplifyRDP = (points, epsilon = 0.0005) => {
-    if (!points || points.length < 3) return points || [];
-    const sqDist = (p, q) => (p[0] - q[0])**2 + (p[1] - q[1])**2;
-    const perpendicularDistance = (point, lineStart, lineEnd) => {
-      const [x0, y0] = point;
-      const [x1, y1] = lineStart;
-      const [x2, y2] = lineEnd;
-      const num = Math.abs((y2 - y1)*x0 - (x2 - x1)*y0 + x2*y1 - y2*x1);
-      const den = Math.sqrt((y2 - y1)**2 + (x2 - x1)**2);
-      return den === 0 ? Math.sqrt(sqDist(point, lineStart)) : num / den;
-    };
-    const recurse = (pts, start, end, eps, result) => {
-      let maxDist = 0, index = -1;
-      for (let i = start + 1; i < end; i++) {
-        const d = perpendicularDistance(pts[i], pts[start], pts[end]);
-        if (d > maxDist) { index = i; maxDist = d; }
-      }
-      if (maxDist > eps) {
-        recurse(pts, start, index, eps, result);
-        recurse(pts, index, end, eps, result);
-      } else {
-        result.push(pts[start]);
-      }
-    };
-    const res = [];
-    recurse(points, 0, points.length - 1, epsilon, res);
-    res.push(points[points.length - 1]);
-    return res;
-  };
-
   const normalizePolyline = (pts) => {
-    const deduped = dedupePoints(pts || []);
-    const simplified = simplifyRDP(deduped, 0.0005);
-    return simplified;
+    return dedupePoints(pts || []);
   };
 
   const formatDurationSec = (seconds) => {
     if (typeof seconds !== 'number' || !isFinite(seconds) || seconds <= 0) return null;
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.round((seconds % 3600) / 60);
+    if (hrs === 0) return `${mins} min`;
     return `${hrs} hr ${mins} min`;
   };
 
@@ -150,8 +113,6 @@ const RouteMap = () => {
       return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     }
   };
-  
-  // --- REMOVED: onPaymentSuccess and handleBookRoute functions ---
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -160,7 +121,7 @@ const RouteMap = () => {
         const routeData = Array.isArray(response.data) ? response.data : response.data?.data || [];
         setRoutes(routeData);
       } catch (err) {
-        setError("Failed to fetch route schedules. Please try again later.");
+        setError("Failed to fetch route schedules.");
         console.error(err);
       }
     };
@@ -180,7 +141,6 @@ const RouteMap = () => {
     }
   };
   
-  // ... (handleSearch function remains the same, but remove price calculation) ...
   const handleSearch = async () => {
     setError("");
     setMatchedRoute(null);
@@ -192,111 +152,38 @@ const RouteMap = () => {
 
     if (fromCoords && toCoords) {
         try {
+            // Using OSRM for driving route
             const response = await axios.get(
                 `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`
             );
             if (response.data.routes && response.data.routes.length > 0) {
                 const route = response.data.routes[0];
                 const stopsForRoute = [
-                    { name: from.name || 'Start', lat: fromCoords[0], lng: fromCoords[1], latitude: fromCoords[0], longitude: fromCoords[1] },
-                    { name: to.name || 'End', lat: toCoords[0], lng: toCoords[1], latitude: toCoords[0], longitude: toCoords[1] }
+                    { name: from.name || 'Start', lat: fromCoords[0], lng: fromCoords[1] },
+                    { name: to.name || 'End', lat: toCoords[0], lng: toCoords[1] }
                 ];
+                // OSRM returns [lng, lat], Leaflet needs [lat, lng]
                 const polyline = normalizePolyline(route.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                
                 setRoutePolyline(polyline);
                 if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
                 setMatchedRoute({
-                    name: "Custom Driving Route",
+                    name: "Optimized Route",
                     type: "car",
                     color: "#007BFF",
                     stops: stopsForRoute,
                     distance: (route.distance / 1000).toFixed(2) + " km",
                     duration: formatDurationSec(route.duration),
-                    // --- PRICE REMOVED ---
                 });
             } else {
-                setError(`Driving route not found for the given coordinates.`);
+                setError(`Route not found.`);
             }
         } catch (err) {
-            setError("Failed to fetch driving route. Please try again.");
+            setError("Failed to fetch route.");
             console.error(err);
         }
     } else {
-      if (!Array.isArray(routes) || routes.length === 0) return;
-      const normalize = (s) => (s || "").trim().toLowerCase();
-      const source = normalize(from.name);
-      const target = normalize(to.name);
-
-      const candidateRoutes = routes
-        .filter(route => route.type === 'car')
-        .map(route => {
-        const sourceIndex = route.stops.findIndex(s => normalize(s.name) === source);
-        const targetIndex = route.stops.findIndex(s => normalize(s.name) === target);
-        if (sourceIndex !== -1 && targetIndex !== -1 && sourceIndex < targetIndex) {
-          const journeyStops = route.stops.slice(sourceIndex, targetIndex + 1);
-          const totalDuration = journeyStops.slice(1).reduce((acc, stop) => acc + (stop.duration || 0), 0);
-          return { ...route, journeyStops, totalDuration };
-        }
-        return null;
-      }).filter(Boolean);
-
-      if (candidateRoutes.length > 0) {
-        candidateRoutes.sort((a, b) => a.totalDuration - b.totalDuration);
-        const bestRoute = candidateRoutes[0];
-
-        if (travelMode === 'car') {
-          try {
-            const stopCoords = bestRoute.journeyStops.map(s => `${s.longitude},${s.latitude}`).join(';');
-            const osrmRes = await axios.get(`https://router.project-osrm.org/route/v1/driving/${stopCoords}?overview=full&geometries=geojson`, { timeout: 10000 });
-            if (osrmRes.data?.routes?.length) {
-              const routeObj = osrmRes.data.routes[0];
-              const polyline = normalizePolyline(routeObj.geometry.coordinates.map(c => [c[1], c[0]]));
-              setRoutePolyline(polyline);
-              if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-            } else { throw new Error("OSRM returned no routes."); }
-          } catch (err) {
-            console.warn('OSRM polyline fetch failed, falling back to straight lines:', err?.message || err);
-            const polyline = bestRoute.journeyStops.map(s => [s.latitude || s.lat, s.longitude || s.lng]);
-            setRoutePolyline(polyline);
-            if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-          }
-        }
-        setMatchedRoute({ ...bestRoute, duration: `${bestRoute.totalDuration} min`, stops: bestRoute.journeyStops });
-        return;
-      }
-      
-      const allStops = new Map();
-      routes.forEach(route => {
-        route.stops.forEach(stop => {
-          allStops.set(normalize(stop.name), { name: stop.name, lat: stop.latitude, lng: stop.longitude, latitude: stop.latitude, longitude: stop.longitude });
-        });
-      });
-      const sourceNode = allStops.get(source);
-      const targetNode = allStops.get(target);
-      if (!sourceNode || !targetNode) {
-        setError(`Could not find coordinates for "${from}" or "${to}".`);
-        return;
-      }
-      try {
-        const osrmRes = await axios.get(`https://router.project-osrm.org/route/v1/driving/${sourceNode.lng},${sourceNode.lat};${targetNode.lng},${targetNode.lat}?overview=full&geometries=geojson`, { timeout: 10000 });
-        if (osrmRes.data?.routes?.length) {
-          const routeObj = osrmRes.data.routes[0];
-          const polyline = normalizePolyline(routeObj.geometry.coordinates.map(c => [c[1], c[0]]));
-          setRoutePolyline(polyline);
-          if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
-          setMatchedRoute({ 
-            name: 'Direct Driving Route', 
-            stops: [{ ...sourceNode, name: from.name }, { ...targetNode, name: to.name }],
-            type: 'driving', 
-            color: '#007BFF', 
-            distance: (routeObj.distance/1000).toFixed(2) + ' km', 
-            duration: formatDurationSec(routeObj.duration) 
-          });
-          return;
-        }
-      } catch (err) {
-        console.error('OSRM direct route failed:', err?.message || err);
-      }
-      setError(`No direct route found between "${from}" and "${to}".`);
+      setError("Locations not found.");
     }
   };
 
@@ -308,59 +195,66 @@ const RouteMap = () => {
         {/* Sidebar */}
         <div className={`${sidebarOpen ? "w-96" : "w-0"} transition-all duration-300 bg-white shadow-xl z-30 overflow-hidden`}>
           <div className="h-full flex flex-col">
+            {/* CHANGED: bg-black to bg-blue-600 */}
             <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Navigation className="h-6 w-6" />
-                <h1 className="text-xl font-bold">RouteMap</h1>
+                <Navigation className="h-6 w-6 text-white" />
+                <h1 className="text-xl font-bold">Live Map</h1>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 hover:bg-blue-700 rounded">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-800">Plan Your Route</h2>
-              <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <div className="space-y-4">
                 <div className="relative">
-                  <label className="text-sm font-medium text-gray-700">From</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Pickup</label>
                   <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Click 'Set' or type coords" value={from.name} onChange={(e) => setFrom({ name: e.target.value, coords: null })} className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-blue-500 ${settingPinFor === 'from' ? 'ring-2 ring-blue-500' : 'focus:ring-blue-500'}`} />
-                    <button type="button" title="Set 'From' on map" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}><MapPin size={20} /></button>
+                    {/* CHANGED: focus border and ring color to blue */}
+                    <input type="text" placeholder="Enter pickup location" value={from.name} onChange={(e) => setFrom({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'from' ? 'ring-2 ring-blue-600' : ''}`} />
+                    {/* CHANGED: active button color to blue */}
+                    <button type="button" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
                   </div>
                 </div>
                 <div className="relative">
-                  <label className="text-sm font-medium text-gray-700">To</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Dropoff</label>
                   <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Click 'Set' or type coords" value={to.name} onChange={(e) => setTo({ name: e.target.value, coords: null })} className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-blue-500 ${settingPinFor === 'to' ? 'ring-2 ring-blue-500' : 'focus:ring-blue-500'}`} />
-                    <button type="button" title="Set 'To' on map" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}><MapPin size={20} /></button>
+                    {/* CHANGED: focus border and ring color to blue */}
+                    <input type="text" placeholder="Enter dropoff location" value={to.name} onChange={(e) => setTo({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'to' ? 'ring-2 ring-blue-600' : ''}`} />
+                    {/* CHANGED: active button color to blue */}
+                    <button type="button" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
                   </div>
                 </div>
-
               </div>
 
-              <button onClick={handleSearch} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
+              {/* CHANGED: Button color to blue */}
+              <button onClick={handleSearch} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-lg transform active:scale-95">
                 <Route className="h-5 w-5" />
-                <span>Get Directions</span>
+                <span>See Route</span>
               </button>
 
-              {from && to && (
-                <>
-                  {matchedRoute ? (
-                    <div className="p-4 border-t mt-4">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                        Route Details
-                      </h3>
-                      <div className="bg-blue-50 rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between"><span className="text-sm text-gray-600">Route:</span><span className="font-semibold text-gray-800">{from.name} → {to.name}</span></div>
-                        {matchedRoute.distance && (<div className="flex items-center justify-between"><span className="text-sm text-gray-600">Distance:</span><span className="font-semibold text-gray-800">{matchedRoute.distance}</span></div>)}
-                        {matchedRoute.duration && (<div className="flex items-center justify-between"><span className="text-sm text-gray-600">Duration:</span><span className="font-semibold text-gray-800">{matchedRoute.duration}</span></div>)}
-                        {/* --- REMOVED Price and Book Button --- */}
-                      </div>
+              {matchedRoute ? (
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-200 shadow-inner">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900">Trip Details</h3>
+                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Fastest</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                      <span className="text-gray-500 font-medium">Distance</span>
+                      <span className="text-xl font-bold text-gray-900">{matchedRoute.distance}</span>
                     </div>
-                  ) : (
-                    error && (<div className="p-4 mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg"><strong>Error:</strong> {error}</div>)
-                  )}
-                </>
+                    <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                      <span className="text-gray-500 font-medium">Est. Time</span>
+                      <span className="text-xl font-bold text-gray-900">{matchedRoute.duration}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : error && (
+                <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium">
+                  {error}
+                </div>
               )}
             </div>
           </div>
@@ -368,29 +262,33 @@ const RouteMap = () => {
 
         {/* Main Map */}
         <div className="flex-1 relative">
-          {!sidebarOpen && (<button onClick={() => setSidebarOpen(true)} className="absolute top-4 left-4 z-20 bg-white hover:bg-gray-50 p-3 rounded-lg shadow-lg lg:hidden"><Menu className="h-5 w-5" /></button>)}
-          <div className="h-full">
-            <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%", zIndex: 0 }}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          {!sidebarOpen && (<button onClick={() => setSidebarOpen(true)} className="absolute top-4 left-4 z-20 bg-white hover:bg-gray-50 p-3 rounded-full shadow-lg lg:hidden"><Menu className="h-6 w-6" /></button>)}
+          <div className="h-full w-full">
+            <MapContainer center={defaultCenter} zoom={13} style={{ height: "100%", width: "100%", zIndex: 0 }}>
+              {/* Kept CartoDB Voyager for clean look, but you can revert to OSM if you prefer standard look */}
+              <TileLayer 
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              />
               <ChangeView bounds={mapBounds} />
               <MapClickHandler />
-              {from.coords && (<Marker position={from.coords} icon={startIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] })); }, }}><Popup>Pickup Location</Popup></Marker>)}
-              {to.coords && (<Marker position={to.coords} icon={endIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] })); }, }}><Popup>Destination</Popup></Marker>)}
-              {routePolyline.length > 0 && (<Polyline positions={routePolyline} color="#007BFF" weight={5} />)}
-              {(matchedRoute && !routePolyline.length ? [matchedRoute] : []).map((route) => (<Polyline key={route.id || route._id} positions={route.stops.map((s) => [s.latitude || s.lat, s.longitude || s.lng])} color={route.color} />))}
-              {matchedRoute && (matchedRoute.stops || []).map((stop, i, arr) => {
-                  let iconToUse = viaIcon;
-                  if (i === 0) iconToUse = startIcon;
-                  else if (i === arr.length - 1) iconToUse = endIcon;
-                  return (<Marker key={`${matchedRoute.name}-stop-${i}`} position={[stop.latitude || stop.lat, stop.longitude || stop.lng]} icon={iconToUse}><Popup><strong>{stop.name}</strong>{i === 0 ? " (Start)" : i === arr.length - 1 ? " (End)" : ""}</Popup></Marker>);
-              })}
+              
+              {/* Route Line - CHANGED color to Blue, REMOVED MovingCar component */}
+              {routePolyline.length > 0 && (
+                <>
+                  <Polyline positions={routePolyline} color="#007BFF" weight={6} opacity={0.8} />
+                </>
+              )}
+
+              {/* Markers */}
+              {from.coords && (<Marker position={from.coords} icon={startIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Pickup</Popup></Marker>)}
+              {to.coords && (<Marker position={to.coords} icon={endIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Dropoff</Popup></Marker>)}
             </MapContainer>
           </div>
         </div>
       </div>
-        <Footer />
-      {/* --- REMOVED CarpoolOfferModal --- */}
-      </>
+      <Footer />
+    </>
   );
 };
  

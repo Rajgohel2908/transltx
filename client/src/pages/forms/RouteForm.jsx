@@ -5,12 +5,16 @@ import { debounce } from 'lodash';
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
 
-const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
+// --- 1. Accept 'routeType' prop here ---
+const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute, routeType }) => {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [startPoint, setStartPoint] = useState("");
   const [endPoint, setEndPoint] = useState("");
-  const [type, setType] = useState("bus");
+  
+  // Initialize type based on prop or editingRoute
+  const [type, setType] = useState(editingRoute?.type || routeType || "bus");
+  
   const [operator, setOperator] = useState("");
   const [estimatedArrivalTime, setEstimatedArrivalTime] = useState("12:00");
   const [amenitiesInput, setAmenitiesInput] = useState("");
@@ -20,9 +24,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   const [airline, setAirline] = useState("");
   const [price, setPrice] = useState({ default: "" });
   
-  // --- STATE MODIFIED ---
   const [totalSeats, setTotalSeats] = useState({ default: 40 });
-  // --------------------------
 
   const [scheduleType, setScheduleType] = useState("daily");
   const [daysOfWeek, setDaysOfWeek] = useState([]);
@@ -53,13 +55,11 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setStartTime(editingRoute.startTime || "06:00");
       setStartPoint(editingRoute.startPoint || "");
       setEndPoint(editingRoute.endPoint || "");
-      // --- SET SEATS (MODIFIED) ---
       if (typeof editingRoute.totalSeats === 'object' && editingRoute.totalSeats !== null) {
         setTotalSeats(editingRoute.totalSeats);
       } else {
         setTotalSeats({ default: editingRoute.totalSeats || 40 });
       }
-      // ----------------
       const normalized = (editingRoute.stops || []).map(s => ({
         stopName: s.stopName || s.name || '',
         priceFromStart: s.priceFromStart || 0,
@@ -78,6 +78,7 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setSpecificDate(editingRoute.specificDate ? new Date(editingRoute.specificDate).toISOString().split('T')[0] : '');
       setAmenitiesInput(Array.isArray(editingRoute.amenities) ? editingRoute.amenities.join(', ') : (editingRoute.amenities || ''));
     } else {
+      // --- 2. Reset logic updated to use routeType ---
       setId("");
       setName("");
       setStartPoint("");
@@ -89,29 +90,25 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
       setFlightNumber("");
       setAirline("");
       setPrice({ default: "" });
-      // --- RESET SEATS (MODIFIED) ---
       setTotalSeats({ default: 40 }); 
-      // ----------------
       setDaysOfWeek([]);
       setSpecificDate('');
       setAmenitiesInput('');
-      setType("bus");
+      // Use the passed routeType for new entries
+      setType(routeType || "bus");
       setScheduleType('daily');
     }
-  }, [editingRoute]);
+  }, [editingRoute, routeType]); // Added routeType to dependencies
 
   useEffect(() => {
     setPrice({ default: "" });
     if (type === 'air') {
       setScheduleType('specific_date');
-      // --- MODIFIED ---
       setTotalSeats({ Economy: 150, Business: 20 });
     } else if (type === 'train') {
-      // --- MODIFIED ---
       setTotalSeats({ Sleeper: 300, AC: 200, "First Class": 100 });
       if (scheduleType === 'specific_date') setScheduleType('daily');
     } else {
-      // --- MODIFIED ---
       setTotalSeats({ default: 40 });
       if (scheduleType === 'specific_date') setScheduleType('daily');
     }
@@ -139,7 +136,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         }
       }
       
-      // --- LOGIC FOR finalSeats (NEW) ---
       let finalSeats;
       if (type === 'bus') {
         finalSeats = { default: Number(totalSeats.default) || 40 };
@@ -151,7 +147,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
           }
         }
       }
-      // ---------------------------------
 
       let routeData = {
         id,
@@ -163,7 +158,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         startPoint,
         endPoint,
         price: finalPrice,
-        // --- PASS finalSeats (MODIFIED) ---
         totalSeats: finalSeats,
       };
 
@@ -201,17 +195,14 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     setPrice(prev => ({ ...prev, [key]: value }));
   };
   
-  // --- NEW FUNCTION ---
   const handleSeatsChange = (key, value) => {
     setTotalSeats(prev => ({ ...prev, [key]: value }));
   };
-  // ------------------
 
   const handleAddStop = () => setStops(prev => ([...prev, { stopName: '', priceFromStart: 0, estimatedTimeAtStop: '' }]));
   const handleRemoveStop = (index) => setStops(prev => prev.filter((_, i) => i !== index));
 
   const searchHandler = (value, searchType, setSuggestions, setLoading) => {
-    // --- (FIX) Prevent API call on empty search ---
     if (!value || value.trim() === '') {
       setSuggestions([]);
       setLoading(false);
@@ -232,12 +223,10 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     debouncedSearch(value, type, setStartSuggestions, setLoadingSuggestions); 
   };
 
-  // --- BUG FIX ---
   const selectStartSuggestion = (cityObj) => { 
     setStartPoint(cityObj.name); 
     setStartSuggestions([]); 
   };
-  // -------------
 
   const handleEndPointChange = (e) => {
     const value = e.target.value;
@@ -246,12 +235,10 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     debouncedSearch(value, type, setEndSuggestions, setLoadingSuggestions);
   };
 
-  // --- BUG FIX ---
   const selectEndSuggestion = (cityObj) => { 
     setEndPoint(cityObj.name); 
     setEndSuggestions([]); 
   };
-  // -------------
 
   const handleStopChange = (index, field, value) => {
     setStops(prev => prev.map((s, i) => i === index ? { ...s, [field]: field === 'priceFromStart' ? Number(value) : value } : s));
@@ -263,12 +250,10 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
     }
   };
 
-  // --- BUG FIX ---
   const selectStopSuggestion = (index, cityObj) => {
     handleStopChange(index, 'stopName', cityObj.name);
     setStopSuggestions(prev => ({ ...prev, [index]: [] }));
   };
-  // -------------
 
   const handleDayOfWeekChange = (day) => {
     setDaysOfWeek(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
@@ -279,7 +264,8 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
       <h3 className="text-xl font-bold text-gray-800 mb-4">
-        {editingRoute ? "Edit Route" : "Create New Route"}
+        {/* --- 3. Updated Heading to show specific type --- */}
+        {editingRoute ? "Edit Route" : `Create New ${type.charAt(0).toUpperCase() + type.slice(1)} Route`}
       </h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <input type="text" placeholder="Route ID (e.g., bus-101)" value={id} onChange={(e) => setId(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
@@ -291,7 +277,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
              <h4 className="font-semibold text-gray-700">Capacity & Pricing</h4>
           </div>
           
-          {/* --- TOTAL SEATS INPUT (MODIFIED) --- */}
           <div>
              <label className="block text-sm font-medium text-gray-700 mb-1">Total Seats/Capacity</label>
              {type === 'bus' && (
@@ -311,7 +296,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
                  </div>
              )}
           </div>
-          {/* --------------------------------- */}
 
           <div className="pt-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Base Fare</label>
@@ -336,7 +320,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         
         <div className="relative">
           <input type="text" placeholder={type === 'air' ? "Departure Airport" : "Start Point"} value={startPoint} onChange={handleStartPointChange} required className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
-          {/* --- BUG FIX YAHAN HAI --- */}
           {(loadingSuggestions || startSuggestions.length > 0) && startPoint ? (
             <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
               {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : startSuggestions.map(cityObj => (
@@ -351,7 +334,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
         
         <div className="relative">
           <input type="text" placeholder={type === 'air' ? "Arrival Airport" : "End Point"} value={endPoint} onChange={handleEndPointChange} required className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
-          {/* --- BUG FIX YAHAN HAI --- */}
           {(loadingSuggestions || endSuggestions.length > 0) && endPoint ? (
             <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
               {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : endSuggestions.map(cityObj => (
@@ -364,16 +346,10 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
           ) : null}
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg bg-white">
-            <option value="bus">Bus</option>
-            <option value="train">Train</option>
-            <option value="air">Air</option>
-          </select>
-        </div>
+        {/* --- 4. REMOVED THE SELECT DROPDOWN FOR TYPE HERE --- */}
+        
         <input type="text" placeholder="Operator" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
         
-        {/* Schedule logic handles dates/times */}
         {type === 'air' ? (
           <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -426,7 +402,6 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute }) => {
                 <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
                   <div className="relative md:col-span-2">
                     <input type="text" placeholder={`Stop ${index + 1} Name`} value={stop.stopName} onChange={(e) => handleStopChange(index, 'stopName', e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" autoComplete="off" />
-                    {/* --- BUG FIX YAHAN HAI --- */}
                     {(loadingSuggestions || stopSuggestions[index]?.length > 0) && stop.stopName ? (
                       <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                         {loadingSuggestions ? <li className="p-2 text-gray-500">Loading...</li> : stopSuggestions[index]?.map(cityObj => (

@@ -19,7 +19,9 @@ import LocationsTab from "../components/admin/tabs/LocationsTab.jsx";
 
 // API Endpoints
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/admin/alerts`;
+
+// --- FIX 1: Removed '/admin' from alerts URL ---
+const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/alerts`; 
 const TRIPS_API_URL = `${VITE_BACKEND_BASE_URL}/trips`;
 const PARCELS_API_URL = `${VITE_BACKEND_BASE_URL}/parcels`;
 const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
@@ -81,9 +83,12 @@ const AdminDashboard = () => {
     setRouteTypeToCreate(null);
   };
 
-  const getDayOfWeek = (date) => {
+  const getDayOfWeek = (dateString) => {
+    if (!dateString) return 'Sun';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Sun'; // Handle invalid date
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[new Date(date).getDay()];
+    return days[date.getDay()];
   };
 
   const processBookingsData = (parcels, trips, rides) => {
@@ -97,10 +102,15 @@ const AdminDashboard = () => {
       Sat: { parcels: 0, trips: 0, carpools: 0 },
     };
 
-    parcels.forEach(p => {
-      const day = getDayOfWeek(p.createdAt);
-      if (bookings[day]) bookings[day].parcels += 1;
-    });
+    // --- FIX 2: Added safety check for p.createdAt ---
+    if (Array.isArray(parcels)) {
+        parcels.forEach(p => {
+        if (p && p.createdAt) {
+            const day = getDayOfWeek(p.createdAt);
+            if (bookings[day]) bookings[day].parcels += 1;
+        }
+        });
+    }
 
     return Object.keys(bookings).map(day => ({ date: day, ...bookings[day] }));
   };
@@ -109,6 +119,8 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
+      console.log("Fetching Admin Data..."); // Debugging Log
+
       const results = await Promise.allSettled([
         api.get(ALERTS_API_URL),
         api.get(TRIPS_API_URL),
@@ -122,11 +134,21 @@ const AdminDashboard = () => {
 
       const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes, bookingsRes] = results;
 
+      // Log errors if any request failed
+      results.forEach((res, index) => {
+          if (res.status === 'rejected') {
+              console.error(`Request ${index} failed:`, res.reason);
+          }
+      });
+
       const errors = results
         .filter(r => r.status === 'rejected')
         .map(r => r.reason.message || 'An unknown error occurred during fetch.');
+      
       if (errors.length > 0) {
-        setError(errors.join('\n'));
+        console.error("Admin Dashboard Fetch Errors:", errors);
+        // Optional: Don't show error immediately if partial data is available
+        // setError(errors.join('\n')); 
       }
 
       setAlerts(alertsRes.status === 'fulfilled' ? (Array.isArray(alertsRes.value.data) ? alertsRes.value.data : []) : []);

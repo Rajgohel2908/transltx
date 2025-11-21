@@ -1,223 +1,295 @@
-import Route from '../models/route.js';
-import Booking from '../models/Booking.js'; // <-- YEH IMPORT ADD KARO
+import React, { useState, useEffect, useRef } from "react";
+import { Navigation, Route, Menu, X, MapPin } from "lucide-react";
+import Footer from "../components/Footer";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import axios from "axios";
+import "leaflet/dist/leaflet.css";
 
-// ... (createRoute, updateRoute, getAllRoutes, deleteRoute functions ko same rakho) ...
-// ...
-export const createRoute = async (req, res) => { /* ... same code ... */ };
-export const updateRoute = async (req, res) => { /* ... same code ... */ };
-export const getAllRoutes = async (req, res) => { /* ... same code ... */ };
-export const deleteRoute = async (req, res) => { /* ... same code ... */ };
-// ...
+// --- Leaflet Icon Fix ---
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl, iconUrl, shadowUrl,
+});
 
-// Helper to calculate available seats
-const getAvailableSeats = async (route, date) => {
-  let availableSeats = { ...route.totalSeats };
-  if (typeof availableSeats !== 'object' || availableSeats === null) {
-    availableSeats = { default: Number(availableSeats) || 0 };
-  }
+// --- Custom Marker Icons ---
+const startIcon = L.icon({
+    iconUrl: '/images/gps-green.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
+});
 
-  const bookings = await Booking.find({
-    routeId: route._id,
-    departureDateTime: {
-      $gte: date,
-      $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000)
+const endIcon = L.icon({
+    iconUrl: '/images/gps-data.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
+});
+
+const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || import.meta.env.VITE_API_BASE_URL || '/api';
+
+// Helper component to fit map bounds
+function ChangeView({ bounds }) {
+  const map = useMap();
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
-  });
+  }, [bounds, map]);
+  return null;
+}
 
-  for (const booking of bookings) {
-    const classKey = booking.classType || 'default';
-    const passengerCount = booking.passengers ? booking.passengers.length : 0;
+const RouteMap = () => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.title = "Live Map | TransItIx";
+  }, []);
 
-    if (availableSeats[classKey] !== undefined) {
-      availableSeats[classKey] -= passengerCount;
-    } else if (availableSeats['default'] !== undefined) {
-      availableSeats['default'] -= passengerCount;
+  const [routes, setRoutes] = useState([]);
+  const [from, setFrom] = useState({ name: "", coords: null });
+  const [to, setTo] = useState({ name: "", coords: null });
+
+  const [matchedRoute, setMatchedRoute] = useState(null);
+  const [error, setError] = useState("");
+  // const travelMode = "car"; // Not strictly needed if just using OSRM driving
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [routePolyline, setRoutePolyline] = useState([]);
+  const [mapBounds, setMapBounds] = useState(null);
+  const [settingPinFor, setSettingPinFor] = useState(null);
+
+  const dedupePoints = (pts) => {
+    if (!Array.isArray(pts) || pts.length === 0) return [];
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i-1];
+      const b = pts[i];
+      if (a[0] !== b[0] || a[1] !== b[1]) out.push(b);
     }
-  }
-  return availableSeats;
-};
+    return out;
+  };
 
-// Helper to parse time string "HH:mm" to Date object on a specific date
-const getTimeOnDate = (timeStr, date) => {
-  if (!timeStr) return new Date(date);
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  const newDate = new Date(date);
-  newDate.setHours(hours, minutes, 0, 0);
-  return newDate;
-};
+  const normalizePolyline = (pts) => {
+    return dedupePoints(pts || []);
+  };
 
-export const searchRoutes = async (req, res) => {
-  try {
-    const { from, to, date, type, class: classType } = req.query;
+  const formatDurationSec = (seconds) => {
+    if (typeof seconds !== 'number' || !isFinite(seconds) || seconds <= 0) return null;
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.round((seconds % 3600) / 60);
+    if (hrs === 0) return `${mins} min`;
+    return `${hrs} hr ${mins} min`;
+  };
 
-    if (!from || !to || !date || !type) {
-      return res.status(400).json({ message: "Missing required search parameters." });
-    }
-
-    const searchDate = new Date(`${date}T00:00:00.000Z`);
-    const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][searchDate.getUTCDay()];
-
-    // Base query for schedule matching
-    let baseQuery = {
-      type: type.toLowerCase(),
-      $or: [
-        { scheduleType: 'daily' },
-        { scheduleType: 'weekly', daysOfWeek: dayOfWeek },
-        { scheduleType: 'specific_date', specificDate: { $gte: searchDate, $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) } }
-      ]
-    };
-
-    // Fetch all potential routes for the day
-    const candidates = await Route.find(baseQuery);
-
-    const fromLower = from.toLowerCase();
-    const toLower = to.toLowerCase();
-
-    // --- Step 1: Find Direct Routes ---
-    const directRoutes = candidates.filter(route => {
-      const startMatch = route.startPoint.toLowerCase() === fromLower;
-      const endMatch = route.endPoint.toLowerCase() === toLower;
-
-      if (startMatch && endMatch) return true;
-
-      if (route.stops && route.stops.length > 0) {
-        const stopNamesLower = route.stops.map(s => s.stopName.toLowerCase());
-        const fromIndex = startMatch ? 0 : stopNamesLower.indexOf(fromLower) + 1;
-        const toIndex = endMatch ? route.stops.length + 1 : stopNamesLower.indexOf(toLower) + 1;
-
-        if (fromIndex > 0 && toIndex > 0 && fromIndex < toIndex) {
-          return true;
-        }
-      }
-      return false;
+  function MapClickHandler() {
+    const map = useMapEvents({
+      click(e) {
+        if (!settingPinFor) return;
+        const { lat, lng } = e.latlng;
+        reverseGeocode(lat, lng).then(name => {
+          const location = { name, coords: [lat, lng] };
+          if (settingPinFor === 'from') setFrom(location);
+          else if (settingPinFor === 'to') setTo(location);
+        });
+        setSettingPinFor(null);
+      },
     });
-
-    // Process direct routes availability
-    const processedDirectRoutes = await Promise.all(
-      directRoutes.map(async (route) => {
-        const seats = await getAvailableSeats(route, searchDate);
-        return { ...route.toObject(), availableSeats: seats, isDirect: true };
-      })
-    );
-
-    let finalResults = [...processedDirectRoutes];
-
-    // --- Step 2: Find Connecting Routes (if direct routes are few) ---
-    if (finalResults.length < 5) {
-      // Find potential first legs (Start at 'from')
-      const firstLegs = candidates.filter(route => {
-        return route.startPoint.toLowerCase() === fromLower ||
-          (route.stops && route.stops.some(s => s.stopName.toLowerCase() === fromLower));
-      });
-
-      // Find potential second legs (End at 'to')
-      // Note: Second leg could be on the same day OR the next day
-      // For simplicity, let's first check same day connections
-      const secondLegsSameDay = candidates.filter(route => {
-        return route.endPoint.toLowerCase() === toLower ||
-          (route.stops && route.stops.some(s => s.stopName.toLowerCase() === toLower));
-      });
-
-      // We iterate through first legs and try to find a matching second leg
-      for (const leg1 of firstLegs) {
-        // Determine where Leg 1 ends (the transfer point)
-        // It could be the route's endPoint, or any stop AFTER 'from'
-
-        let potentialTransferPoints = [];
-        const leg1StopsLower = leg1.stops ? leg1.stops.map(s => s.stopName.toLowerCase()) : [];
-        const startIdx = leg1.startPoint.toLowerCase() === fromLower ? -1 : leg1StopsLower.indexOf(fromLower);
-
-        // Add stops after startIdx as potential transfer points
-        if (leg1.stops) {
-          leg1.stops.slice(startIdx + 1).forEach(stop => potentialTransferPoints.push(stop.stopName));
-        }
-        // Add endPoint if it's after startIdx
-        potentialTransferPoints.push(leg1.endPoint);
-
-        for (const transferPoint of potentialTransferPoints) {
-          const transferPointLower = transferPoint.toLowerCase();
-
-          // Find matching second legs starting at transferPoint
-          const matchingSecondLegs = secondLegsSameDay.filter(leg2 => {
-            if (leg2._id.toString() === leg1._id.toString()) return false; // Same route
-
-            const leg2StartMatch = leg2.startPoint.toLowerCase() === transferPointLower;
-            const leg2StopsLower = leg2.stops ? leg2.stops.map(s => s.stopName.toLowerCase()) : [];
-            const leg2StartIndex = leg2StartMatch ? -1 : leg2StopsLower.indexOf(transferPointLower);
-
-            // Check if leg2 starts at transferPoint AND ends at 'to' AFTER transferPoint
-            if (leg2StartIndex === -1 && !leg2StartMatch) return false; // Doesn't touch transfer point
-
-            const leg2EndMatch = leg2.endPoint.toLowerCase() === toLower;
-            const leg2EndIndex = leg2EndMatch ? leg2.stops.length : leg2StopsLower.indexOf(toLower);
-
-            return leg2EndIndex > leg2StartIndex;
-          });
-
-          for (const leg2 of matchingSecondLegs) {
-            // Check Time Constraint
-            // Need to parse times. Assuming departureTime/arrivalTime are "HH:mm" strings
-            // And we are on 'searchDate'
-
-            // Calculate Leg 1 Arrival Time at Transfer Point
-            // Simplified: Using route's global arrival time if transfer is at end, 
-            // or estimating if at stop (this is complex without detailed stop timings).
-            // FALLBACK: Use route's main arrival time if transfer is at endPoint.
-            // If transfer is at a stop, we might not have time data. 
-            // Let's stick to transfer at endPoint for reliability if stop times aren't available.
-
-            let leg1ArrivalTime;
-            if (leg1.endPoint.toLowerCase() === transferPointLower) {
-              // --- FIX: Use estimatedArrivalTime ---
-              leg1ArrivalTime = getTimeOnDate(leg1.estimatedArrivalTime, searchDate);
-            } else {
-              // If transfer is at a stop, skip for now unless we have stop timings
-              continue;
-            }
-
-            // Calculate Leg 2 Departure Time at Transfer Point
-            let leg2DepartureTime;
-            if (leg2.startPoint.toLowerCase() === transferPointLower) {
-              // --- FIX: Use startTime ---
-              leg2DepartureTime = getTimeOnDate(leg2.startTime, searchDate);
-            } else {
-              continue;
-            }
-
-            // Check if connection is valid (e.g., > 1 hour layover)
-            const layoverMs = leg2DepartureTime - leg1ArrivalTime;
-            const minLayover = 60 * 60 * 1000; // 1 hour
-            const maxLayover = 12 * 60 * 60 * 1000; // 12 hours
-
-            if (layoverMs >= minLayover && layoverMs <= maxLayover) {
-              // Found a valid connection!
-              // Check availability for both
-              const seats1 = await getAvailableSeats(leg1, searchDate);
-              const seats2 = await getAvailableSeats(leg2, searchDate);
-
-              // Add to results
-              finalResults.push({
-                isConnecting: true,
-                totalFare: (leg1.price?.default || 0) + (leg2.price?.default || 0), // Simplified price access
-                totalDuration: ((leg2DepartureTime - getTimeOnDate(leg1.startTime, searchDate)) + (getTimeOnDate(leg2.estimatedArrivalTime, searchDate) - leg2DepartureTime)) / (1000 * 60 * 60) + " hours", // Rough est
-                legs: [
-                  { ...leg1.toObject(), availableSeats: seats1 },
-                  { ...leg2.toObject(), availableSeats: seats2 }
-                ],
-                transferPoint: transferPoint,
-                layoverDuration: layoverMs / (1000 * 60) + " mins"
-              });
-            }
-          }
-        }
-      }
-    }
-
-    res.status(200).json(finalResults);
-
-  } catch (error) {
-    console.error("Error searching routes:", error);
-    res.status(500).json({ message: 'Error searching routes', error: error.message });
+    useEffect(() => {
+      map.getContainer().style.cursor = settingPinFor ? 'crosshair' : 'grab';
+    }, [settingPinFor, map]);
+    return null;
   }
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      return response.data.display_name;
+    } catch (error) {
+      console.error("Reverse geocoding failed:", error);
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+  };
+
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/routes`);
+        const routeData = Array.isArray(response.data) ? response.data : response.data?.data || [];
+        setRoutes(routeData);
+      } catch (err) {
+        setError("Failed to fetch route schedules.");
+        console.error(err);
+      }
+    };
+    fetchRoutes();
+  }, []);
+
+  const geocode = async (name) => {
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`);
+      if (response.data && response.data.length > 0) {
+        return [parseFloat(response.data[0].lat), parseFloat(response.data[0].lon)];
+      }
+      return null;
+    } catch (error) {
+      console.error("Geocoding failed:", error);
+      return null;
+    }
+  };
+  
+  const handleSearch = async () => {
+    setError("");
+    setMatchedRoute(null);
+    setRoutePolyline([]);
+    setMapBounds(null);
+
+    const fromCoords = from.coords || await geocode(from.name);
+    const toCoords = to.coords || await geocode(to.name);
+
+    if (fromCoords && toCoords) {
+        try {
+            // Using OSRM for driving route
+            const response = await axios.get(
+                `https://router.project-osrm.org/route/v1/driving/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`
+            );
+            if (response.data.routes && response.data.routes.length > 0) {
+                const route = response.data.routes[0];
+                const stopsForRoute = [
+                    { name: from.name || 'Start', lat: fromCoords[0], lng: fromCoords[1] },
+                    { name: to.name || 'End', lat: toCoords[0], lng: toCoords[1] }
+                ];
+                // OSRM returns [lng, lat], Leaflet needs [lat, lng]
+                const polyline = normalizePolyline(route.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                
+                setRoutePolyline(polyline);
+                if (polyline.length > 0) setMapBounds(L.latLngBounds(polyline));
+                setMatchedRoute({
+                    name: "Optimized Route",
+                    type: "car",
+                    color: "#007BFF",
+                    stops: stopsForRoute,
+                    distance: (route.distance / 1000).toFixed(2) + " km",
+                    duration: formatDurationSec(route.duration),
+                });
+            } else {
+                setError(`Route not found.`);
+            }
+        } catch (err) {
+            setError("Failed to fetch route.");
+            console.error(err);
+        }
+    } else {
+      setError("Locations not found.");
+    }
+  };
+
+  const defaultCenter = [21.1645, 72.785];
+
+  return (
+    <>
+      <div className="h-screen flex bg-gray-100 ">
+        {/* Sidebar */}
+        <div className={`${sidebarOpen ? "w-96" : "w-0"} transition-all duration-300 bg-white shadow-xl z-30 overflow-hidden`}>
+          <div className="h-full flex flex-col">
+            {/* CHANGED: bg-black to bg-blue-600 */}
+            <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Navigation className="h-6 w-6 text-white" />
+                <h1 className="text-xl font-bold">Live Map</h1>
+              </div>
+              <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 hover:bg-blue-700 rounded">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <div className="space-y-4">
+                <div className="relative">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Pickup</label>
+                  <div className="flex items-center gap-2">
+                    {/* CHANGED: focus border and ring color to blue */}
+                    <input type="text" placeholder="Enter pickup location" value={from.name} onChange={(e) => setFrom({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'from' ? 'ring-2 ring-blue-600' : ''}`} />
+                    {/* CHANGED: active button color to blue */}
+                    <button type="button" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Dropoff</label>
+                  <div className="flex items-center gap-2">
+                    {/* CHANGED: focus border and ring color to blue */}
+                    <input type="text" placeholder="Enter dropoff location" value={to.name} onChange={(e) => setTo({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'to' ? 'ring-2 ring-blue-600' : ''}`} />
+                    {/* CHANGED: active button color to blue */}
+                    <button type="button" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
+                  </div>
+                </div>
+              </div>
+
+              {/* CHANGED: Button color to blue */}
+              <button onClick={handleSearch} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-lg transform active:scale-95">
+                <Route className="h-5 w-5" />
+                <span>See Route</span>
+              </button>
+
+              {matchedRoute ? (
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-200 shadow-inner">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900">Trip Details</h3>
+                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Fastest</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                      <span className="text-gray-500 font-medium">Distance</span>
+                      <span className="text-xl font-bold text-gray-900">{matchedRoute.distance}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                      <span className="text-gray-500 font-medium">Est. Time</span>
+                      <span className="text-xl font-bold text-gray-900">{matchedRoute.duration}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : error && (
+                <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm font-medium">
+                  {error}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Map */}
+        <div className="flex-1 relative">
+          {!sidebarOpen && (<button onClick={() => setSidebarOpen(true)} className="absolute top-4 left-4 z-20 bg-white hover:bg-gray-50 p-3 rounded-full shadow-lg lg:hidden"><Menu className="h-6 w-6" /></button>)}
+          <div className="h-full w-full">
+            <MapContainer center={defaultCenter} zoom={13} style={{ height: "100%", width: "100%", zIndex: 0 }}>
+              {/* Kept CartoDB Voyager for clean look, but you can revert to OSM if you prefer standard look */}
+              <TileLayer 
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              />
+              <ChangeView bounds={mapBounds} />
+              <MapClickHandler />
+              
+              {/* Route Line - CHANGED color to Blue, REMOVED MovingCar component */}
+              {routePolyline.length > 0 && (
+                <>
+                  <Polyline positions={routePolyline} color="#007BFF" weight={6} opacity={0.8} />
+                </>
+              )}
+
+              {/* Markers */}
+              {from.coords && (<Marker position={from.coords} icon={startIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Pickup</Popup></Marker>)}
+              {to.coords && (<Marker position={to.coords} icon={endIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Dropoff</Popup></Marker>)}
+            </MapContainer>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </>
+  );
 };
+ 
+export default RouteMap;
