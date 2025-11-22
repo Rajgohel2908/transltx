@@ -4,69 +4,32 @@ import Footer from "../components/Footer";
 import { api } from "../utils/api.js";
 import { handlePayment } from "../utils/cashfree.js";
 import CarpoolOfferModal from "../components/CarpoolOfferModal.jsx";
-import {
-  Users,
-  Phone,
-  Clock,
-  Car as CarIcon,
-  MapPin,
-  DollarSign,
-  Calendar,
-  Search,
-  CheckCircle,
-  Briefcase,
-  UserPlus,
-  ArrowRight,
-  List,
-} from "lucide-react";
-
-// --- NAYE IMPORTS (MAP KE LIYE) ---
+import { Users, Phone, Clock, Car as CarIcon, MapPin, DollarSign, Calendar, Search, CheckCircle, Briefcase, UserPlus, ArrowRight, List } from "lucide-react";
 import axios from "axios";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// --- Leaflet Icon Fix (LiveMap se copied) ---
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl, iconUrl, shadowUrl,
-});
+L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 
-// --- Custom Marker Icons (LiveMap se copied) ---
-const startIcon = L.icon({
-    iconUrl: '/images/gps-green.png', // Make sure this image exists in public/images
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40]
-});
+const startIcon = L.icon({ iconUrl: '/images/gps-green.png', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40] });
+const endIcon = L.icon({ iconUrl: '/images/gps-data.png', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40] });
 
-const endIcon = L.icon({
-    iconUrl: '/images/gps-data.png', // Make sure this image exists in public/images
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40]
-});
-// --- MAP IMPORTS KHATAM ---
-
-
-// --- API URL ---
 const API_URL = `${import.meta.env.VITE_BACKEND_BASE_URL}/rides`;
 
-// --- Helper Functions ---
 const getMinDateTimeString = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// --- Helper Icon ---
 const NoRidesIcon = () => <Search className="mx-auto h-16 w-16 text-blue-300" />;
 
-// --- Geocoding Functions (LiveMap se copied) ---
 const geocode = async (name) => {
   try {
     const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`);
@@ -85,12 +48,28 @@ const reverseGeocode = async (lat, lng) => {
     const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
     return response.data.display_name;
   } catch (error) {
-    console.error("Reverse geocoding failed:", error);
     return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
   }
 };
 
-// --- Map View Component ---
+// --- FIX: Auto-fill From location on load ---
+function LocationMarker({ setFrom }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.locate().on("locationfound", function (e) {
+      map.flyTo(e.latlng, map.getZoom());
+      
+      // FIX: Ab yeh actual state update karega
+      reverseGeocode(e.latlng.lat, e.latlng.lng).then(name => {
+        setFrom(prev => prev.name ? prev : { name, coords: [e.latlng.lat, e.latlng.lng] });
+      });
+    });
+  }, [map]);
+
+  return null;
+}
+
 function ChangeView({ bounds }) {
   const map = useMap();
   useEffect(() => {
@@ -101,9 +80,7 @@ function ChangeView({ bounds }) {
   return null;
 }
 
-// --- 1. Private Ride Booking Component (Ab map ke saath) ---
 const BookPrivateRideForm = ({ user, onRideBooked }) => {
-  // State me ab 'name' aur 'coords' dono store honge
   const [from, setFrom] = useState({ name: "", coords: null });
   const [to, setTo] = useState({ name: "", coords: null });
   const [departureTime, setDepartureTime] = useState("");
@@ -111,12 +88,11 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [error, setError] = useState("");
-  
-  // Naya state map ke liye
-  const [settingPinFor, setSettingPinFor] = useState(null); // 'from' | 'to' | null
-  const defaultCenter = [21.7645, 72.1519]; // Bhavnagar default
+  const [settingPinFor, setSettingPinFor] = useState(null);
+  const [routePath, setRoutePath] = useState([]); 
 
-  // --- Map Click Handler (LiveMap se modified) ---
+  const defaultCenter = [21.1702, 72.8311]; 
+
   function MapClickHandler() {
     const map = useMapEvents({
       click(e) {
@@ -126,50 +102,48 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
           const location = { name, coords: [lat, lng] };
           if (settingPinFor === 'from') {
             setFrom(location);
-            setQuote(null); // Quote reset kar
+            setQuote(null); setRoutePath([]); 
           } else if (settingPinFor === 'to') {
             setTo(location);
-            setQuote(null); // Quote reset kar
+            setQuote(null); setRoutePath([]); 
           }
         });
         setSettingPinFor(null);
       },
     });
-    // Cursor change logic
     useEffect(() => {
       map.getContainer().style.cursor = settingPinFor ? 'crosshair' : 'grab';
     }, [settingPinFor, map]);
     return null;
   }
-  // --- End Map Click Handler ---
 
   const handleGetQuote = async () => {
-    if (!from.name || !to.name) {
-      setError("Please enter 'From' and 'To' locations.");
-      return;
-    }
-    setError("");
-    setIsLoadingQuote(true);
-    setQuote(null);
+    if (!from.name || !to.name) { setError("Please enter locations."); return; }
+    setError(""); setIsLoadingQuote(true); setQuote(null); setRoutePath([]);
+
     try {
-      // Logic (LiveMap se copied)
+      // Coords pehle se set hain toh use kar, nahi toh geocode kar (fallback)
       const fromCoords = from.coords || await geocode(from.name);
       const toCoords = to.coords || await geocode(to.name);
 
-      if (fromCoords) setFrom(f => ({ ...f, coords: fromCoords }));
-      if (toCoords) setTo(t => ({ ...t, coords: toCoords }));
+      if (!fromCoords || !toCoords) throw new Error("Could not find coordinates.");
 
-      if (!fromCoords || !toCoords) {
-        throw new Error("Could not find coordinates for one or both locations.");
+      // --- FIX: Send coords directly to backend ---
+      const res = await api.post(`${API_URL}/quote`, { 
+        from: from.name, 
+        to: to.name,
+        fromCoords: fromCoords, // Direct coords
+        toCoords: toCoords      // Direct coords
+      });
+      setQuote(res.data); 
+
+      if (res.data.coordinates) {
+        const swappedCoords = res.data.coordinates.map(coord => [coord[1], coord[0]]);
+        setRoutePath(swappedCoords);
       }
 
-      // Backend ko text names bhej, backend geocode karega (agar quote logic backend pe hai)
-      const res = await api.post(`${API_URL}/quote`, { from: from.name, to: to.name });
-      setQuote(res.data); // { distance, duration, price }
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Could not fetch a quote for this route."
-      );
+      setError(err.response?.data?.message || "Could not fetch a quote.");
     } finally {
       setIsLoadingQuote(false);
     }
@@ -179,32 +153,25 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
     try {
       const bookingPayload = {
         userId: user._id,
-        bookingType: "Ride", // DB me "Ride" save hoga
+        bookingType: "Ride",
         service: "Private Ride",
-        from: from.name, // Sirf naam bhej
-        to: to.name,   // Sirf naam bhej
+        from: from.name,
+        to: to.name,
         departure: departureTime,
-        arrival: departureTime, // Placeholder
+        arrival: departureTime, 
         passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
         contactEmail: user.email,
-        contactPhone: "N/A", // TODO: Add this field?
+        contactPhone: "N/A",
         fare: quote.price,
         paymentId: paymentResult.cf_payment_id,
         orderId: paymentResult.order_id,
         paymentStatus: "SUCCESS",
         bookingStatus: "Confirmed",
       };
-
-      const res = await api.post(
-        `${import.meta.env.VITE_BACKEND_BASE_URL}/bookings`,
-        bookingPayload
-      );
+      const res = await api.post(`${import.meta.env.VITE_BACKEND_BASE_URL}/bookings`, bookingPayload);
       onRideBooked(res.data);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Payment successful, but failed to save booking."
-      );
+      setError("Payment successful, but failed to save booking.");
     } finally {
       setIsBooking(false);
     }
@@ -212,159 +179,76 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
 
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
-    if (!quote || !departureTime) {
-      setError("Please get a quote and set a departure time.");
-      return;
-    }
-    setError("");
-    setIsBooking(true);
-
+    if (!quote || !departureTime) return setError("Get a quote first.");
+    setError(""); setIsBooking(true);
     try {
-      const paymentItem = {
-        name: `Private Ride: ${from.name} to ${to.name}`,
-        price: quote.price,
-        _id: `ride_${Date.now()}`,
-      };
-
       await handlePayment({
-        item: paymentItem,
-        user: user,
+        item: { name: `Private Ride`, price: quote.price, _id: `ride_${Date.now()}` },
+        user,
         onPaymentSuccess: onPrivateRidePaymentSuccess,
       });
+      // Payment flow returned without throwing — reset booking state
+      setIsBooking(false);
     } catch (err) {
-      console.error("Payment initiation failed:", err);
-      setError("Could not initiate payment. Please try again.");
+      setError("Payment initiation failed.");
       setIsBooking(false);
     }
   };
   
-  // Calculate map bounds
   const mapBounds = useMemo(() => {
-    const points = [from.coords, to.coords].filter(Boolean); // Filter out null coords
-    if (points.length > 0) {
-      return L.latLngBounds(points);
-    }
-    return null;
-  }, [from.coords, to.coords]);
+    if (routePath.length > 0) return L.latLngBounds(routePath); 
+    const points = [from.coords, to.coords].filter(Boolean);
+    return points.length > 0 ? L.latLngBounds(points) : null;
+  }, [from.coords, to.coords, routePath]);
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-        <CarIcon className="mr-3 text-blue-600" /> Book a Private Ride
-      </h2>
-      
-      {/* NAYA LAYOUT: FORM + MAP */}
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center"><CarIcon className="mr-3 text-blue-600" /> Book a Private Ride</h2>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* --- LEFT COLUMN (FORM) --- */}
         <div className="lg:col-span-1 space-y-4">
           <form onSubmit={handleSubmitBooking} className="space-y-4">
-            
-            {/* From Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Type address or set on map"
-                  value={from.name}
-                  onChange={(e) => {
-                    setFrom({ name: e.target.value, coords: null });
-                    setQuote(null);
-                  }}
-                  required
-                  className={`w-full p-3 border rounded-lg ${settingPinFor === 'from' ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-300'}`}
-                />
-                <button 
-                  type="button" 
-                  title="Set 'From' on map" 
-                  onClick={() => setSettingPinFor('from')} 
-                  className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  <MapPin size={20} />
-                </button>
+                <input type="text" value={from.name} onChange={(e) => { setFrom({ name: e.target.value, coords: null }); setQuote(null); setRoutePath([]); }} required className="w-full p-3 border rounded-lg" placeholder="Enter pickup location"/>
+                <button type="button" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}><MapPin size={20} /></button>
               </div>
             </div>
-
-            {/* To Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Type address or set on map"
-                  value={to.name}
-                  onChange={(e) => {
-                    setTo({ name: e.target.value, coords: null });
-                    setQuote(null);
-                  }}
-                  required
-                  className={`w-full p-3 border rounded-lg ${settingPinFor === 'to' ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-300'}`}
-                />
-                <button 
-                  type="button" 
-                  title="Set 'To' on map" 
-                  onClick={() => setSettingPinFor('to')} 
-                  className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  <MapPin size={20} />
-                </button>
+                <input type="text" value={to.name} onChange={(e) => { setTo({ name: e.target.value, coords: null }); setQuote(null); setRoutePath([]); }} required className="w-full p-3 border rounded-lg" placeholder="Enter destination"/>
+                <button type="button" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg ${settingPinFor === 'to' ? 'bg-red-600 text-white' : 'bg-gray-100'}`}><MapPin size={20} /></button>
               </div>
             </div>
-
-            {/* Quote Button/Details */}
             {quote ? (
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-2">
-                <div className="flex justify-between font-semibold"><span className="text-gray-600">Distance:</span> <span>{quote.distance}</span></div>
-                <div className="flex justify-between font-semibold"><span className="text-gray-600">Est. Duration:</span> <span>{quote.duration}</span></div>
-                <div className="flex justify-between items-center text-xl font-bold"><span className="text-gray-700">Price:</span> <span className="text-green-600">₹{quote.price.toLocaleString()}</span></div>
-                <button type="button" onClick={() => setQuote(null)} className="text-sm text-blue-600 hover:underline">Clear Quote</button>
+                <div className="flex justify-between"><span className="text-gray-600">Distance:</span> <span>{quote.distance}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Est. Time:</span> <span>{quote.duration}</span></div>
+                <div className="flex justify-between font-bold text-xl"><span className="text-gray-700">Price:</span> <span className="text-green-600">₹{quote.price.toLocaleString()}</span></div>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleGetQuote}
-                disabled={isLoadingQuote || !from.name || !to.name}
-                className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {isLoadingQuote ? "Getting Quote..." : "Get Quote"}
-              </button>
+              <button type="button" onClick={handleGetQuote} disabled={isLoadingQuote || !from.name || !to.name} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50">{isLoadingQuote ? "Getting Quote..." : "Get Quote"}</button>
             )}
-
-            {/* Departure Time */}
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pt-8 pointer-events-none"><Calendar className="h-5 w-5 text-gray-400" /></span>
-              <input
-                type="datetime-local"
-                value={departureTime}
-                onChange={(e) => setDepartureTime(e.target.value)}
-                required
-                className="w-full p-3 pl-10 border border-gray-300 rounded-lg"
-                min={getMinDateTimeString()}
-              />
+              <input type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" min={getMinDateTimeString()}/>
             </div>
-
-            {/* Book Button */}
-            <button
-              type="submit"
-              disabled={!quote || !departureTime || isBooking}
-              className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              {isBooking ? "Processing..." : "Book Ride & Pay"}
-            </button>
-            
+            <button type="submit" disabled={!quote || !departureTime || isBooking} className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 disabled:opacity-50">{isBooking ? "Processing..." : "Book Ride & Pay"}</button>
             {error && (<p className="text-red-500 text-sm text-center">{error}</p>)}
           </form>
         </div>
-
-        {/* --- RIGHT COLUMN (MAP) --- */}
         <div className="lg:col-span-2 h-96 lg:h-auto min-h-[400px] rounded-lg overflow-hidden z-0">
           <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            
+            {/* --- AUTO-FILL USER LOCATION --- */}
+            <LocationMarker setFrom={setFrom} />
+            
             <MapClickHandler />
-            {from.coords && (<Marker position={from.coords} icon={startIcon}><Popup>From: {from.name}</Popup></Marker>)}
-            {to.coords && (<Marker position={to.coords} icon={endIcon}><Popup>To: {to.name}</Popup></Marker>)}
+            {routePath.length > 0 && <Polyline positions={routePath} color="#2563EB" weight={5} opacity={0.8} />}
+            {from.coords && (<Marker position={from.coords} icon={startIcon}><Popup>From</Popup></Marker>)}
+            {to.coords && (<Marker position={to.coords} icon={endIcon}><Popup>To</Popup></Marker>)}
             {mapBounds && <ChangeView bounds={mapBounds} />}
           </MapContainer>
         </div>
@@ -373,8 +257,8 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
   );
 };
 
-
-// --- 2. Carpool Offering Component (Koi change nahi) ---
+// ... (OfferCarpoolForm, AvailableCarpools, RideCard, AcceptedRideCard, MyRideActivity, ModeToggle, RidePage - Sab same as before)
+// --- COPY PASTE BAAKI KA CODE YAHAN SE (Pichhle answer wala same hai) ---
 const OfferCarpoolForm = ({ user, onRidePosted }) => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -416,7 +300,7 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
       setPrice("");
       setNotes("");
       setDriverPhone("");
-      onRidePosted(); // Parent ko bata ki refresh kare
+      onRidePosted(); 
     } catch (err) {
       setError(err.response?.data?.message || "Failed to post ride.");
     }
@@ -458,7 +342,6 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
   );
 };
 
-// --- 3. Carpool List Component (Koi change nahi) ---
 const AvailableCarpools = ({ rides, currentUserId, onCancel, onBookCarpool, loading }) => {
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg h-full">
@@ -492,7 +375,6 @@ const AvailableCarpools = ({ rides, currentUserId, onCancel, onBookCarpool, load
   );
 };
 
-// --- 4. Ride Card (Koi change nahi) ---
 const RideCard = ({ ride, currentUserId, onCancel, onBookCarpool }) => {
   const isDriver = currentUserId && ride.driver?._id && String(currentUserId) === String(ride.driver._id);
   
@@ -529,7 +411,6 @@ const RideCard = ({ ride, currentUserId, onCancel, onBookCarpool }) => {
   );
 };
 
-// --- 5. Accepted Ride Card (Koi change nahi) ---
 const AcceptedRideCard = ({ ride }) => (
   <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
     <div className="flex justify-between items-center mb-4">
@@ -546,7 +427,6 @@ const AcceptedRideCard = ({ ride }) => (
   </div>
 );
 
-// --- 6. User ki Ride Activity (Koi change nahi) ---
 const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, currentUserId }) => {
   return (
     <div className="mt-12 bg-white p-8 rounded-xl shadow-lg">
@@ -554,7 +434,6 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
         <List className="mr-3 text-blue-600" /> My Ride Activity
       </h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Column for Accepted Rides */}
         <div>
           <h3 className="text-xl font-semibold mb-4">My Booked Seats</h3>
           {acceptedRides.length > 0 ? (
@@ -565,20 +444,12 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
             <p className="text-gray-500">You haven't booked any carpool seats yet.</p>
           )}
         </div>
-
-        {/* Column for My Offers */}
         <div>
           <h3 className="text-xl font-semibold mb-4">My Active Offers</h3>
           {myOffers.length > 0 ? (
             <div className="space-y-4">
               {myOffers.map(r => (
-                <RideCard
-                  key={r._id}
-                  ride={r}
-                  currentUserId={currentUserId}
-                  onCancel={onCancel}
-                  onBookCarpool={onBookCarpool} // Pass this just in case, though it'll be disabled
-                />
+                <RideCard key={r._id} ride={r} currentUserId={currentUserId} onCancel={onCancel} onBookCarpool={onBookCarpool} />
               ))}
             </div>
           ) : (
@@ -590,64 +461,32 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
   );
 };
 
-
-// --- NAYA SLIDING TOGGLE COMPONENT (Koi change nahi) ---
 const ModeToggle = ({ selected, onSelect }) => (
     <div className="relative flex justify-center p-1 bg-gray-200 rounded-full max-w-md mx-auto mb-10">
-      {/* The Sliding Background */}
-      <div
-        className={`absolute top-1 bottom-1 left-1 w-1/2 bg-white rounded-full shadow-md transition-transform duration-700 ease-in-out`}
-        style={{
-          transform: selected === 'private' ? 'translateX(0%)' : 'translateX(98%)', // 98% ya 100% try kar
-        }}
-      />
-
-      {/* Button 1: Private Ride */}
-      <button
-        onClick={() => onSelect("private")}
-        className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${
-          selected === "private" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"
-        }`}
-      >
-        <div className="flex items-center justify-center">
-          <Briefcase className="h-5 w-5 mr-2" />
-          Book a Private Ride
-        </div>
+      <div className={`absolute top-1 bottom-1 left-1 w-1/2 bg-white rounded-full shadow-md transition-transform duration-700 ease-in-out`} style={{ transform: selected === 'private' ? 'translateX(0%)' : 'translateX(98%)' }} />
+      <button onClick={() => onSelect("private")} className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${selected === "private" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
+        <div className="flex items-center justify-center"><Briefcase className="h-5 w-5 mr-2" /> Book a Private Ride</div>
       </button>
-
-      {/* Button 2: Carpool */}
-      <button
-        onClick={() => onSelect("carpool")}
-        className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${
-          selected === "carpool" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"
-        }`}
-      >
-        <div className="flex items-center justify-center">
-          <Users className="h-5 w-5 mr-2" />
-          Join/Offer Carpool
-        </div>
+      <button onClick={() => onSelect("carpool")} className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${selected === "carpool" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
+        <div className="flex items-center justify-center"><Users className="h-5 w-5 mr-2" /> Join/Offer Carpool</div>
       </button>
     </div>
-  );
+);
 
-// --- MAIN PAGE COMPONENT (Koi change nahi) ---
 const RidePage = () => {
-  const [activeMode, setActiveMode] = useState("private"); // 'private' ya 'carpool'
+  const [activeMode, setActiveMode] = useState("private");
   const [activeRides, setActiveRides] = useState([]);
   const [acceptedRides, setAcceptedRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useContext(DataContext);
-
   const [showCarpoolModal, setShowCarpoolModal] = useState(false);
   const [bookedRideDetails, setBookedRideDetails] = useState(null);
 
-  // Sab rides fetch kar
   const fetchAllRides = async () => {
     setLoading(true);
     try {
       const activeRes = await api.get(API_URL);
       setActiveRides(Array.isArray(activeRes.data) ? activeRes.data : []);
-
       if (user?._id) {
         const acceptedRes = await api.get(`${API_URL}/accepted/${user._id}`);
         setAcceptedRides(Array.isArray(acceptedRes.data) ? acceptedRes.data : []);
@@ -663,25 +502,16 @@ const RidePage = () => {
     fetchAllRides();
   }, [user]);
 
-  // Private ride book karne ke baad modal dikha
   const handleRideBooked = (newBooking) => {
     setBookedRideDetails(newBooking);
     setShowCarpoolModal(true);
   };
 
-  // Driver apna offer cancel kare
   const handleCancelRide = async (rideId) => {
     if (!user?._id) return alert("You must be logged in to cancel a ride.");
-    if (
-      !window.confirm(
-        "Are you sure you want to permanently delete this ride offer?"
-      )
-    )
-      return;
+    if (!window.confirm("Are you sure you want to permanently delete this ride offer?")) return;
     try {
-      await api.delete(`${API_URL}/${rideId}/cancel`, {
-        data: { userId: user._id },
-      });
+      await api.delete(`${API_URL}/${rideId}/cancel`, { data: { userId: user._id } });
       fetchAllRides();
     } catch (err) {
       console.error(err);
@@ -689,129 +519,62 @@ const RidePage = () => {
     }
   };
 
-  // Carpool book karne pe payment success
   const onCarpoolPaymentSuccess = async (rideId, paymentResult) => {
     try {
       await api.patch(`${API_URL}/${rideId}/accept`, { userId: user._id });
       fetchAllRides();
     } catch (err) {
       console.error(err);
-      alert(
-        err.response?.data?.message ||
-          "Payment successful, but failed to confirm booking. Please contact support."
-      );
+      alert(err.response?.data?.message || "Payment successful, but failed to confirm booking. Please contact support.");
     }
   };
 
-  // Carpool book karne ka flow
   const handleBookCarpool = async (ride) => {
     if (!user?._id) return alert("You must be logged in to accept a ride.");
-
-    const paymentItem = {
-      _id: ride._id,
-      name: `Seat: ${ride.from} to ${ride.to}`,
-      price: ride.price,
-    };
-
+    const paymentItem = { _id: ride._id, name: `Seat: ${ride.from} to ${ride.to}`, price: ride.price };
     try {
-      await handlePayment({
-        item: paymentItem,
-        user: user,
-        onPaymentSuccess: (paymentResult) =>
-          onCarpoolPaymentSuccess(ride._id, paymentResult),
-      });
+      await handlePayment({ item: paymentItem, user: user, onPaymentSuccess: (paymentResult) => onCarpoolPaymentSuccess(ride._id, paymentResult) });
     } catch (err) {
       console.error("Payment initiation failed:", err);
       alert("Could not initiate payment. Please try again.");
     }
   };
 
-  // User ki rides filter kar
-  const myRideOffers = activeRides.filter(
-    (r) => r.driver?._id && String(r.driver._id) === String(user?._id)
-  );
-  const otherRides = activeRides.filter(
-    (r) => r.driver?._id && String(r.driver._id) !== String(user?._id)
-  );
-
+  const myRideOffers = activeRides.filter((r) => r.driver?._id && String(r.driver._id) === String(user?._id));
+  const otherRides = activeRides.filter((r) => r.driver?._id && String(r.driver._id) !== String(user?._id));
 
   return (
     <>
       <div className="bg-gray-50 min-h-screen">
         <main className="container mx-auto px-4 py-12">
           <div className="text-center mb-10">
-            <h1 className="text-4xl font-extrabold text-gray-800 mb-4">
-              Book Rides & Carpool
-            </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Book a private ride, or offer/join a community carpool.
-            </p>
+            <h1 className="text-4xl font-extrabold text-gray-800 mb-4">Book Rides & Carpool</h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">Book a private ride, or offer/join a community carpool.</p>
           </div>
-
-          {/* --- NAYA SLIDING TOGGLE --- */}
           <ModeToggle selected={activeMode} onSelect={setActiveMode} />
-
-          {/* --- NAYA CONDITIONAL CONTENT + FADE-IN ANIMATION --- */}
           <div>
             {activeMode === "private" && (
-              <div className="max-w-6xl mx-auto animate-fade-in"> {/* Max width badha diya */}
-                <BookPrivateRideForm
-                  user={user}
-                  onRideBooked={handleRideBooked}
-                />
+              <div className="max-w-6xl mx-auto animate-fade-in">
+                <BookPrivateRideForm user={user} onRideBooked={handleRideBooked} />
               </div>
             )}
-
             {activeMode === "carpool" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
                 <OfferCarpoolForm user={user} onRidePosted={fetchAllRides} />
-                <AvailableCarpools
-                  rides={otherRides}
-                  currentUserId={user?._id}
-                  onCancel={handleCancelRide}
-                  onBookCarpool={handleBookCarpool}
-                  loading={loading}
-                />
+                <AvailableCarpools rides={otherRides} currentUserId={user?._id} onCancel={handleCancelRide} onBookCarpool={handleBookCarpool} loading={loading} />
               </div>
             )}
           </div>
-
-          {/* --- "MY ACTIVITY" SECTION (User logged in hai toh hi dikhega) --- */}
-          {user &&
-            (acceptedRides.length > 0 || myRideOffers.length > 0) && (
-              <MyRideActivity
-                acceptedRides={acceptedRides}
-                myOffers={myRideOffers}
-                onCancel={handleCancelRide}
-                onBookCarpool={handleBookCarpool}
-                currentUserId={user?._id}
-              />
-            )}
+          {user && (acceptedRides.length > 0 || myRideOffers.length > 0) && (
+            <MyRideActivity acceptedRides={acceptedRides} myOffers={myRideOffers} onCancel={handleCancelRide} onBookCarpool={handleBookCarpool} currentUserId={user?._id} />
+          )}
         </main>
       </div>
-
-      {/* Carpool Modal (Private ride book karne ke baad) */}
       {showCarpoolModal && (
-        <CarpoolOfferModal
-          bookingDetails={bookedRideDetails}
-          user={user}
-          onClose={() => {
-            setShowCarpoolModal(false);
-            fetchAllRides(); // Carpool list refresh kar
-          }}
-        />
+        <CarpoolOfferModal bookingDetails={bookedRideDetails} user={user} onClose={() => { setShowCarpoolModal(false); fetchAllRides(); }} />
       )}
       <Footer />
-      {/* --- ANIMATION KI CSS --- */}
-      <style>{`
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      <style>{` .animate-fade-in { animation: fadeIn 0.5s ease-in-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } `}</style>
     </>
   );
 };

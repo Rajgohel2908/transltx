@@ -129,7 +129,7 @@ const TripPassengerForm = ({ selectedTicket }) => {
 
   const handleProceedToPayment = async (e) => {
     e.preventDefault();
-    setError(""); // Purane errors clear karo
+    setError(""); 
 
     // Validate fields
     if (!phone) {
@@ -151,13 +151,16 @@ const TripPassengerForm = ({ selectedTicket }) => {
         user,
         onPaymentSuccess
       });
+      // Agar payment close ho gayi bina error ke (edge case), toh button reset karo
+      setIsSubmitting(false);
     } catch (err) {
       console.error('Payment flow error:', err);
-      setError('Payment initiation failed.');
-    } finally {
-      // Payment fail hone pe hi submitting ko false set karo
-      // Success pe toh navigation ho jayega
-      if (error) setIsSubmitting(false);
+      // FIX: Error aane par button turant reset karo
+      setIsSubmitting(false);
+      // Agar "Payment cancelled" hai toh error mat dikha (optional), warna dikha de
+      if (err.message !== "Payment cancelled by user") {
+          setError('Payment initiation failed.');
+      }
     }
   };
 

@@ -195,7 +195,6 @@ const RouteMap = () => {
         {/* Sidebar */}
         <div className={`${sidebarOpen ? "w-96" : "w-0"} transition-all duration-300 bg-white shadow-xl z-30 overflow-hidden`}>
           <div className="h-full flex flex-col">
-            {/* CHANGED: bg-black to bg-blue-600 */}
             <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Navigation className="h-6 w-6 text-white" />
@@ -211,24 +210,19 @@ const RouteMap = () => {
                 <div className="relative">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Pickup</label>
                   <div className="flex items-center gap-2">
-                    {/* CHANGED: focus border and ring color to blue */}
                     <input type="text" placeholder="Enter pickup location" value={from.name} onChange={(e) => setFrom({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'from' ? 'ring-2 ring-blue-600' : ''}`} />
-                    {/* CHANGED: active button color to blue */}
                     <button type="button" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
                   </div>
                 </div>
                 <div className="relative">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Dropoff</label>
                   <div className="flex items-center gap-2">
-                    {/* CHANGED: focus border and ring color to blue */}
                     <input type="text" placeholder="Enter dropoff location" value={to.name} onChange={(e) => setTo({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'to' ? 'ring-2 ring-blue-600' : ''}`} />
-                    {/* CHANGED: active button color to blue */}
                     <button type="button" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
                   </div>
                 </div>
               </div>
 
-              {/* CHANGED: Button color to blue */}
               <button onClick={handleSearch} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-lg transform active:scale-95">
                 <Route className="h-5 w-5" />
                 <span>See Route</span>
@@ -265,22 +259,22 @@ const RouteMap = () => {
           {!sidebarOpen && (<button onClick={() => setSidebarOpen(true)} className="absolute top-4 left-4 z-20 bg-white hover:bg-gray-50 p-3 rounded-full shadow-lg lg:hidden"><Menu className="h-6 w-6" /></button>)}
           <div className="h-full w-full">
             <MapContainer center={defaultCenter} zoom={13} style={{ height: "100%", width: "100%", zIndex: 0 }}>
-              {/* Kept CartoDB Voyager for clean look, but you can revert to OSM if you prefer standard look */}
+              
+              {/* --- RESTORED STANDARD OSM LAYER --- */}
               <TileLayer 
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" 
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
+              
               <ChangeView bounds={mapBounds} />
               <MapClickHandler />
               
-              {/* Route Line - CHANGED color to Blue, REMOVED MovingCar component */}
               {routePolyline.length > 0 && (
                 <>
                   <Polyline positions={routePolyline} color="#007BFF" weight={6} opacity={0.8} />
                 </>
               )}
 
-              {/* Markers */}
               {from.coords && (<Marker position={from.coords} icon={startIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Pickup</Popup></Marker>)}
               {to.coords && (<Marker position={to.coords} icon={endIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Dropoff</Popup></Marker>)}
             </MapContainer>

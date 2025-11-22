@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-const PAYMENT_API_URL = `${VITE_BACKEND_BASE_URL}/payment`; // Path: /api/payment
+const PAYMENT_API_URL = `${VITE_BACKEND_BASE_URL}/payment`;
 
 let cashfree;
 
@@ -32,32 +32,49 @@ const loadCashfreeSDK = () => {
 export const handlePayment = async ({ item, user, onPaymentSuccess }) => {
   try {
     const cashfreeInstance = await loadCashfreeSDK();
-    if (!cashfreeInstance) return;
+    if (!cashfreeInstance) {
+      throw new Error("Cashfree SDK load nahi hua.");
+    }
 
     const orderDetails = {
       amount: item.price || item.fare,
       user,
-      itemName: item.name || `Parcel from ${item.sender.city} to ${item.recipient.city}`,
-      itemId: item._id || `parcel_${Date.now()}`
+      itemName: item.name || `Booking: ${item._id}`,
+      itemId: item._id || `order_${Date.now()}`,
     };
 
-    // --- STEP 1: Server ko call kar ---
+    // Step 1: Create Order
     const response = await axios.post(`${PAYMENT_API_URL}/create-order`, orderDetails);
+
+    if (!response.data || !response.data.payment_session_id) {
+      throw new Error("Payment Session ID nahi mila.");
+    }
+
     const { payment_session_id } = response.data;
 
-    // --- STEP 2: Popup khol ---
-    cashfreeInstance.checkout({ paymentSessionId: payment_session_id }).then((result) => {
-      if (result.error) return alert(result.error.message);
-      if (result.payment.status === "SUCCESS" && onPaymentSuccess) {
-        onPaymentSuccess(result.order);
+    // --- STEP 2: Popup ---
+    // YAHAN DHYAN DE: 'return' zaroori hai taaki hum promise ka wait karein
+    return cashfreeInstance.checkout({ paymentSessionId: payment_session_id }).then((result) => {
+      // SCENARIO 1: User ne popup close kiya ya payment fail hui
+      if (result.error) {
+        console.log("User closed popup or payment failed:", result.error);
+        // YEH HAI ASLI FIX: Error throw kar, tabhi button reset hoga!
+        throw new Error(result.error.message || "Payment Cancelled by User");
+      }
+      
+      // SCENARIO 2: Payment Success
+      if (result.payment && result.payment.paymentStatus === "SUCCESS") {
+        console.log("Payment Success");
+        if (onPaymentSuccess) {
+            onPaymentSuccess(result.order);
+        }
       }
     });
+
   } catch (error) {
-    console.error("Payment initiation failed:", error);
-    alert("Could not initiate payment. Please try again.");
-    
-    // --- YEH HAI SABSE IMPORTANT FIX ---
-    // 'PassengerDetails.jsx' ko bata ki error hua hai
+    console.error("Payment flow error:", error);
+    // Error ko re-throw kar taaki PassengerDetails.jsx ka catch block is pakad sake
+    // aur setIsSubmitting(false) chala sake.
     throw error; 
   }
 };

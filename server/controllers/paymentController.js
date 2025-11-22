@@ -1,82 +1,54 @@
-import axios from "axios";
+import { Cashfree } from "cashfree-pg";
+import dotenv from "dotenv";
 
-const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-const PAYMENT_API_URL = `${VITE_BACKEND_BASE_URL}/payment`; 
+dotenv.config();
 
-let cashfree;
+// Initialize Cashfree with credentials from .env
+Cashfree.XClientId = process.env.CASHFREE_APP_ID;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
 
-const loadCashfreeSDK = () => {
-  return new Promise((resolve) => {
-    if (window.cashfree) {
-      resolve(window.cashfree);
-      return;
-    }
-    const isProd = import.meta.env.PROD;
-    const script = document.createElement("script");
-    script.src = isProd
-      ? "https://sdk.cashfree.com/js/v3/cashfree.js"
-      : "https://sdk.testing.cashfree.com/js/v3/cashfree.js";
-    script.onload = () => {
-      if (window.Cashfree) {
-        cashfree = new window.Cashfree();
-        resolve(cashfree);
-      } else {
-        console.error("Cashfree SDK failed to load.");
-        resolve(null);
-      }
-    };
-    script.onerror = () => {
-        console.error("Cashfree SDK script load error.");
-        resolve(null);
-    }
-    document.body.appendChild(script);
-  });
-};
+// --- FIX 1: Environment ko string mein set kar ---
+Cashfree.XEnvironment = "SANDBOX"; // Production mein "PRODUCTION" kar dena
 
-export const handlePayment = async ({ item, user, onPaymentSuccess }) => {
+export const createTripOrder = async (req, res) => {
   try {
-    const cashfreeInstance = await loadCashfreeSDK();
-    
-    // --- FIX START: Silent return ki jagah dhamaka kar ---
-    if (!cashfreeInstance) {
-        throw new Error("Cashfree SDK load nahi hua bhai! Internet check kar ya adblocker band kar.");
-    }
-    // --- FIX END ---
+    const { amount, user, itemId } = req.body;
 
-    const orderDetails = {
-      amount: item.price || item.fare,
-      user,
-      itemName: item.name || `Booking: ${item._id}`,
-      itemId: item._id || `order_${Date.now()}`
+    // Validation
+    if (!amount) {
+        return res.status(400).json({ message: "Amount is required" });
+    }
+
+    // Unique Order ID generation
+    const orderId = itemId || `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+    // Cashfree request payload
+    const request = {
+      order_amount: parseFloat(amount),
+      order_currency: "INR",
+      order_id: orderId,
+      customer_details: {
+        customer_id: user?._id || "guest_user",
+        customer_name: user?.name || "Guest",
+        customer_email: user?.email || "guest@example.com",
+        customer_phone: user?.phone || "9999999999" 
+      },
+      order_meta: {
+        return_url: `http://localhost:5173/payment/status?order_id=${orderId}`
+      }
     };
 
-    // Step 1: Server se Order create kar
-    const response = await axios.post(`${PAYMENT_API_URL}/create-order`, orderDetails);
+    // --- FIX 2: Naya Method Use Kar (Version Date ke saath) ---
+    const response = await Cashfree.PGCreateOrder("2023-08-01", request);
     
-    if (!response.data || !response.data.payment_session_id) {
-        throw new Error("Server ne payment session ID nahi diya. Backend check kar.");
-    }
-
-    const { payment_session_id } = response.data;
-
-    // Step 2: Checkout Popup khol
-    return cashfreeInstance.checkout({ paymentSessionId: payment_session_id }).then((result) => {
-      if (result.error) {
-          // User ne close kiya ya error aaya
-          console.log("Payment failed/closed:", result.error);
-          alert("Payment cancelled or failed: " + result.error.message);
-      }
-      if (result.payment && result.payment.paymentStatus === "SUCCESS" && onPaymentSuccess) {
-        onPaymentSuccess(result.order);
-      }
-    });
+    // Send Payment Session ID back to frontend
+    res.status(200).json(response.data);
 
   } catch (error) {
-    console.error("Payment initiation failed:", error);
-    // User ko bata kya hua
-    alert(error.response?.data?.message || error.message || "Payment start nahi ho paya.");
-    
-    // Yeh zaroori hai taaki calling component ka loader band ho jaye
-    throw error; 
+    console.error("Cashfree Order Error:", error.response?.data?.message || error.message);
+    res.status(500).json({ 
+        message: "Failed to create payment order", 
+        error: error.response?.data?.message || error.message 
+    });
   }
 };
