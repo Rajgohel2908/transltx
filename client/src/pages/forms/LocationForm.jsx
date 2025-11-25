@@ -18,7 +18,7 @@ const LocationForm = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await api.post(`${VITE_BACKEND_BASE_URL}/locations`, {
+      const response = await api.post(`/locations`, {
         state: stateName,
         cities: cities,
         type: type, // <-- NAYA DATA BHEJ

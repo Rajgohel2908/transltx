@@ -1,12 +1,61 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
-import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin, Search, Ticket, BarChart3 } from 'lucide-react';
+import { Bus, Train, Plane, Users, Calendar, ArrowRight, Minus, Plus, ArrowLeftRight, MapPin, Search, Ticket, BarChart3, Calendar as CalIcon } from 'lucide-react';
 import { api } from '../utils/api.js';
 import { debounce } from 'lodash';
+import ModernCalendar from '../components/ModernCalendar';
+import ModernTimer from '../components/ModernTimer';
+
+// --- Reusable Custom Date Picker (Moved outside to prevent re-renders) ---
+const CustomDatePicker = ({ label, value, onChange, minDate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  // Close calendar when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [wrapperRef]);
+
+  const handleDateSelect = (date) => {
+    onChange(date);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white flex items-center h-[50px]"
+      >
+        <CalIcon className="absolute left-3 text-gray-400 h-5 w-5" />
+        <span className={value ? "text-gray-900" : "text-gray-400"}>
+          {value || "Select Date"}
+        </span>
+      </div>
+
+      {/* Calendar Popup */}
+      {isOpen && (
+        <div className="absolute z-50 mt-2 top-full left-0 shadow-2xl rounded-2xl animate-fade-in bg-white">
+          <ModernCalendar 
+            selectedDate={value} 
+            onChange={handleDateSelect} 
+            minDate={minDate} 
+          />
+        </div>
+      )}
+    </div>
+  );
+};
 
 // --- TrainBookingForm ---
-// --- FIX: Inline style (backgroundColor) hata diya ---
 const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartureDate, classType, setClassType, handleSwap, handleSearch }) => {
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
@@ -20,14 +69,6 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
   
   const [isFromFocused, setIsFromFocused] = useState(false);
   const [isToFocused, setIsToFocused] = useState(false);
-
-  const todayString = useMemo(() => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }, []);
 
   const searchHandler = (value, type, setSuggestions, setLoading) => {
     setLoading(true);
@@ -50,31 +91,30 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
   const handleFromChange = (e) => {
     const value = e.target.value;
     setFrom(value);
-    setIsFromLoading(true); 
+    setIsFromLoading(true);
     debouncedSearch(value, 'train', setFromSuggestions, setIsFromLoading);
   };
 
   const handleToChange = (e) => {
     const value = e.target.value;
     setTo(value);
-    setIsToLoading(true); 
+    setIsToLoading(true);
     debouncedSearch(value, 'train', setToSuggestions, setIsToLoading);
   };
 
   const selectFromSuggestion = (cityObj) => {
-    setFrom(cityObj.name); 
+    setFrom(cityObj.name);
     setFromSuggestions([]);
-    setIsFromFocused(false); 
+    setIsFromFocused(false);
   };
 
   const selectToSuggestion = (cityObj) => {
-    setTo(cityObj.name); 
+    setTo(cityObj.name);
     setToSuggestions([]);
-    setIsToFocused(false); 
+    setIsToFocused(false);
   };
 
   return (
-    // --- YAHAN SE STYLE HATA DIYA ---
     <form onSubmit={handleSearch} className="space-y-6 p-4 md:p-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Column: Stations & Quota */}
@@ -163,12 +203,13 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
 
         {/* Right Column: Date & Class */}
         <div className="space-y-4">
-          {/* Departure Date */}
-          <div className="relative">
-            <label htmlFor="departure" className="block text-sm font-medium text-gray-700 mb-1">Departure</label>
-            <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-            <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required min={todayString} />
-          </div>
+          {/* Departure Date - UPDATED */}
+          <CustomDatePicker 
+            label="Departure" 
+            value={departureDate} 
+            onChange={setDepartureDate}
+            minDate={new Date()} // Aaj ki date
+          />
           
           {/* Train Class */}
           <div className="relative">
@@ -222,7 +263,7 @@ const TrainBookingForm = ({ from, setFrom, to, setTo, departureDate, setDepartur
   );
 };
 
-// --- BusAirBookingForm (REFACTORED) ---
+// --- BusAirBookingForm ---
 const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setDepartureDate, returnDate, setReturnDate, classType, setClassType, handleSwap, handleSearch }) => {
   const [tripType, setTripType] = useState('one-way');
   const [passengers, setPassengers] = useState({ adults: 1, children: 0, infants: 0 });
@@ -234,14 +275,6 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
   
   const [isFromFocused, setIsFromFocused] = useState(false);
   const [isToFocused, setIsToFocused] = useState(false);
-
-  const todayString = useMemo(() => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }, []);
 
   const searchHandler = (value, type, setSuggestions, setLoading) => {
     setLoading(true);
@@ -306,7 +339,6 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
   
   return (
     <form onSubmit={handleSearch} className="space-y-6 p-4 md:p-8">
-      {/* --- REFACTORED 2-COLUMN LAYOUT --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* --- Column 1: From, To, Passengers --- */}
@@ -396,19 +428,13 @@ const BusAirBookingForm = ({ mode, from, setFrom, to, setTo, departureDate, setD
         
         {/* --- Column 2: Dates, Class --- */}
         <div className="space-y-4">
-          {/* Departure Date */}
-          <div className="relative">
-            <label htmlFor="departure" className="block text-sm font-medium text-gray-700 mb-1">Departure</label>
-            <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-            <input type="date" id="departure" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required min={todayString} />
-          </div>
-
-          {/* Return Date */}
-          <div className={`relative transition-opacity duration-300 ${tripType === 'one-way' ? 'opacity-50' : 'opacity-100'}`}>
-            <label htmlFor="return" className="block text-sm font-medium text-gray-700 mb-1">Return</label>
-            <Calendar className="absolute left-3 top-10 h-5 w-5 text-gray-400" />
-            <input type="date" id="return" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" disabled={tripType === 'one-way'} min={departureDate || todayString} />
-          </div>
+          {/* Departure Date - UPDATED */}
+          <CustomDatePicker 
+            label="Departure" 
+            value={departureDate} 
+            onChange={setDepartureDate} 
+            minDate={new Date()} // Aaj ki date
+          />
 
           {/* Class (Air only) */}
           {mode === 'Air' && (

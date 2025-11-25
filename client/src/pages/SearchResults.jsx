@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, Filter, Plane, Bus, Train, ChevronDown, Wind, Wifi, Utensils, Users, Calendar } from 'lucide-react'; 
 import Footer from '../components/Footer';
 import axios from 'axios';
 
+// --- Helper for Schedule ---
 const ScheduleDisplay = ({ scheduleType, daysOfWeek = [], specificDate }) => {
-  // ... (Poora ScheduleDisplay component jaisa tha waisa hi rakho) ...
   const weekInitials = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const dayStringMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
   let activeDays = new Set();
@@ -46,7 +46,6 @@ const ScheduleDisplay = ({ scheduleType, daysOfWeek = [], specificDate }) => {
   );
 };
 
-
 const SearchResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -56,6 +55,17 @@ const SearchResults = () => {
   const [expandedCard, setExpandedCard] = useState(null);
   
   const { searchType, from, to, departureDate, class: classType } = location.state || {};
+
+  // --- 1. Filter State ---
+  const [filters, setFilters] = useState({
+    maxPrice: 10000,
+    stops: [],
+    times: [],
+    operators: []
+  });
+
+  // Helper to determine max price from current results for the slider range
+  const [priceBounds, setPriceBounds] = useState({ min: 0, max: 10000 });
 
   useEffect(() => {
     setLoading(true);
@@ -71,7 +81,24 @@ const SearchResults = () => {
 
         const response = await axios.get(`${VITE_BACKEND_BASE_URL}/routes/search?${params.toString()}`);
         
-        setResults(response.data || []);
+        const fetchedData = response.data || [];
+        setResults(fetchedData);
+
+        // Calculate Price Bounds for Filters
+        if (fetchedData.length > 0) {
+            const prices = fetchedData.map(r => {
+                const { priceToShow } = getDisplayData(r, classType);
+                return Number(priceToShow) || 0;
+            }).filter(p => p > 0);
+            
+            if (prices.length > 0) {
+                const max = Math.max(...prices);
+                const min = Math.min(...prices);
+                setPriceBounds({ min, max });
+                setFilters(prev => ({ ...prev, maxPrice: max }));
+            }
+        }
+
       } catch (error) {
         console.error("Failed to fetch search results:", error);
         setResults([]);
@@ -100,8 +127,8 @@ const SearchResults = () => {
       state: { 
         selectedTicket: ticketToBook, 
         searchType: mode,
-        departureDate: departureDate, // <-- Naya logic
-        classType: classType || 'default' // <-- Naya logic
+        departureDate: departureDate, 
+        classType: classType || 'default'
       } 
     });
   };
@@ -139,7 +166,6 @@ const SearchResults = () => {
       }
     }
     
-    // Naya logic: 'availableSeats' use kar
     const seatsData = result.availableSeats || result.totalSeats;
     let seatsLabel = 'Total Seats';
 
@@ -172,64 +198,95 @@ const SearchResults = () => {
     };
   };
 
+  // --- 2. Filter Logic ---
+  const getFilteredResults = () => {
+    return results.filter(result => {
+        const { priceToShow } = getDisplayData(result, classType);
+        const price = Number(priceToShow) || 0;
+
+        // Price Filter
+        if (price > filters.maxPrice) return false;
+
+        // Operator Filter
+        const opName = (result.operator || result.airline || result.name || '').trim();
+        if (filters.operators.length > 0 && !filters.operators.includes(opName)) return false;
+
+        // Stops Filter (Air only usually, but logic is generic)
+        if (filters.stops.length > 0) {
+            const stopCount = (result.stops || []).length;
+            const isNonStop = stopCount === 0;
+            const isOneStop = stopCount === 1;
+            
+            let matchStop = false;
+            if (filters.stops.includes('Non-Stop') && isNonStop) matchStop = true;
+            if (filters.stops.includes('1 Stop') && isOneStop) matchStop = true;
+            // Add logic for 2+ stops if needed
+            
+            if (!matchStop) return false;
+        }
+
+        // Time Filter
+        if (filters.times.length > 0) {
+            // Parse start time "HH:MM AM/PM" or "HH:MM"
+            const timeStr = result.startTime; 
+            if (timeStr) {
+                let hour = parseInt(timeStr.split(':')[0]);
+                const isPM = timeStr.toLowerCase().includes('pm');
+                if (isPM && hour !== 12) hour += 12;
+                if (!isPM && hour === 12) hour = 0; // Midnight
+
+                let timeOfDay = '';
+                if (hour >= 6 && hour < 12) timeOfDay = 'Morning';
+                else if (hour >= 12 && hour < 18) timeOfDay = 'Afternoon';
+                else if (hour >= 18) timeOfDay = 'Evening';
+                else timeOfDay = 'Night'; // Assuming Night for others
+
+                if (!filters.times.includes(timeOfDay)) return false;
+            }
+        }
+
+        return true;
+    });
+  };
+
+  const filteredResults = getFilteredResults();
+
+  // --- 3. Filter Panel Handlers ---
+  const handleOperatorChange = (op) => {
+    setFilters(prev => {
+        const newOps = prev.operators.includes(op) 
+            ? prev.operators.filter(o => o !== op)
+            : [...prev.operators, op];
+        return { ...prev, operators: newOps };
+    });
+  };
+
+  const handleTimeChange = (time) => {
+    setFilters(prev => {
+        const newTimes = prev.times.includes(time) 
+            ? prev.times.filter(t => t !== time)
+            : [...prev.times, time];
+        return { ...prev, times: newTimes };
+    });
+  };
+
+  const handleStopChange = (stopType) => {
+    setFilters(prev => {
+        const newStops = prev.stops.includes(stopType)
+            ? prev.stops.filter(s => s !== stopType)
+            : [...prev.stops, stopType];
+        return { ...prev, stops: newStops };
+    });
+  };
+
 
   const ResultCard = ({ result }) => {
     const isExpanded = expandedCard === result._id;
     const { priceToShow, seatsToShow, seatsLabel } = getDisplayData(result, classType);
 
-    if (seatsToShow === 'N/A') {
-        return (
-             <div className="bg-white rounded-xl shadow-md transition-shadow opacity-50">
-                <div className="pt-4 px-6 flex justify-center">
-                  <ScheduleDisplay 
-                    scheduleType={result.scheduleType}
-                    daysOfWeek={result.daysOfWeek}
-                    specificDate={result.specificDate}
-                  />
-                </div>
-                <div className="px-6 pb-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-6">
-                    <div className="flex items-start gap-4 w-full sm:w-1/4">
-                        <div className="h-12 w-12 rounded-md flex items-center justify-center flex-shrink-0 bg-gray-200">
-                          {result.type === 'air' && <Plane className="text-gray-500" />}
-                          {result.type === 'bus' && <Bus className="text-gray-500" />}
-                          {result.type === 'train' && <Train className="text-gray-500" />}
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <p className="font-bold text-lg text-gray-500">{result.airline || result.name}</p>
-                          <p className="text-sm text-gray-400">{result.flightNumber || result.id}</p>
-                        </div>
-                    </div>
-                     <div className="flex items-center justify-between w-full sm:w-2/4">
-                        <div className="text-center">
-                          <p className="text-xl font-semibold text-gray-400">{result.startTime || 'N/A'}</p>
-                          <p className="text-gray-500">{result.startPoint || 'Source'}</p>
-                        </div>
-                        <div className="text-center px-4">
-                           <div className="w-full h-px bg-gray-200 my-1 relative"></div>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-semibold text-gray-400">{result.estimatedArrivalTime || 'N/A'}</p>
-                          <p className="text-gray-500">{result.endPoint || 'Destination'}</p>
-                        </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 w-full sm:w-auto sm:w-1/4">
-                        <p className="text-2xl font-bold text-gray-500">{priceToShow !== 'N/A' ? `₹${Number(priceToShow).toLocaleString()}` : 'Fare N/A'}</p>
-                        <p className="text-sm font-semibold text-red-500 flex items-center gap-1">
-                          <Users size={14} />
-                          Not Available
-                        </p>
-                        <button disabled className="bg-gray-200 text-gray-500 font-semibold py-2 px-6 rounded-lg w-full sm:w-auto cursor-not-allowed">
-                          Book Now
-                        </button>
-                    </div>
-                </div>
-             </div>
-        );
-    }
-
-    return (
-      <div className="bg-white rounded-xl shadow-md transition-shadow hover:shadow-lg">
-        
+    // Helper function to render card content
+    const renderCardContent = (disabled = false) => (
+      <div className={`bg-white rounded-xl shadow-md transition-shadow ${disabled ? 'opacity-50' : 'hover:shadow-lg'}`}>
         <div className="pt-4 px-6 flex justify-center">
           <ScheduleDisplay 
             scheduleType={result.scheduleType}
@@ -240,53 +297,59 @@ const SearchResults = () => {
         
         <div className="px-6 pb-6 pt-4 flex flex-col sm:flex-row items-start justify-between gap-6">
           <div className="flex items-start gap-4 w-full sm:w-1/4">
-            <div className="h-12 w-12 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: result.color || '#3B82F6' }}>
-              {result.type === 'air' && <Plane className="text-white" />}
-              {result.type === 'bus' && <Bus className="text-white" />}
-              {result.type === 'train' && <Train className="text-white" />}
+            <div className={`h-12 w-12 rounded-md flex items-center justify-center flex-shrink-0 ${disabled ? 'bg-gray-200' : ''}`} style={!disabled ? { backgroundColor: result.color || '#3B82F6' } : {}}>
+              {result.type === 'air' && <Plane className={disabled ? "text-gray-500" : "text-white"} />}
+              {result.type === 'bus' && <Bus className={disabled ? "text-gray-500" : "text-white"} />}
+              {result.type === 'train' && <Train className={disabled ? "text-gray-500" : "text-white"} />}
             </div>
             <div className="flex flex-col gap-1">
-              <p className="font-bold text-lg">{result.airline || result.name}</p>
-              <p className="text-sm text-gray-500">{result.flightNumber || result.id}</p>
+              <p className={`font-bold text-lg ${disabled ? "text-gray-500" : ""}`}>{result.airline || result.name}</p>
+              <p className={`text-sm ${disabled ? "text-gray-400" : "text-gray-500"}`}>{result.flightNumber || result.id}</p>
             </div>
           </div>
           
           <div className="flex items-center justify-between w-full sm:w-2/4">
             <div className="text-center">
-              <p className="text-xl font-semibold">{result.startTime || 'N/A'}</p>
-              <p className="text-gray-600">{result.startPoint || 'Source'}</p>
+              <p className={`text-xl font-semibold ${disabled ? "text-gray-400" : ""}`}>{result.startTime || 'N/A'}</p>
+              <p className={`${disabled ? "text-gray-500" : "text-gray-600"}`}>{result.startPoint || 'Source'}</p>
             </div>
             <div className="text-center px-4">
               <p className="text-sm text-gray-500">{result.duration || ''}</p>
               <div className="w-full h-px bg-gray-200 my-1 relative">
-                <ArrowRight className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 bg-white px-1" />
+                {!disabled && <ArrowRight className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 bg-white px-1" />}
               </div>
             </div>
             <div className="text-center">
-              <p className="text-xl font-semibold">{result.estimatedArrivalTime || 'N/A'}</p>
-              <p className="text-gray-600">{result.endPoint || 'Destination'}</p>
+              <p className={`text-xl font-semibold ${disabled ? "text-gray-400" : ""}`}>{result.estimatedArrivalTime || 'N/A'}</p>
+              <p className={`${disabled ? "text-gray-500" : "text-gray-600"}`}>{result.endPoint || 'Destination'}</p>
             </div>
           </div>
           
           <div className="flex flex-col items-end gap-2 w-full sm:w-auto sm:w-1/4">
-            <p className="text-2xl font-bold text-gray-800">{priceToShow !== 'N/A' ? `₹${Number(priceToShow).toLocaleString()}` : 'Fare N/A'}</p>
-            <p className="text-sm font-semibold text-green-600 flex items-center gap-1">
+            <p className={`text-2xl font-bold ${disabled ? "text-gray-500" : "text-gray-800"}`}>{priceToShow !== 'N/A' ? `₹${Number(priceToShow).toLocaleString()}` : 'Fare N/A'}</p>
+            <p className={`text-sm font-semibold flex items-center gap-1 ${disabled ? "text-red-500" : "text-green-600"}`}>
               <Users size={14} />
-              {seatsToShow !== 'N/A' ? `${seatsToShow} ${seatsLabel}` : 'Seats N/A'}
+              {disabled ? 'Not Available' : (seatsToShow !== 'N/A' ? `${seatsToShow} ${seatsLabel}` : 'Seats N/A')}
             </p>
-            <button onClick={() => handleBookNow(result)} className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto">
+            <button 
+                onClick={() => !disabled && handleBookNow(result)} 
+                disabled={disabled}
+                className={`${disabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'} font-semibold py-2 px-6 rounded-lg transition-colors w-full sm:w-auto`}
+            >
               Book Now
             </button>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 px-6 py-2 flex justify-end">
-          <button onClick={() => setExpandedCard(isExpanded ? null : result._id)} className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-            View Details <ChevronDown className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} size={16} />
-          </button>
-        </div>
+        {!disabled && (
+            <div className="border-t border-gray-200 px-6 py-2 flex justify-end">
+            <button onClick={() => setExpandedCard(isExpanded ? null : result._id)} className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                View Details <ChevronDown className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} size={16} />
+            </button>
+            </div>
+        )}
         
-        {isExpanded && (
+        {isExpanded && !disabled && (
           <div className="border-t bg-gray-50 p-6">
             <h4 className="font-bold mb-2">Details & Amenities</h4>
             <div className="flex flex-col gap-4 text-sm text-gray-700">
@@ -316,49 +379,87 @@ const SearchResults = () => {
         )}
       </div>
     );
+
+    return renderCardContent(seatsToShow === 'N/A');
   };
 
-  // --- FILTER PANEL (POORA CODE WAPAS) ---
+  // --- FILTER PANEL (Fixed Logic) ---
   const FilterPanel = () => (
-    <div className="bg-white rounded-xl shadow-md p-6">
+    <div className="bg-white rounded-xl shadow-md p-6 sticky top-24">
       <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Filter size={20} /> Filters</h3>
       
       <div className="mb-6">
         <h4 className="font-semibold mb-2">Price Range</h4>
-        <input type="range" min="500" max="10000" className="w-full" />
+        <input 
+            type="range" 
+            min={priceBounds.min} 
+            max={priceBounds.max} 
+            value={filters.maxPrice}
+            onChange={(e) => setFilters(prev => ({...prev, maxPrice: Number(e.target.value)}))}
+            className="w-full accent-blue-600" 
+        />
         <div className="flex justify-between text-sm text-gray-600 mt-1">
-          <span>₹500</span>
-          <span>₹10,000</span>
+          <span>₹{priceBounds.min}</span>
+          <span className="font-bold text-blue-600">Up to ₹{filters.maxPrice}</span>
+          <span>₹{priceBounds.max}</span>
         </div>
       </div>
 
-      {searchType === 'Air' && (
-        <div className="mb-6">
-          <h4 className="font-semibold mb-2">Stops</h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Non-Stop</label>
-            <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> 1 Stop</label>
-          </div>
+      {/* Only show stops for Air or generic */}
+      <div className="mb-6">
+        <h4 className="font-semibold mb-2">Stops</h4>
+        <div className="space-y-2">
+        <label className="flex items-center gap-2">
+            <input 
+                type="checkbox" 
+                className="form-checkbox rounded text-blue-600" 
+                checked={filters.stops.includes('Non-Stop')}
+                onChange={() => handleStopChange('Non-Stop')}
+            /> Non-Stop
+        </label>
+        <label className="flex items-center gap-2">
+            <input 
+                type="checkbox" 
+                className="form-checkbox rounded text-blue-600" 
+                checked={filters.stops.includes('1 Stop')}
+                onChange={() => handleStopChange('1 Stop')}
+            /> 1 Stop
+        </label>
         </div>
-      )}
+      </div>
 
       <div className="mb-6">
         <h4 className="font-semibold mb-2">Departure Time</h4>
         <div className="space-y-2">
-          <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Morning</label>
-          <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Afternoon</label>
-          <label className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> Evening</label>
+          {['Morning', 'Afternoon', 'Evening'].map(time => (
+              <label key={time} className="flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    className="form-checkbox rounded text-blue-600" 
+                    checked={filters.times.includes(time)}
+                    onChange={() => handleTimeChange(time)}
+                  /> {time}
+              </label>
+          ))}
         </div>
       </div>
 
       <div>
         <h4 className="font-semibold mb-2">{searchType === 'Air' ? 'Airlines' : 'Operators'}</h4>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-48 overflow-y-auto">
           {(() => {
+            // Dynamic operators list from ALL results
             const ops = new Set((results || []).map(r => (r.operator || r.airline || r.name || '').trim()).filter(Boolean));
-            if (ops.size === 0) return <div className="text-gray-500">No operators available</div>;
+            if (ops.size === 0) return <div className="text-gray-500 text-sm">No operators available</div>;
             return Array.from(ops).map((op) => (
-              <label key={op} className="flex items-center gap-2"><input type="checkbox" className="form-checkbox" /> {op}</label>
+              <label key={op} className="flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    className="form-checkbox rounded text-blue-600" 
+                    checked={filters.operators.includes(op)}
+                    onChange={() => handleOperatorChange(op)}
+                  /> {op}
+              </label>
             ));
           })()}
         </div>
@@ -367,7 +468,6 @@ const SearchResults = () => {
   );
   // --- END FILTER PANEL ---
 
-  // --- LOADING SKELETON (POORA CODE WAPAS) ---
   const LoadingSkeleton = () => (
     <div className="bg-white rounded-xl shadow-md p-6 animate-pulse">
       <div className="h-5 bg-gray-200 rounded w-1/3 mx-auto mb-4"></div>
@@ -397,7 +497,6 @@ const SearchResults = () => {
       </div>
     </div>
   );
-  // --- END LOADING SKELETON ---
 
   return (
     <>
@@ -426,13 +525,14 @@ const SearchResults = () => {
                   <LoadingSkeleton />
                 </>
               ) : (
-                results.length === 0 ? (
+                filteredResults.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                    <h3 className="text-xl font-semibold mb-2">No routes found for your search</h3>
-                    <p className="text-gray-500">Please try a different route or date.</p>
+                    <h3 className="text-xl font-semibold mb-2">No routes found matching your filters</h3>
+                    <p className="text-gray-500">Try adjusting your filters or search for a different route.</p>
+                    <button onClick={() => setFilters({ maxPrice: 10000, stops: [], times: [], operators: [] })} className="mt-4 text-blue-600 font-semibold hover:underline">Reset Filters</button>
                   </div>
                 ) : (
-                  results.map(result => <ResultCard key={result._id} result={result} />)
+                  filteredResults.map(result => <ResultCard key={result._id} result={result} />)
                 )
               )}
             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../../utils/api.js";;
 import { Plus, Trash2, MapPin, Clock, Calendar, List, CheckCircle, XCircle, Backpack } from "lucide-react";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
@@ -154,9 +154,9 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
 
       let response;
       if (editingTrip) {
-        response = await axios.put(`${TRIPS_API_URL}/${editingTrip._id}`, tripData, config);
+        response = await api.put(`/trips/${editingTrip._id}`, tripData);
       } else {
-        response = await axios.post(TRIPS_API_URL, tripData, config);
+        response = await api.post(`/trips`, tripData);
       }
 
       onTripSaved(response.data.trip);

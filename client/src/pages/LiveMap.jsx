@@ -56,7 +56,6 @@ const RouteMap = () => {
 
   const [matchedRoute, setMatchedRoute] = useState(null);
   const [error, setError] = useState("");
-  // const travelMode = "car"; // Not strictly needed if just using OSRM driving
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [routePolyline, setRoutePolyline] = useState([]);
   const [mapBounds, setMapBounds] = useState(null);
@@ -147,10 +146,16 @@ const RouteMap = () => {
     setRoutePolyline([]);
     setMapBounds(null);
 
+    // Geocode locations if coords are missing
     const fromCoords = from.coords || await geocode(from.name);
     const toCoords = to.coords || await geocode(to.name);
 
     if (fromCoords && toCoords) {
+        // --- FIX: Update state with fetched coordinates so pins appear ---
+        setFrom(prev => ({ ...prev, coords: fromCoords }));
+        setTo(prev => ({ ...prev, coords: toCoords }));
+        // ----------------------------------------------------------------
+
         try {
             // Using OSRM for driving route
             const response = await axios.get(
@@ -260,7 +265,6 @@ const RouteMap = () => {
           <div className="h-full w-full">
             <MapContainer center={defaultCenter} zoom={13} style={{ height: "100%", width: "100%", zIndex: 0 }}>
               
-              {/* --- RESTORED STANDARD OSM LAYER --- */}
               <TileLayer 
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

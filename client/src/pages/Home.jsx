@@ -136,7 +136,6 @@ const LogisticsWebsite = () => {
                 <img
                   src={homeIllustration}
                   alt="A smart and seamless transportation hub"
-                  className="animate-float"
                 />
               </div>
             </div>
@@ -190,7 +189,7 @@ const LogisticsWebsite = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
             {/* Feature 1 */}
             <div className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-6 text-center transform hover:scale-105 transition duration-300 shadow-md hover:shadow-xl">
-              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center animate-bounce-slow hover:animate-bounce-fast">
+              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center hover:animate-bounce-fast">
                 <BusFront className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-black font-semibold mb-1">
@@ -203,7 +202,7 @@ const LogisticsWebsite = () => {
 
             {/* Feature 2 */}
             <div className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-6 text-center transform hover:scale-105 transition duration-300 shadow-md hover:shadow-xl">
-              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center animate-bounce-slow hover:animate-bounce-fast">
+              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center hover:animate-bounce-fast">
                 <Route className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-black font-semibold mb-1">
@@ -216,7 +215,7 @@ const LogisticsWebsite = () => {
 
             {/* Feature 3 */}
             <div className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-6 text-center transform hover:scale-105 transition duration-300 shadow-md hover:shadow-xl">
-              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center animate-bounce-slow hover:animate-bounce-fast">
+              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center hover:animate-bounce-fast">
                 <Drone className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-black font-semibold mb-1">Drone Delivery</h3>
@@ -228,7 +227,7 @@ const LogisticsWebsite = () => {
 
             {/* Feature 4 */}
             <div className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-6 text-center transform hover:scale-105 transition duration-300 shadow-md hover:shadow-xl">
-              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center animate-bounce-slow hover:animate-bounce-fast">
+              <div className="mx-auto mb-4 w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center hover:animate-bounce-fast">
                 <CalendarCheck className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-black font-semibold mb-1">

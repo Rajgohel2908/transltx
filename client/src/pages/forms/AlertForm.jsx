@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../../utils/api.js";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/admin/alerts`;
@@ -30,12 +30,10 @@ const AlertForm = ({ onAlertSaved, editingAlert, setEditingAlert }) => {
 
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem("token");
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
       if (editingAlert) {
-        await axios.put(`${ALERTS_API_URL}/${editingAlert._id}`, alertData, authHeaders);
+        await api.put(`/alerts/${editingAlert._id}`, alertData);
       } else {
-        await axios.post(ALERTS_API_URL, alertData, authHeaders);
+        await api.post(`/alerts`, alertData);
       }
       onAlertSaved();
       setEditingAlert(null);

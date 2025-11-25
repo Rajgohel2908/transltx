@@ -177,9 +177,9 @@ const RouteForm = ({ onRouteSaved, editingRoute, setEditingRoute, routeType }) =
       let response;
       setIsSubmitting(true);
       if (editingRoute) {
-        response = await api.put(`${ROUTES_API_URL}/${editingRoute._id}`, routeData);
+        response = await api.put(`/routes/${editingRoute._id}`, routeData);
       } else {
-        response = await api.post(ROUTES_API_URL, routeData);
+        response = await api.post('/routes', routeData);
       }
       onRouteSaved(response.data.route);
       setEditingRoute(null);

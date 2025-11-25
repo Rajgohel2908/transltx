@@ -52,15 +52,12 @@ const reverseGeocode = async (lat, lng) => {
   }
 };
 
-// --- FIX: Auto-fill From location on load ---
 function LocationMarker({ setFrom }) {
   const map = useMap();
   
   useEffect(() => {
     map.locate().on("locationfound", function (e) {
       map.flyTo(e.latlng, map.getZoom());
-      
-      // FIX: Ab yeh actual state update karega
       reverseGeocode(e.latlng.lat, e.latlng.lng).then(name => {
         setFrom(prev => prev.name ? prev : { name, coords: [e.latlng.lat, e.latlng.lng] });
       });
@@ -122,18 +119,21 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
     setError(""); setIsLoadingQuote(true); setQuote(null); setRoutePath([]);
 
     try {
-      // Coords pehle se set hain toh use kar, nahi toh geocode kar (fallback)
       const fromCoords = from.coords || await geocode(from.name);
       const toCoords = to.coords || await geocode(to.name);
 
       if (!fromCoords || !toCoords) throw new Error("Could not find coordinates.");
 
-      // --- FIX: Send coords directly to backend ---
+      // --- FIX: Update state with geocoded coords so pins appear ---
+      setFrom(prev => ({ ...prev, coords: fromCoords }));
+      setTo(prev => ({ ...prev, coords: toCoords }));
+      // -----------------------------------------------------------
+
       const res = await api.post(`${API_URL}/quote`, { 
         from: from.name, 
         to: to.name,
-        fromCoords: fromCoords, // Direct coords
-        toCoords: toCoords      // Direct coords
+        fromCoords: fromCoords,
+        toCoords: toCoords
       });
       setQuote(res.data); 
 
@@ -187,7 +187,6 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
         user,
         onPaymentSuccess: onPrivateRidePaymentSuccess,
       });
-      // Payment flow returned without throwing — reset booking state
       setIsBooking(false);
     } catch (err) {
       setError("Payment initiation failed.");
@@ -242,7 +241,6 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
           <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             
-            {/* --- AUTO-FILL USER LOCATION --- */}
             <LocationMarker setFrom={setFrom} />
             
             <MapClickHandler />
@@ -257,8 +255,6 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
   );
 };
 
-// ... (OfferCarpoolForm, AvailableCarpools, RideCard, AcceptedRideCard, MyRideActivity, ModeToggle, RidePage - Sab same as before)
-// --- COPY PASTE BAAKI KA CODE YAHAN SE (Pichhle answer wala same hai) ---
 const OfferCarpoolForm = ({ user, onRidePosted }) => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
