@@ -1,4 +1,3 @@
-// File: client/src/App.jsx
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import RouteMap from "./pages/LiveMap.jsx";
@@ -14,7 +13,7 @@ import Context from "./context/Context.jsx";
 import AOS from "aos";
 import { useEffect } from "react";
 import Booking from "./pages/Booking.jsx";
-import RidePage from "./pages/RidePage.jsx"; // <-- IMPORT RidePage
+import RidePage from "./pages/RidePage.jsx"; 
 import AdminRoute from "./components/AdminRoute.jsx";
 import Transport404 from "./pages/PageNotFound.jsx";
 
@@ -23,20 +22,23 @@ import SearchResults from "./pages/SearchResults.jsx";
 import PassengerDetails from "./pages/PassengerDetails.jsx";
 import Confirmation from "./pages/Confirmation.jsx";
 
-// --- Step 1: Import Navbar and AlertBanner here ---
+// --- Imported Components ---
 import Navbar from "./components/Navbar.jsx";
 import AlertBanner from "./components/AlertBanner";
 import TripViewPage from "./pages/TripView.jsx";
 import ParkingPage from "./pages/Parking.jsx"; 
+// Forgot Password Component Import
+import ResetPassword from "./pages/users/ResetPassword"; 
 
 function App() {
   useEffect(() => {
     // Initialize AOS
     AOS.init({
-      duration: 500, // Animation duration in milliseconds
-      once: true, // Whether animation should happen only once
+      duration: 500, 
+      once: true, 
     });
   }, []);
+
   return (
     <div className="min-h-screen bg-lightgray">
       <Context>
@@ -53,19 +55,23 @@ function App() {
 function MainLayout() {
   const location = useLocation();
 
-  const hideNavbarOn = ['/user-login', '/user-signup'];
-  const shouldShowNavbar = !hideNavbarOn.includes(location.pathname);
+  const hideNavbarOn = ['/user-login', '/user-signup', '/login', '/signup'];
+  
+  // Logic: Hide navbar if path is in array OR if it starts with /reset-password/
+  const shouldShowNavbar = 
+    !hideNavbarOn.includes(location.pathname) && 
+    !location.pathname.startsWith("/reset-password/");
 
   return (
     <>
-      {/* Step 3: Place Navbar and AlertBanner here, outside of Routes */}
       {shouldShowNavbar && <Navbar />}
       {shouldShowNavbar && <AlertBanner />}
 
-      <div key={location.pathname} className="fade-scale-in">
+      {/* FIX: 'key={location.pathname}' hata diya hai taaki infinite re-render loop na ho */}
+      <div className="fade-scale-in">
         <Routes>
-          {/* Step 4: Your routes no longer need to be wrapped in Context individually */}
           <Route path="/" element={<Home />} />
+          
           <Route
             path="/live-map"
             element={
@@ -75,12 +81,22 @@ function MainLayout() {
             }
           />
           <Route
-            path="/admindashboard"
+            path="/admin/dashboard" // URL standard kar diya (/admin/dashboard)
             element={
               <PrivateRoute>
                 <AdminRoute>
                   <AdminDashboard />
                 </AdminRoute>
+              </PrivateRoute>
+            }
+          />
+          
+          {/* Booking Routes */}
+          <Route
+            path="/booking" // Added base route
+            element={
+              <PrivateRoute>
+                <Booking />
               </PrivateRoute>
             }
           />
@@ -109,13 +125,14 @@ function MainLayout() {
             }
           />
           <Route
-            path="/booking/:mode/confirmation"
+            path="/booking/confirmation" // Fixed URL
             element={
               <PrivateRoute>
                 <Confirmation />
               </PrivateRoute>
             }
           />
+
           <Route
             path="/ride"
             element={
@@ -168,6 +185,8 @@ function MainLayout() {
               </PrivateRoute>
             }
           />
+          
+          {/* Auth Routes */}
           <Route
             path="/user-logout"
             element={
@@ -176,14 +195,15 @@ function MainLayout() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/user-login" 
-            element={<Login />}
-          />
-          <Route
-            path="/user-signup" 
-            element={<Login />}
-          />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Login />} />
+          <Route path="/user-login" element={<Login />} />
+          <Route path="/user-signup" element={<Login />} />
+          
+          {/* Reset Password Route */}
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+          {/* 404 */}
           <Route path="*" element={<Transport404 />} />
         </Routes>
       </div>

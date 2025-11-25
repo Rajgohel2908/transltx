@@ -1,6 +1,6 @@
-// models/User.js
 import mongoose, { model } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from "crypto";
 const { Schema } = mongoose;
 
 const userSchema = new Schema({
@@ -22,7 +22,7 @@ const userSchema = new Schema({
     type: String,
     required: true,
     minlength: 6,
-    select: false // Don't return password in queries
+    select: false 
   },
   createdAt: {
     type: Date,
@@ -30,25 +30,38 @@ const userSchema = new Schema({
   },
   is_admin: {
     type: Boolean,
-    default: false // Optional: set default to false
-  }
+    default: false 
+  },
+  // --- YE 2 FIELDS MISSING THE, AB ADD KAR DIYE ---
+  resetPasswordToken: String,
+  resetPasswordExpire: Date
 });
 
 // Mongoose middleware to hash password before saving
 userSchema.pre('save', async function(next) {
-  // Only run this function if password was actually modified
   if (!this.isModified('password')) {
     return next();
   }
-
-  // Hash the password with a cost of 12
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Method to compare candidate password with the user's hashed password
+// Method to compare candidate password
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Method to generate reset token
+userSchema.methods.getResetPasswordToken = function () {
+  const resetToken = crypto.randomBytes(20).toString("hex");
+
+  // Token Hash karke DB mein save kar
+  this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+  // Token 10 minute mein expire hoga
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
 };
 
 const User = model('User', userSchema);
