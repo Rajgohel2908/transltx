@@ -100,14 +100,8 @@ const PassengerDetails = () => {
 
         const newBooking = res.data;
 
-        navigate(`/booking/${mode}/confirmation`, {
-          state: {
-            selectedTicket: { ...selectedTicket, price: priceToPay },
-            passengerData: { name: fullName, email, phone },
-            bookingId: newBooking.pnrNumber,
-            searchType
-          }
-        });
+        // Redirect to Orders page
+        navigate('/orders');
       } catch (err) {
         console.error("Booking creation failed:", err);
         alert("Payment successful but booking failed. Please contact support.");

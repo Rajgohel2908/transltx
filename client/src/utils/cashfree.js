@@ -74,18 +74,26 @@ export const handlePayment = async ({ item, user, customerDetails, onPaymentSucc
     console.log("Initializing checkout with session:", payment_session_id);
     return cashfreeInstance.checkout({ paymentSessionId: payment_session_id }).then((result) => {
       console.log("Checkout result:", result);
-      // SCENARIO 1: User ne popup close kiya ya payment fail hui
+
+      // SCENARIO 1: User ne popup close kiya
       if (result.error) {
         console.log("User closed popup or payment failed:", result.error);
         throw new Error(result.error.message || "Payment Cancelled by User");
       }
 
-      // SCENARIO 2: Payment Success
-      if (result.payment && result.payment.paymentStatus === "SUCCESS") {
-        console.log("Payment Success");
-        if (onPaymentSuccess) {
-          onPaymentSuccess(result.order);
-        }
+      // SCENARIO 2: Payment Redirect (redirect: true)
+      if (result.redirect) {
+        console.log("Payment redirecting...");
+        return;
+      }
+
+      // SCENARIO 3: Payment Complete (for popup mode)
+      console.log("Payment flow completed (Popup closed without error). Triggering success callback.");
+      if (onPaymentSuccess) {
+        onPaymentSuccess({
+          cf_payment_id: result.paymentId || "unknown_payment_id",
+          order_id: orderDetails.itemId
+        });
       }
     });
 

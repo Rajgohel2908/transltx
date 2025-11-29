@@ -72,8 +72,8 @@ const Navbar = () => {
           <NavItem to="/parcel">Send a Parcel</NavItem>
           <NavItem to="/live-map">Live Map</NavItem>
           <NavItem to="/orders">My Orders</NavItem>
-          <NavItem to="/contact">Contact</NavItem> 
-          {isAdmin ? <NavItem to="/admindashboard">Admin</NavItem> : null}
+          <NavItem to="/contact">Contact</NavItem>
+          {isAdmin ? <NavItem to="/admin/dashboard">Admin</NavItem> : null}
         </div>
 
         {/* Desktop Auth Button */}
@@ -110,7 +110,7 @@ const Navbar = () => {
           <NavItem to="/parcel">Send a Parcel</NavItem>
           <NavItem to="/live-map">Live Map</NavItem>
           <NavItem to="/orders">My Orders</NavItem>
-          {isAdmin ? <NavItem to="/admindashboard">Admin</NavItem> : null}
+          {isAdmin ? <NavItem to="/admin/dashboard">Admin</NavItem> : null}
           <div className="pt-4">
             {isAuthenticated ? (
               <button

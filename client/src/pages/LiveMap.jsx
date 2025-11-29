@@ -213,16 +213,16 @@ const RouteMap = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <div className="space-y-4">
                 <div className="relative">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Pickup</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Source</label>
                   <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Enter pickup location" value={from.name} onChange={(e) => setFrom({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'from' ? 'ring-2 ring-blue-600' : ''}`} />
+                    <input type="text" placeholder="Enter source location" value={from.name} onChange={(e) => setFrom({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'from' ? 'ring-2 ring-blue-600' : ''}`} />
                     <button type="button" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
                   </div>
                 </div>
                 <div className="relative">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Dropoff</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Destination</label>
                   <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Enter dropoff location" value={to.name} onChange={(e) => setTo({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'to' ? 'ring-2 ring-blue-600' : ''}`} />
+                    <input type="text" placeholder="Enter destination location" value={to.name} onChange={(e) => setTo({ name: e.target.value, coords: null })} className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:border-blue-600 ${settingPinFor === 'to' ? 'ring-2 ring-blue-600' : ''}`} />
                     <button type="button" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg transition-colors ${settingPinFor === 'to' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}><MapPin size={20} /></button>
                   </div>
                 </div>
@@ -279,8 +279,8 @@ const RouteMap = () => {
                 </>
               )}
 
-              {from.coords && (<Marker position={from.coords} icon={startIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Pickup</Popup></Marker>)}
-              {to.coords && (<Marker position={to.coords} icon={endIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Dropoff</Popup></Marker>)}
+              {from.coords && (<Marker position={from.coords} icon={startIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setFrom({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Source</Popup></Marker>)}
+              {to.coords && (<Marker position={to.coords} icon={endIcon} draggable={true} eventHandlers={{ dragend: (e) => { const { lat, lng } = e.target.getLatLng(); reverseGeocode(lat, lng).then(name => setTo({ name, coords: [lat, lng] })); }, }}><Popup className="font-bold">Destination</Popup></Marker>)}
             </MapContainer>
           </div>
         </div>

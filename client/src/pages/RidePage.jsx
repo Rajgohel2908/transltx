@@ -4,6 +4,8 @@ import Footer from "../components/Footer";
 import { api } from "../utils/api.js";
 import { handlePayment } from "../utils/cashfree.js";
 import CarpoolOfferModal from "../components/CarpoolOfferModal.jsx";
+import ModernCalendar from "../components/ModernCalendar";
+import ModernTimer from "../components/ModernTimer";
 import { Users, Phone, Clock, Car as CarIcon, MapPin, DollarSign, Calendar, Search, CheckCircle, Briefcase, UserPlus, ArrowRight, List } from "lucide-react";
 import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from "react-leaflet";
@@ -54,7 +56,7 @@ const reverseGeocode = async (lat, lng) => {
 
 function LocationMarker({ setFrom }) {
   const map = useMap();
-  
+
   useEffect(() => {
     map.locate().on("locationfound", function (e) {
       map.flyTo(e.latlng, map.getZoom());
@@ -80,15 +82,17 @@ function ChangeView({ bounds }) {
 const BookPrivateRideForm = ({ user, onRideBooked }) => {
   const [from, setFrom] = useState({ name: "", coords: null });
   const [to, setTo] = useState({ name: "", coords: null });
-  const [departureTime, setDepartureTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [quote, setQuote] = useState(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [error, setError] = useState("");
   const [settingPinFor, setSettingPinFor] = useState(null);
-  const [routePath, setRoutePath] = useState([]); 
+  const [routePath, setRoutePath] = useState([]);
 
-  const defaultCenter = [21.1702, 72.8311]; 
+  const defaultCenter = [21.1702, 72.8311];
 
   function MapClickHandler() {
     const map = useMapEvents({
@@ -99,10 +103,10 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
           const location = { name, coords: [lat, lng] };
           if (settingPinFor === 'from') {
             setFrom(location);
-            setQuote(null); setRoutePath([]); 
+            setQuote(null); setRoutePath([]);
           } else if (settingPinFor === 'to') {
             setTo(location);
-            setQuote(null); setRoutePath([]); 
+            setQuote(null); setRoutePath([]);
           }
         });
         setSettingPinFor(null);
@@ -129,13 +133,13 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
       setTo(prev => ({ ...prev, coords: toCoords }));
       // -----------------------------------------------------------
 
-      const res = await api.post(`${API_URL}/quote`, { 
-        from: from.name, 
+      const res = await api.post(`${API_URL}/quote`, {
+        from: from.name,
         to: to.name,
         fromCoords: fromCoords,
         toCoords: toCoords
       });
-      setQuote(res.data); 
+      setQuote(res.data);
 
       if (res.data.coordinates) {
         const swappedCoords = res.data.coordinates.map(coord => [coord[1], coord[0]]);
@@ -157,8 +161,8 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
         service: "Private Ride",
         from: from.name,
         to: to.name,
-        departure: departureTime,
-        arrival: departureTime, 
+        departure: `${selectedDate}T${selectedTime}`,
+        arrival: `${selectedDate}T${selectedTime}`,
         passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
         contactEmail: user.email,
         contactPhone: "N/A",
@@ -179,7 +183,7 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
 
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
-    if (!quote || !departureTime) return setError("Get a quote first.");
+    if (!quote || !selectedDate || !selectedTime) return setError("Get a quote and select date/time first.");
     setError(""); setIsBooking(true);
     try {
       await handlePayment({
@@ -193,9 +197,9 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
       setIsBooking(false);
     }
   };
-  
+
   const mapBounds = useMemo(() => {
-    if (routePath.length > 0) return L.latLngBounds(routePath); 
+    if (routePath.length > 0) return L.latLngBounds(routePath);
     const points = [from.coords, to.coords].filter(Boolean);
     return points.length > 0 ? L.latLngBounds(points) : null;
   }, [from.coords, to.coords, routePath]);
@@ -209,19 +213,23 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
               <div className="flex items-center gap-2">
-                <input type="text" value={from.name} onChange={(e) => { setFrom({ name: e.target.value, coords: null }); setQuote(null); setRoutePath([]); }} required className="w-full p-3 border rounded-lg" placeholder="Enter pickup location"/>
+                <input type="text" value={from.name} onChange={(e) => { setFrom({ name: e.target.value, coords: null }); setQuote(null); setRoutePath([]); }} required className="w-full p-3 border rounded-lg" placeholder="Enter pickup location" />
                 <button type="button" onClick={() => setSettingPinFor('from')} className={`p-3 border rounded-lg ${settingPinFor === 'from' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}><MapPin size={20} /></button>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
               <div className="flex items-center gap-2">
-                <input type="text" value={to.name} onChange={(e) => { setTo({ name: e.target.value, coords: null }); setQuote(null); setRoutePath([]); }} required className="w-full p-3 border rounded-lg" placeholder="Enter destination"/>
+                <input type="text" value={to.name} onChange={(e) => { setTo({ name: e.target.value, coords: null }); setQuote(null); setRoutePath([]); }} required className="w-full p-3 border rounded-lg" placeholder="Enter destination" />
                 <button type="button" onClick={() => setSettingPinFor('to')} className={`p-3 border rounded-lg ${settingPinFor === 'to' ? 'bg-red-600 text-white' : 'bg-gray-100'}`}><MapPin size={20} /></button>
               </div>
             </div>
             {quote ? (
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-blue-800">Quote Valid For:</span>
+                  <ModernTimer initialMinutes={10} onExpire={() => { setQuote(null); alert("Quote expired. Please get a new quote."); }} />
+                </div>
                 <div className="flex justify-between"><span className="text-gray-600">Distance:</span> <span>{quote.distance}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Est. Time:</span> <span>{quote.duration}</span></div>
                 <div className="flex justify-between font-bold text-xl"><span className="text-gray-700">Price:</span> <span className="text-green-600">₹{quote.price.toLocaleString()}</span></div>
@@ -231,18 +239,55 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
             )}
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
-              <input type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" min={getMinDateTimeString()}/>
+              <div
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className="w-full p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center justify-between bg-white hover:bg-gray-50"
+              >
+                <span className={selectedDate && selectedTime ? "text-gray-900" : "text-gray-400"}>
+                  {selectedDate && selectedTime ? `${selectedDate} at ${selectedTime}` : "Select Date & Time"}
+                </span>
+                <Calendar className="h-5 w-5 text-gray-500" />
+              </div>
+
+              {showDatePicker && (
+                <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 animate-fade-in">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
+                      <div className="flex justify-center">
+                        <ModernCalendar selectedDate={selectedDate} onChange={setSelectedDate} minDate={new Date().toISOString().split('T')[0]} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Select Time</label>
+                      <input
+                        type="time"
+                        value={selectedTime}
+                        onChange={(e) => setSelectedTime(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDatePicker(false)}
+                      className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <button type="submit" disabled={!quote || !departureTime || isBooking} className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 disabled:opacity-50">{isBooking ? "Processing..." : "Book Ride & Pay"}</button>
+            <button type="submit" disabled={!quote || !selectedDate || !selectedTime || isBooking} className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 disabled:opacity-50">{isBooking ? "Processing..." : "Book Ride & Pay"}</button>
             {error && (<p className="text-red-500 text-sm text-center">{error}</p>)}
           </form>
         </div>
         <div className="lg:col-span-2 h-96 lg:h-auto min-h-[400px] rounded-lg overflow-hidden z-0">
           <MapContainer center={defaultCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            
+
             <LocationMarker setFrom={setFrom} />
-            
+
             <MapClickHandler />
             {routePath.length > 0 && <Polyline positions={routePath} color="#2563EB" weight={5} opacity={0.8} />}
             {from.coords && (<Marker position={from.coords} icon={startIcon}><Popup>From</Popup></Marker>)}
@@ -258,7 +303,9 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
 const OfferCarpoolForm = ({ user, onRidePosted }) => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [departureTime, setDepartureTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [seatsAvailable, setSeatsAvailable] = useState(1);
   const [driverPhone, setDriverPhone] = useState("");
   const [price, setPrice] = useState("");
@@ -281,7 +328,7 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
         driver: user._id,
         from,
         to,
-        departureTime,
+        departureTime: `${selectedDate}T${selectedTime}`,
         seatsAvailable,
         driverPhone,
         price: Number(price) || 0,
@@ -291,12 +338,13 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
       setSuccess(true);
       setFrom("");
       setTo("");
-      setDepartureTime("");
+      setSelectedDate("");
+      setSelectedTime("");
       setSeatsAvailable(1);
       setPrice("");
       setNotes("");
       setDriverPhone("");
-      onRidePosted(); 
+      onRidePosted();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to post ride.");
     }
@@ -315,22 +363,62 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input type="text" placeholder="From" value={from} onChange={(e) => setFrom(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg"/>
-          <input type="text" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg"/>
+          <input type="text" placeholder="From" value={from} onChange={(e) => setFrom(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
+          <input type="text" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         </div>
-        <input type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" min={getMinDateTimeString()}/>
-        <input type="tel" placeholder="Your Contact Number" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg"/>
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
+          <div
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="w-full p-3 border border-gray-300 rounded-lg cursor-pointer flex items-center justify-between bg-white hover:bg-gray-50"
+          >
+            <span className={selectedDate && selectedTime ? "text-gray-900" : "text-gray-400"}>
+              {selectedDate && selectedTime ? `${selectedDate} at ${selectedTime}` : "Select Date & Time"}
+            </span>
+            <Calendar className="h-5 w-5 text-gray-500" />
+          </div>
+
+          {showDatePicker && (
+            <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 animate-fade-in">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
+                  <div className="flex justify-center">
+                    <ModernCalendar selectedDate={selectedDate} onChange={setSelectedDate} minDate={new Date().toISOString().split('T')[0]} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Time</label>
+                  <input
+                    type="time"
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(false)}
+                  className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <input type="tel" placeholder="Your Contact Number" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-lg" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><Users className="h-5 w-5 text-gray-400" /></span>
-            <input type="number" placeholder="Seats" value={seatsAvailable} onChange={(e) => setSeatsAvailable(e.target.value)} min="1" max="8" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg"/>
+            <input type="number" placeholder="Seats" value={seatsAvailable} onChange={(e) => setSeatsAvailable(e.target.value)} min="1" max="8" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg" />
           </div>
           <div className="relative">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><DollarSign className="h-5 w-5 text-gray-400" /></span>
-            <input type="number" placeholder="Price per Seat (₹)" value={price} onChange={(e) => setPrice(e.target.value)} min="0" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg"/>
+            <input type="number" placeholder="Price per Seat (₹)" value={price} onChange={(e) => setPrice(e.target.value)} min="0" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg" />
           </div>
         </div>
-        <textarea placeholder="Additional notes (e.g., car model)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="2"/>
+        <textarea placeholder="Additional notes (e.g., car model)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" rows="2" />
         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">Post Ride Offer</button>
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       </form>
@@ -373,7 +461,7 @@ const AvailableCarpools = ({ rides, currentUserId, onCancel, onBookCarpool, load
 
 const RideCard = ({ ride, currentUserId, onCancel, onBookCarpool }) => {
   const isDriver = currentUserId && ride.driver?._id && String(currentUserId) === String(ride.driver._id);
-  
+
   return (
     <div className="bg-gray-50 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 flex flex-col justify-between border">
       <div>
@@ -458,15 +546,15 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
 };
 
 const ModeToggle = ({ selected, onSelect }) => (
-    <div className="relative flex justify-center p-1 bg-gray-200 rounded-full max-w-md mx-auto mb-10">
-      <div className={`absolute top-1 bottom-1 left-1 w-1/2 bg-white rounded-full shadow-md transition-transform duration-700 ease-in-out`} style={{ transform: selected === 'private' ? 'translateX(0%)' : 'translateX(98%)' }} />
-      <button onClick={() => onSelect("private")} className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${selected === "private" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
-        <div className="flex items-center justify-center"><Briefcase className="h-5 w-5 mr-2" /> Book a Private Ride</div>
-      </button>
-      <button onClick={() => onSelect("carpool")} className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${selected === "carpool" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
-        <div className="flex items-center justify-center"><Users className="h-5 w-5 mr-2" /> Join/Offer Carpool</div>
-      </button>
-    </div>
+  <div className="relative flex justify-center p-1 bg-gray-200 rounded-full max-w-md mx-auto mb-10">
+    <div className={`absolute top-1 bottom-1 left-1 w-1/2 bg-white rounded-full shadow-md transition-transform duration-700 ease-in-out`} style={{ transform: selected === 'private' ? 'translateX(0%)' : 'translateX(98%)' }} />
+    <button onClick={() => onSelect("private")} className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${selected === "private" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
+      <div className="flex items-center justify-center"><Briefcase className="h-5 w-5 mr-2" /> Book a Private Ride</div>
+    </button>
+    <button onClick={() => onSelect("carpool")} className={`relative z-10 w-1/2 py-3 px-4 rounded-full font-bold text-center transition-colors duration-300 ${selected === "carpool" ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
+      <div className="flex items-center justify-center"><Users className="h-5 w-5 mr-2" /> Join/Offer Carpool</div>
+    </button>
+  </div>
 );
 
 const RidePage = () => {
