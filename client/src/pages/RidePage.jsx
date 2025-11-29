@@ -153,29 +153,14 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
     }
   };
 
-  const onPrivateRidePaymentSuccess = async (paymentResult) => {
+  const onPrivateRidePaymentSuccess = async (paymentResult, booking) => {
     try {
-      const bookingPayload = {
-        userId: user._id,
-        bookingType: "Ride",
-        service: "Private Ride",
-        from: from.name,
-        to: to.name,
-        departure: `${selectedDate}T${selectedTime}`,
-        arrival: `${selectedDate}T${selectedTime}`,
-        passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
-        contactEmail: user.email,
-        contactPhone: "N/A",
-        fare: quote.price,
-        paymentId: paymentResult.cf_payment_id,
-        orderId: paymentResult.order_id,
-        paymentStatus: "SUCCESS",
-        bookingStatus: "Confirmed",
-      };
-      const res = await api.post(`${import.meta.env.VITE_BACKEND_BASE_URL}/bookings`, bookingPayload);
-      onRideBooked(res.data);
+      // Booking is already created, just notify user
+      onRideBooked(booking); // Use the passed booking object
+      alert("Ride booked successfully!");
     } catch (err) {
-      setError("Payment successful, but failed to save booking.");
+      console.error(err);
+      setError("Payment successful, but failed to update UI.");
     } finally {
       setIsBooking(false);
     }
@@ -185,18 +170,45 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
     e.preventDefault();
     if (!quote || !selectedDate || !selectedTime) return setError("Get a quote and select date/time first.");
     setError(""); setIsBooking(true);
+
     try {
+      // 1. Create Booking First (Pending)
+      const bookingPayload = {
+        userId: user._id,
+        bookingType: "Ride",
+        service: "Private Ride",
+        from: from.name,
+        to: to.name,
+        departure: `${selectedDate}T${selectedTime}`,
+        arrival: `${selectedDate}T${selectedTime}`, // Approx, can be calculated
+        passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
+        contactEmail: user.email,
+        contactPhone: "N/A",
+        fare: quote.price,
+        paymentStatus: "Pending",
+        bookingStatus: "Pending", // Start as Pending
+      };
+
+      const res = await api.post(`/bookings`, bookingPayload);
+      const newBooking = res.data;
+      // Removed setBookedRideDetails(newBooking) as it's not defined here
+
+      // 2. Initiate Payment with Booking ID
       await handlePayment({
-        item: { name: `Private Ride`, price: quote.price, _id: `ride_${Date.now()}` },
+        item: { name: `Private Ride`, price: quote.price, _id: newBooking._id }, // Use booking ID as item ID or separate
         user,
-        onPaymentSuccess: onPrivateRidePaymentSuccess,
+        bookingId: newBooking._id, // Pass bookingId for linking
+        onPaymentSuccess: (paymentResult) => onPrivateRidePaymentSuccess(paymentResult, newBooking),
       });
+
       setIsBooking(false);
     } catch (err) {
-      setError("Payment initiation failed.");
+      console.error("Booking/Payment Error:", err);
+      setError(err.response?.data?.message || err.message || "Failed to book ride. Please try again.");
       setIsBooking(false);
     }
   };
+
 
   const mapBounds = useMemo(() => {
     if (routePath.length > 0) return L.latLngBounds(routePath);
@@ -605,21 +617,56 @@ const RidePage = () => {
 
   const onCarpoolPaymentSuccess = async (rideId, paymentResult) => {
     try {
+      // 1. Update Ride Seat Count (Accept Ride)
       await api.patch(`${API_URL}/${rideId}/accept`, { userId: user._id });
+
+      // 2. Notify User
+      alert("Carpool seat booked successfully!");
       fetchAllRides();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Payment successful, but failed to confirm booking. Please contact support.");
+      alert(err.response?.data?.message || "Payment successful, but failed to confirm seat. Please contact support.");
     }
   };
 
   const handleBookCarpool = async (ride) => {
     if (!user?._id) return alert("You must be logged in to accept a ride.");
-    const paymentItem = { _id: ride._id, name: `Seat: ${ride.from} to ${ride.to}`, price: ride.price };
+
     try {
-      await handlePayment({ item: paymentItem, user: user, onPaymentSuccess: (paymentResult) => onCarpoolPaymentSuccess(ride._id, paymentResult) });
+      // 1. Create Booking First (Pending)
+      const bookingPayload = {
+        userId: user._id,
+        bookingType: "Carpool",
+        service: "Carpool Seat",
+        from: ride.from,
+        to: ride.to,
+        departure: ride.departureTime,
+        arrival: ride.departureTime, // Approx
+        passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
+        contactEmail: user.email,
+        contactPhone: "N/A",
+        fare: ride.price,
+        paymentStatus: "Pending",
+        bookingStatus: "Pending",
+        pnrNumber: `CP-${Date.now()}`, // Generate a PNR
+        rideId: ride._id // Link to the Ride offer
+      };
+
+      const res = await api.post(`/bookings`, bookingPayload);
+      const newBooking = res.data;
+
+      // 2. Initiate Payment with Booking ID
+      const paymentItem = { _id: newBooking._id, name: `Seat: ${ride.from} to ${ride.to}`, price: ride.price };
+
+      await handlePayment({
+        item: paymentItem,
+        user: user,
+        bookingId: newBooking._id,
+        onPaymentSuccess: (paymentResult) => onCarpoolPaymentSuccess(ride._id, paymentResult)
+      });
+
     } catch (err) {
-      console.error("Payment initiation failed:", err);
+      console.error("Booking/Payment Error:", err);
       alert("Could not initiate payment. Please try again.");
     }
   };

@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { User, Mail, Phone, Users, Plus, Minus, Calendar, GitCompareArrows } from 'lucide-react'; // <-- Naye icons
+import { User, Mail, Phone, Users, Plus, Minus, Calendar, GitCompareArrows } from 'lucide-react';
 import ModernCalendar from '../components/ModernCalendar';
 import Footer from '../components/Footer';
 import { DataContext } from '../context/Context';
@@ -85,48 +85,6 @@ const TripPassengerForm = ({ selectedTicket }) => {
 
   const totalFare = (adults + children) * perPersonPrice;
 
-  const onPaymentSuccess = async (paymentResult) => {
-    try {
-      const bookingPayload = {
-        userId: user?._id,
-        bookingType: 'Trips', // 'Trips' type hardcode kar sakte hai
-        service: trip.name,
-        serviceLogo: trip.image,
-        from: trip.startPoint || trip.from,
-        to: trip.endPoint || trip.to,
-        departure: trip.startTime || trip.departureTime, // departureTime use kar (TripView se)
-        arrival: trip.estimatedArrivalTime || trip.arrivalTime, // arrivalTime use kar (TripView se)
-        travelDate: selectedDate, // New field
-        departureDateTime: selectedDate ? new Date(`${selectedDate}T${trip.startTime || '00:00'}`) : undefined,
-        duration: trip.duration,
-        passengers: passengers.map(p => ({ fullName: p.fullName, age: p.age, gender: p.gender })),
-        contactEmail: email,
-        contactPhone: phone,
-        fare: totalFare,
-        paymentId: paymentResult.cf_payment_id || paymentResult.cf_payment_id || paymentResult.payment_id || paymentResult.id,
-        orderId: paymentResult.order_id || paymentResult.orderId || paymentResult.order_id,
-        paymentStatus: 'SUCCESS',
-        bookingStatus: 'Confirmed'
-      };
-
-      const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-      const res = await axios.post(`${VITE_BACKEND_BASE_URL}/bookings`, bookingPayload, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-
-      const newBooking = res.data;
-
-      // Redirect to Orders page
-      navigate('/orders');
-
-    } catch (error) {
-      console.error('Failed to save booking after payment:', error);
-      setError('Payment succeeded but saving booking failed. Please contact support.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleProceedToPayment = async (e) => {
     e.preventDefault();
     setError("");
@@ -150,20 +108,51 @@ const TripPassengerForm = ({ selectedTicket }) => {
 
     setIsSubmitting(true);
     try {
+      // 1. Create Booking First (Pending)
+      const bookingPayload = {
+        userId: user?._id,
+        bookingType: 'Trips',
+        service: trip.name,
+        serviceLogo: trip.image,
+        from: trip.startPoint || trip.from,
+        to: trip.endPoint || trip.to,
+        departure: trip.startTime || trip.departureTime,
+        arrival: trip.estimatedArrivalTime || trip.arrivalTime,
+        travelDate: selectedDate,
+        departureDateTime: selectedDate ? new Date(`${selectedDate}T${trip.startTime || '00:00'}`) : undefined,
+        duration: trip.duration,
+        passengers: passengers.map(p => ({ fullName: p.fullName, age: p.age, gender: p.gender })),
+        contactEmail: email,
+        contactPhone: phone,
+        fare: totalFare,
+        paymentStatus: 'Pending',
+        bookingStatus: 'Pending'
+      };
+
+      const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+      const res = await axios.post(`${VITE_BACKEND_BASE_URL}/bookings`, bookingPayload, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      const newBooking = res.data;
+      console.log("Booking created (Pending):", newBooking._id);
+
+      // 2. Initiate Payment with Booking ID
       await handlePayment({
         item: { ...trip, price: totalFare },
         user,
-        onPaymentSuccess
+        customerDetails: { name: passengers[0].fullName, email, phone },
+        bookingId: newBooking._id
       });
-      // Agar payment close ho gayi bina error ke (edge case), toh button reset karo
+
       setIsSubmitting(false);
     } catch (err) {
-      console.error('Payment flow error:', err);
-      // FIX: Error aane par button turant reset karo
+      console.error('Booking/Payment failed:', err);
       setIsSubmitting(false);
-      // Agar "Payment cancelled" hai toh error mat dikha (optional), warna dikha de
       if (err.message !== "Payment cancelled by user") {
-        setError('Payment initiation failed.');
+        // Show detailed error if available
+        const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Payment initiation failed.';
+        setError(errorMessage);
       }
     }
   };

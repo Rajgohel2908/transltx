@@ -5,6 +5,7 @@ import Contact from "./pages/Contact.jsx";
 import MyTrips from "./pages/MyTrips.jsx";
 import Parcel from "./pages/Parcel.jsx";
 import Orders from "./pages/Orders.jsx";
+import MyBookings from "./pages/MyBookings.jsx";
 import Login from "./pages/users/Login.jsx";
 import Logout from "./pages/users/Logout.jsx";
 import { PrivateRoute } from "./components/PrivateRoute.jsx";
@@ -13,7 +14,7 @@ import Context from "./context/Context.jsx";
 import AOS from "aos";
 import { useEffect } from "react";
 import Booking from "./pages/Booking.jsx";
-import RidePage from "./pages/RidePage.jsx"; 
+import RidePage from "./pages/RidePage.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
 import Transport404 from "./pages/PageNotFound.jsx";
 
@@ -21,21 +22,22 @@ import Transport404 from "./pages/PageNotFound.jsx";
 import SearchResults from "./pages/SearchResults.jsx";
 import PassengerDetails from "./pages/PassengerDetails.jsx";
 import Confirmation from "./pages/Confirmation.jsx";
+import PaymentStatus from "./pages/PaymentStatus.jsx";
 
 // --- Imported Components ---
 import Navbar from "./components/Navbar.jsx";
 import AlertBanner from "./components/AlertBanner";
 import TripViewPage from "./pages/TripView.jsx";
-import ParkingPage from "./pages/Parking.jsx"; 
+import ParkingPage from "./pages/Parking.jsx";
 // Forgot Password Component Import
-import ResetPassword from "./pages/users/ResetPassword"; 
+import ResetPassword from "./pages/users/ResetPassword";
 
 function App() {
   useEffect(() => {
     // Initialize AOS
     AOS.init({
-      duration: 500, 
-      once: true, 
+      duration: 500,
+      once: true,
     });
   }, []);
 
@@ -56,10 +58,10 @@ function MainLayout() {
   const location = useLocation();
 
   const hideNavbarOn = ['/user-login', '/user-signup', '/login', '/signup'];
-  
+
   // Logic: Hide navbar if path is in array OR if it starts with /reset-password/
-  const shouldShowNavbar = 
-    !hideNavbarOn.includes(location.pathname) && 
+  const shouldShowNavbar =
+    !hideNavbarOn.includes(location.pathname) &&
     !location.pathname.startsWith("/reset-password/");
 
   return (
@@ -71,7 +73,7 @@ function MainLayout() {
       <div className="fade-scale-in">
         <Routes>
           <Route path="/" element={<Home />} />
-          
+
           <Route
             path="/live-map"
             element={
@@ -90,7 +92,7 @@ function MainLayout() {
               </PrivateRoute>
             }
           />
-          
+
           {/* Booking Routes */}
           <Route
             path="/booking" // Added base route
@@ -132,6 +134,14 @@ function MainLayout() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/payment/status"
+            element={
+              <PrivateRoute>
+                <PaymentStatus />
+              </PrivateRoute>
+            }
+          />
 
           <Route
             path="/ride"
@@ -153,11 +163,22 @@ function MainLayout() {
               </PrivateRoute>
             }
           />
+
+          {/* ... (existing imports) */}
+
           <Route
             path="/orders"
             element={
               <PrivateRoute>
                 <Orders />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/my-bookings"
+            element={
+              <PrivateRoute>
+                <MyBookings />
               </PrivateRoute>
             }
           />
@@ -185,7 +206,7 @@ function MainLayout() {
               </PrivateRoute>
             }
           />
-          
+
           {/* Auth Routes */}
           <Route
             path="/user-logout"
@@ -199,7 +220,7 @@ function MainLayout() {
           <Route path="/signup" element={<Login />} />
           <Route path="/user-login" element={<Login />} />
           <Route path="/user-signup" element={<Login />} />
-          
+
           {/* Reset Password Route */}
           <Route path="/reset-password/:token" element={<ResetPassword />} />
 

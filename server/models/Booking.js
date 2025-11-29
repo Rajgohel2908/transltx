@@ -8,10 +8,11 @@ const passengerSchema = new mongoose.Schema({
 
 const bookingSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  bookingType: { type: String, required: true, enum: ['Bus', 'Train', 'Air', 'Ride', 'Trips'] },
+  bookingType: { type: String, required: true, enum: ['Bus', 'Train', 'Air', 'Ride', 'Trips', 'Carpool'] },
 
   // --- YEH HAI NAYA DATA ---
   routeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' }, // Route se direct link
+  rideId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ride' }, // Carpool Ride se direct link
   classType: { type: String, default: 'default' }, // e.g., 'Sleeper', 'Economy'
   departureDateTime: { type: Date }, // Poori date + time
   arrivalDateTime: { type: Date }, // Poori date + time
@@ -40,9 +41,9 @@ const bookingSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// PNR generator (yeh pehle jaisa hi hai)
-bookingSchema.pre('save', async function (next) {
-  if (this.isNew) {
+// PNR generator (runs before validation)
+bookingSchema.pre('validate', async function (next) {
+  if (this.isNew && !this.pnrNumber) {
     let pnr = '';
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     do {
@@ -50,12 +51,14 @@ bookingSchema.pre('save', async function (next) {
       for (let i = 0; i < 6; i++) {
         pnr += chars.charAt(Math.floor(Math.random() * chars.length));
       }
-      pnr = `${this.bookingType.slice(0, 1)}${pnr}`;
+      // Ensure bookingType exists, fallback to 'T' (Trip) if missing
+      const typePrefix = this.bookingType ? this.bookingType.slice(0, 1) : 'T';
+      pnr = `${typePrefix}${pnr}`;
     } while (await mongoose.models.Booking.findOne({ pnrNumber: pnr }));
     this.pnrNumber = pnr;
   }
   next();
 });
 
-const Booking = mongoose.model('Booking', bookingSchema);
+const Booking = mongoose.models.Booking || mongoose.model('Booking', bookingSchema);
 export default Booking;

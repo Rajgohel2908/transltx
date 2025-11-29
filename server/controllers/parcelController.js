@@ -10,9 +10,9 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -23,11 +23,15 @@ function deg2rad(deg) {
 // --- calculateFare (no changes) ---
 export const calculateFare = async (req, res) => {
   try {
+    console.log("--- Calculate Fare Request ---");
+    console.log("Body:", req.body);
     const { source, destination, weight, length, width, height } = req.body;
+
     if (!source || !destination || !weight || !source.postalCode || !destination.postalCode) {
+      console.error("Missing required fields for fare calculation");
       return res
-      .status(400)
-      .json({ message: "Source, destination, weight, and postal codes are required." });
+        .status(400)
+        .json({ message: "Source, destination, weight, and postal codes are required." });
     }
 
     // More realistic fare calculation based on weight and dimensions
@@ -41,8 +45,10 @@ export const calculateFare = async (req, res) => {
     const dimensionalCharge = chargeableWeight > parseFloat(weight) ? (chargeableWeight - parseFloat(weight)) * 10 : 0;
 
     const totalFare = baseFare + weightCharge + dimensionalCharge;
+    console.log(`Calculated Fare: ${totalFare} (Base: ${baseFare}, Weight: ${weightCharge}, Dim: ${dimensionalCharge})`);
 
     if (isNaN(totalFare)) {
+      console.error("Fare calculation resulted in NaN");
       return res
         .status(500)
         .json({ message: "Fare calculation resulted in an error." });
@@ -77,14 +83,14 @@ export const createBooking = async (req, res) => {
     }
 
     const newParcel = new Parcel({
-      user: user._id, // Store only the user's ID
+      user: user._id || user, // Handle both object and string ID
       sender,
       recipient,
       parcel,
       fare,
       status: "pending",
     });
-    
+
     const savedParcel = await newParcel.save();
     console.log("Parcel saved successfully:", savedParcel);
     res

@@ -16,4 +16,4 @@ mongoose
 
 import app from "./index.js";
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT} - Restarted`));

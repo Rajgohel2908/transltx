@@ -1,5 +1,8 @@
 import axios from "axios";
 import dotenv from "dotenv";
+import Booking from "../models/Booking.js";
+import Parcel from '../models/Parcel.js';
+import { sendBookingEmail, sendBookingSms } from '../utils/notificationService.js';
 
 dotenv.config();
 
@@ -14,7 +17,7 @@ const BASE_URL = isProd
 
 export const createTripOrder = async (req, res) => {
   try {
-    const { amount, user, customerDetails, itemId } = req.body;
+    const { amount, user, customerDetails, itemId, bookingId } = req.body;
 
     // Validation
     if (!amount) {
@@ -25,6 +28,29 @@ export const createTripOrder = async (req, res) => {
     // If itemId is provided, use it as prefix, otherwise generate a random one
     const prefix = itemId || `order_${Date.now()}`;
     const uniqueOrderId = `${prefix}_${Date.now()}`;
+
+    // If bookingId is provided, update the booking/parcel with this orderId
+    if (bookingId) {
+      console.log(`Linking Booking ${bookingId} with Order ${uniqueOrderId}`);
+      let linkedBooking = await Booking.findByIdAndUpdate(bookingId, {
+        orderId: uniqueOrderId,
+        paymentStatus: 'Pending'
+      });
+
+      if (!linkedBooking) {
+        console.log(`Booking not found, trying to link Parcel ${bookingId}`);
+        linkedBooking = await Parcel.findByIdAndUpdate(bookingId, {
+          orderId: uniqueOrderId,
+          paymentStatus: 'Pending'
+        });
+      }
+
+      if (linkedBooking) {
+        console.log("Linked successfully to:", linkedBooking._id);
+      } else {
+        console.warn("Could not link Order ID to any Booking or Parcel");
+      }
+    }
 
     // Sanitize phone number (remove non-digits, take last 10)
     let phone = customerDetails?.phone || user?.phone || "9999999999";
@@ -80,5 +106,88 @@ export const createTripOrder = async (req, res) => {
         error: error.message
       });
     }
+  }
+};
+
+export const verifyPayment = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    console.log("--- Verify Payment Request ---");
+    console.log("Body:", req.body);
+
+    if (!orderId) {
+      console.error("Order ID missing in request body");
+      return res.status(400).json({ message: "Order ID is required" });
+    }
+
+    const headers = {
+      'x-client-id': APP_ID,
+      'x-client-secret': SECRET_KEY,
+      'x-api-version': '2023-08-01',
+      'Content-Type': 'application/json'
+    };
+
+    console.log(`Fetching Order Status from Cashfree: ${orderId}`);
+
+    const response = await axios.get(`${BASE_URL}/orders/${orderId}`, { headers });
+    console.log("Cashfree Response Status:", response.status);
+    console.log("Order Status:", response.data.order_status);
+
+    const orderStatus = response.data.order_status;
+
+    if (orderStatus === "PAID") {
+      console.log(`Payment PAID. Updating booking for Order ID: ${orderId}`);
+
+      // Try updating Booking first
+      let updatedBooking = await Booking.findOneAndUpdate(
+        { orderId: orderId },
+        {
+          paymentStatus: 'SUCCESS',
+          bookingStatus: 'Confirmed',
+          paymentId: response.data.cf_order_id
+        },
+        { new: true }
+      );
+
+      // If not found in Booking, try Parcel
+      if (!updatedBooking) {
+        console.log("Booking not found, checking Parcel...");
+        updatedBooking = await Parcel.findOneAndUpdate(
+          { orderId: orderId },
+          {
+            paymentStatus: 'SUCCESS',
+            status: 'pending', // Keep it pending or move to confirmed if applicable
+            paymentId: response.data.cf_order_id
+          },
+          { new: true }
+        );
+      }
+
+      if (!updatedBooking) {
+        console.error("Booking/Parcel not found for Order ID:", orderId);
+        return res.status(404).json({ message: "Booking/Parcel not found for this order ID" });
+      }
+
+      console.log("Booking/Parcel Updated Successfully:", updatedBooking._id);
+
+      return res.status(200).json({
+        message: "Payment verified successfully",
+        status: "PAID",
+        booking: updatedBooking
+      });
+    } else {
+      console.warn(`Payment Status is ${orderStatus} (Not PAID)`);
+      return res.status(200).json({
+        message: "Payment not completed",
+        status: orderStatus
+      });
+    }
+
+  } catch (error) {
+    console.error("Payment Verification Failed Exception:", error.message);
+    if (error.response) {
+      console.error("Cashfree API Error Data:", error.response.data);
+    }
+    res.status(500).json({ message: "Verification failed", error: error.message });
   }
 };

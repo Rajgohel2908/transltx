@@ -117,12 +117,12 @@ const OrderCard = ({ order }) => {
         <div className="mt-4 flex items-center justify-center text-center">
           <div className="flex-1">
             <p className="text-sm text-gray-500">From</p>
-            <p className="font-bold text-gray-800 text-lg">{order.source}</p>
+            <p className="font-bold text-gray-800 text-lg">{order.sender?.city || order.source || 'N/A'}</p>
           </div>
           <ArrowRightIcon />
           <div className="flex-1">
             <p className="text-sm text-gray-500">To</p>
-            <p className="font-bold text-gray-800 text-lg">{order.destination}</p>
+            <p className="font-bold text-gray-800 text-lg">{order.recipient?.city || order.destination || 'N/A'}</p>
           </div>
         </div>
 
@@ -137,11 +137,11 @@ const OrderCard = ({ order }) => {
           <p className="text-sm text-gray-600">
             Fare:{" "}
             <span className="font-bold text-lg text-green-600">
-              ₹{order.fare.toFixed(2)}
+              ₹{Number(order.fare).toFixed(2)}
             </span>
           </p>
           <p className="text-sm text-gray-600">
-            Weight: <span className="font-bold">{order.weight} kg</span>
+            Weight: <span className="font-bold">{order.parcel?.weight || order.weight || 0} kg</span>
           </p>
         </div>
       </div>
@@ -185,7 +185,7 @@ const Orders = () => {
   const { user } = useContext(DataContext);
 
   // Use environment variable for API base URL
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const API_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -193,9 +193,11 @@ const Orders = () => {
         setLoading(false);
         return;
       }
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/parcels/user/${user._id}`
+          `${API_BASE_URL}/parcels/user/${user._id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         setOrders(response.data);
       } catch (err) {

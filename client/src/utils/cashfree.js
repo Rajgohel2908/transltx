@@ -43,7 +43,7 @@ const loadCashfreeSDK = () => {
   return cashfreeLoader;
 };
 
-export const handlePayment = async ({ item, user, customerDetails, onPaymentSuccess }) => {
+export const handlePayment = async ({ item, user, customerDetails, bookingId, onPaymentSuccess }) => {
   try {
     console.log("Starting payment flow...");
     const cashfreeInstance = await loadCashfreeSDK();
@@ -57,6 +57,7 @@ export const handlePayment = async ({ item, user, customerDetails, onPaymentSucc
       customerDetails,
       itemName: item.name || `Booking: ${item._id}`,
       itemId: item._id || `order_${Date.now()}`,
+      bookingId // Pass bookingId to backend
     };
 
     // Step 1: Create Order

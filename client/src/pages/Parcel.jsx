@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import { DataContext } from "../context/Context";
 import { CheckCircle, Package, User, Phone, MapPin, Weight, ArrowRight, Mail, Building, Hash, Globe, Box, DollarSign, ArrowLeft, Send, Shield, Edit3 } from "lucide-react";
@@ -46,6 +46,7 @@ const Stepper = ({ currentStep }) => (
 
 const Parcel = () => {
   const { user } = useContext(DataContext);
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   // Sender State
@@ -143,7 +144,9 @@ const Parcel = () => {
       setFare(res.data.fare);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || "Error calculating fare. Please check backend.");
+      const status = err.response?.status || 'N/A';
+      const url = `${PARCEL_API_URL}/fare`;
+      setError(`Error: ${err.response?.data?.message || err.message} | Status: ${status} | URL: ${url}`);
     } finally {
       setIsLoading(false);
     }
@@ -158,9 +161,17 @@ const Parcel = () => {
       return;
     }
     setIsLoading(true);
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      alert("You must be logged in to book a parcel.");
+      navigate('/login');
+      return;
+    }
+
     try {
-      const bookingDetails = {
-        user: user, // Pass the whole user object
+      // 1. Create Booking First (Pending)
+      const bookingPayload = {
+        user: user._id, // Pass only user ID
         sender: {
           name: senderName,
           phone: senderPhone,
@@ -183,37 +194,41 @@ const Parcel = () => {
         },
         parcel: { weight, length, width, height, description },
         fare,
-        _id: `parcel_${Date.now()}` // Add a temporary ID for payment handler
-      };
-      const onPaymentSuccess = async (paymentResult) => {
-        try {
-          // Add payment details to the booking payload
-          const finalPayload = {
-            ...bookingDetails,
-            user: user._id, // Ab sirf ID bhej
-            paymentId: paymentResult.cf_payment_id || paymentResult.payment_id,
-            orderId: paymentResult.order_id,
-            paymentStatus: 'SUCCESS',
-          };
-          delete finalPayload._id; // Temp ID hata de
-
-          const res = await axios.post(`${PARCEL_API_URL}/book`, finalPayload);
-          setBookedOrderDetails(res.data.booking);
-          setIsBooked(true);
-          window.scrollTo(0, 0); // Top pe scroll kar
-        } catch (err) {
-          setError(err.response?.data?.message || "Failed to save booking after payment.");
-        }
-        setIsLoading(false);
+        paymentStatus: 'Pending',
+        status: 'pending'
       };
 
-      // Call the generic payment handler
-      await handlePayment({ item: bookingDetails, user, onPaymentSuccess });
+      const res = await axios.post(`${PARCEL_API_URL}/book`, bookingPayload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const newBooking = res.data.booking;
+      console.log("Parcel Booking created (Pending):", newBooking._id);
+
+      // 2. Initiate Payment with Booking ID
+      await handlePayment({
+        item: {
+          name: `Parcel Delivery (${senderCity} to ${recipientCity})`,
+          price: fare,
+          image: "https://cdn-icons-png.flaticon.com/512/2983/2983799.png" // Placeholder image
+        },
+        user,
+        customerDetails: { name: senderName, email: senderEmail, phone: senderPhone },
+        bookingId: newBooking._id
+      });
+
+      setIsLoading(false);
 
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || "Booking failed. Please try again.");
-      setIsLoading(false); // Only set loading to false on error here
+      if (err.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        navigate('/login');
+        return;
+      }
+      const errorMessage = err.response?.data?.message || err.message || "Booking failed. Please try again.";
+      setError(errorMessage);
+      setIsLoading(false);
     }
   };
 
@@ -257,11 +272,11 @@ const Parcel = () => {
             <div className="bg-white p-8 md:p-12 rounded-2xl shadow-2xl w-full">
               <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">Send a Parcel</h2>
               <p className="text-lg text-gray-500 mb-8">Ship your items securely and quickly.</p>
-              
+
               <Stepper currentStep={step} />
-              
+
               <form onSubmit={fare ? handleRequestBooking : handleShowFare} className="space-y-6">
-                
+
                 {/* --- Step 1: Sender --- */}
                 <div className={step === 1 ? 'animate-fade-in' : 'hidden'}>
                   <h3 className="text-2xl font-bold text-gray-800 mb-6">Sender Information (From)</h3>
@@ -310,7 +325,7 @@ const Parcel = () => {
                     </div>
                   </div>
                   <InputField icon={<Package />} id="description" placeholder="Description of Contents" value={description} onChange={e => setDescription(e.target.value)} required />
-                  
+
                   {fare && (
                     <div className="mt-6 bg-blue-50 border-l-4 border-blue-500 text-blue-900 p-4 rounded-r-lg flex justify-between items-center shadow-sm animate-fade-in">
                       <p className="font-semibold text-lg">Estimated Fare:</p>
@@ -323,9 +338,9 @@ const Parcel = () => {
 
                 {/* --- Navigation Buttons --- */}
                 <div className="pt-6 flex justify-between items-center">
-                  <button 
-                    type="button" 
-                    onClick={handlePrevStep} 
+                  <button
+                    type="button"
+                    onClick={handlePrevStep}
                     disabled={step === 1 || isLoading}
                     className="bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
                   >
@@ -337,7 +352,7 @@ const Parcel = () => {
                       Next: Recipient <ArrowRight size={20} />
                     </button>
                   )}
-                  
+
                   {step === 2 && (
                     <button type="button" onClick={handleNextStep} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
                       Next: Parcel Details <ArrowRight size={20} />

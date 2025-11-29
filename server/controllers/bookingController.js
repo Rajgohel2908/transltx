@@ -21,9 +21,17 @@ export const createBooking = async (req, res) => {
   } catch (error) {
     console.error("Error creating booking:", error);
     if (error.name === 'ValidationError') {
-      console.error("Validation Errors:", error.errors);
+      const messages = Object.values(error.errors).map(val => val.message);
+      console.error("Validation Errors:", messages);
+      return res.status(400).json({
+        message: "Validation Error",
+        error: messages.join(', ')
+      });
     }
-    res.status(500).json({ message: "Server error while creating booking.", error: error.message });
+    res.status(500).json({
+      message: "Server error while creating booking.",
+      error: error.message
+    });
   }
 }
 
@@ -68,5 +76,18 @@ export const updateBooking = async (req, res) => {
   } catch (error) {
     console.error("Error updating booking:", error);
     res.status(500).json({ message: "Server error while updating booking." });
+  }
+};
+
+// @desc    Get all bookings for a specific user
+// @route   GET /api/bookings/user/:userId
+export const getUserBookings = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const bookings = await Booking.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json(bookings);
+  } catch (error) {
+    console.error("Error fetching user bookings:", error);
+    res.status(500).json({ message: "Server error while fetching user bookings." });
   }
 };

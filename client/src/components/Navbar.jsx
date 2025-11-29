@@ -71,6 +71,7 @@ const Navbar = () => {
           <NavItem to="/parking">Parking</NavItem>
           <NavItem to="/parcel">Send a Parcel</NavItem>
           <NavItem to="/live-map">Live Map</NavItem>
+          <NavItem to="/my-bookings">My Bookings</NavItem>
           <NavItem to="/orders">My Orders</NavItem>
           <NavItem to="/contact">Contact</NavItem>
           {isAdmin ? <NavItem to="/admin/dashboard">Admin</NavItem> : null}
@@ -109,6 +110,7 @@ const Navbar = () => {
           <NavItem to="/parking">Parking</NavItem>
           <NavItem to="/parcel">Send a Parcel</NavItem>
           <NavItem to="/live-map">Live Map</NavItem>
+          <NavItem to="/my-bookings">My Bookings</NavItem>
           <NavItem to="/orders">My Orders</NavItem>
           {isAdmin ? <NavItem to="/admin/dashboard">Admin</NavItem> : null}
           <div className="pt-4">

@@ -59,69 +59,82 @@ const PassengerDetails = () => {
 
   const priceToPay = Number(selectedTicket.price) || 0;
 
+  const combineDateAndTime = (dateStr, timeStr) => {
+    if (!dateStr || !timeStr) return null;
+    try {
+      // Handle "HH:MM AM/PM" format
+      const [time, modifier] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':');
+
+      if (hours === '12') {
+        hours = '00';
+      }
+
+      if (modifier === 'PM') {
+        hours = parseInt(hours, 10) + 12;
+      }
+
+      return new Date(`${dateStr}T${hours}:${minutes}:00`);
+    } catch (e) {
+      console.error("Error parsing date/time:", e);
+      return new Date(dateStr); // Fallback
+    }
+  };
+
   const handleProceedToPayment = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const departureDateTime = new Date(`${departureDate}T${selectedTicket.startTime}`);
-    const arrivalDateTime = new Date(`${departureDate}T${selectedTicket.estimatedArrivalTime}`);
-    if (arrivalDateTime < departureDateTime) {
+    const departureDateTime = combineDateAndTime(departureDate, selectedTicket.startTime);
+    let arrivalDateTime = combineDateAndTime(departureDate, selectedTicket.estimatedArrivalTime);
+
+    // Handle next day arrival if arrival time is before departure time
+    if (arrivalDateTime && departureDateTime && arrivalDateTime < departureDateTime) {
       arrivalDateTime.setDate(arrivalDateTime.getDate() + 1);
     }
 
-    const onPaymentSuccess = async (paymentResult) => {
-      try {
-        const bookingPayload = {
-          userId: user._id,
-          bookingType: searchType,
-          routeId: selectedTicket._id,
-          classType: classType || 'default',
-          departureDateTime: departureDateTime,
-          arrivalDateTime: arrivalDateTime,
-          service: selectedTicket.name,
-          serviceLogo: selectedTicket.image || selectedTicket.airline,
-          from: selectedTicket.startPoint || selectedTicket.from,
-          to: selectedTicket.endPoint || selectedTicket.to,
-          duration: selectedTicket.duration,
-          passengers: [{ fullName, age, gender }],
-          contactEmail: email,
-          contactPhone: phone,
-          fare: priceToPay,
-          paymentId: paymentResult.cf_payment_id || paymentResult.payment_id,
-          orderId: paymentResult.order_id,
-          paymentStatus: 'SUCCESS',
-          bookingStatus: 'Confirmed'
-        };
-
-        const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
-        const res = await axios.post(`${VITE_BACKEND_BASE_URL}/bookings`, bookingPayload, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-
-        const newBooking = res.data;
-
-        // Redirect to Orders page
-        navigate('/orders');
-      } catch (err) {
-        console.error("Booking creation failed:", err);
-        alert("Payment successful but booking failed. Please contact support.");
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
-
     try {
+      // 1. Create Booking First (Pending)
+      const bookingPayload = {
+        userId: user._id,
+        bookingType: searchType.charAt(0).toUpperCase() + searchType.slice(1).toLowerCase(),
+        routeId: selectedTicket._id,
+        classType: classType || 'default',
+        departureDateTime: departureDateTime,
+        arrivalDateTime: arrivalDateTime,
+        service: selectedTicket.name,
+        serviceLogo: selectedTicket.image || selectedTicket.airline,
+        from: selectedTicket.startPoint || selectedTicket.from,
+        to: selectedTicket.endPoint || selectedTicket.to,
+        duration: selectedTicket.duration,
+        passengers: [{ fullName, age, gender }],
+        contactEmail: email,
+        contactPhone: phone,
+        fare: priceToPay,
+        paymentStatus: 'Pending',
+        bookingStatus: 'Pending'
+      };
+
+      const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+      const res = await axios.post(`${VITE_BACKEND_BASE_URL}/bookings`, bookingPayload, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      const newBooking = res.data;
+      console.log("Booking created (Pending):", newBooking._id);
+
+      // 2. Initiate Payment with Booking ID
       await handlePayment({
         item: { ...selectedTicket, price: priceToPay },
         user: user,
         customerDetails: { name: fullName, email, phone },
-        onPaymentSuccess: onPaymentSuccess
+        bookingId: newBooking._id // Pass booking ID to link payment
       });
-      // If the payment flow returned (edge case), ensure button is reset
-      setIsSubmitting(false);
+
     } catch (err) {
-      console.error("Payment initiation failed:", err);
-      alert(`Payment initiation failed: ${err.message || "Unknown error"}`);
+      console.error("Booking/Payment failed:", err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || "Unknown error";
+      alert(`Failed to initiate booking: ${errorMessage}`);
       setIsSubmitting(false);
     }
   };

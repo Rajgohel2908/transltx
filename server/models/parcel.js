@@ -44,6 +44,8 @@ const parcelSchema = new mongoose.Schema(
       trim: true,
       default: "", // Defaults to an empty string
     },
+    orderId: { type: String },
+    paymentStatus: { type: String, default: 'Pending' },
   },
   {
     timestamps: true,
@@ -51,6 +53,6 @@ const parcelSchema = new mongoose.Schema(
   }
 );
 
-const Parcel = mongoose.model("Parcel", parcelSchema);
+const Parcel = mongoose.models.Parcel || mongoose.model("Parcel", parcelSchema);
 
 export default Parcel;
