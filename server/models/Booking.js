@@ -9,12 +9,13 @@ const passengerSchema = new mongoose.Schema({
 const bookingSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   bookingType: { type: String, required: true, enum: ['Bus', 'Train', 'Air', 'Ride', 'Trips'] },
-  
+
   // --- YEH HAI NAYA DATA ---
   routeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' }, // Route se direct link
   classType: { type: String, default: 'default' }, // e.g., 'Sleeper', 'Economy'
   departureDateTime: { type: Date }, // Poori date + time
   arrivalDateTime: { type: Date }, // Poori date + time
+  travelDate: { type: Date }, // Sirf date (Trip ke liye)
   // -------------------------
 
   // --- YEH PURANA DATA MODIFY KIYA ---
@@ -23,12 +24,13 @@ const bookingSchema = new mongoose.Schema({
   from: { type: String, required: true },
   to: { type: String, required: true },
   duration: { type: String },
-  // 'departure' aur 'arrival' ko 'departureDateTime' / 'arrivalDateTime' se replace kar diya
-  
+  departure: { type: String }, // Legacy string support
+  arrival: { type: String },   // Legacy string support
+
   passengers: { type: [passengerSchema], required: true },
   contactEmail: { type: String, required: true },
   contactPhone: { type: String, required: true },
-  
+
   fare: { type: Number, required: true },
   pnrNumber: { type: String, unique: true, required: true },
   paymentId: { type: String },

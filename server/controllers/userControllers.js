@@ -25,24 +25,24 @@ async function userSignup(req, res) {
 
 async function userLogin(req, res) {
   const { email, password } = req.body;
-  console.log('Attempting login for email:', email);
+  // console.log('Attempting login for email:', email);
 
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
-    console.log('Login failed: User not found for email:', email);
+    // console.log('Login failed: User not found for email:', email);
     return res.status(401).json({ error: "Invalid email or password" });
   }
-  console.log('User found:', user.email);
+  // console.log('User found:', user.email);
 
   const match = await user.comparePassword(password);
   if (!match) {
-    console.log('Login failed: Password mismatch for user:', user.email);
+    // console.log('Login failed: Password mismatch for user:', user.email);
     return res.status(401).json({ error: "Invalid email or password" });
   }
-  console.log('Password matched for user:', user.email);
+  // console.log('Password matched for user:', user.email);
 
   const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "30d" });
-  console.log('Token generated for user:', user.email);
+  // console.log('Token generated for user:', user.email);
 
   res.status(200).json({ token });
 }

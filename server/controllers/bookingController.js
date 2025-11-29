@@ -1,13 +1,16 @@
 // server/controllers/bookingController.js
 import Booking from '../models/Booking.js';
-// --- DONO IMPORT KAR ---
 import { sendBookingEmail, sendBookingSms } from '../utils/notificationService.js';
 
-// ...
 export const createBooking = async (req, res) => {
   try {
+    console.log("--- Create Booking Request Received ---");
+    console.log("Payload:", JSON.stringify(req.body, null, 2));
+
     const newBooking = new Booking(req.body);
-    await newBooking.save(); 
+    await newBooking.save();
+
+    console.log("Booking saved successfully:", newBooking._id);
 
     // --- DONO KO CALL KAR ---
     sendBookingEmail(newBooking).catch(err => console.error("Email fail:", err));
@@ -15,10 +18,12 @@ export const createBooking = async (req, res) => {
     // -------------------------
 
     res.status(201).json(newBooking);
-  } catch (error)
- {
+  } catch (error) {
     console.error("Error creating booking:", error);
-    res.status(500).json({ message: "Server error while creating booking." });
+    if (error.name === 'ValidationError') {
+      console.error("Validation Errors:", error.errors);
+    }
+    res.status(500).json({ message: "Server error while creating booking.", error: error.message });
   }
 }
 
