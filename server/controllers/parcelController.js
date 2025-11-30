@@ -1,6 +1,12 @@
 import mongoose from "mongoose"; // Import mongoose to use ObjectId
 import Parcel from "../models/parcel.js";
 import Route from "../models/route.js";
+import {
+  sendParcelEmail,
+  sendParcelSms,
+  sendParcelStatusUpdateEmail,
+  sendParcelStatusUpdateSms
+} from "../utils/notificationService.js";
 
 // --- Helper functions (no changes) ---
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -93,6 +99,11 @@ export const createBooking = async (req, res) => {
 
     const savedParcel = await newParcel.save();
     console.log("Parcel saved successfully:", savedParcel);
+
+    // --- NOTIFICATIONS ---
+    sendParcelEmail(savedParcel).catch(err => console.error("Parcel Email Fail:", err));
+    sendParcelSms(savedParcel).catch(err => console.error("Parcel SMS Fail:", err));
+    // ---------------------
     res
       .status(201)
       .json({ message: "Booking created successfully!", booking: savedParcel });
@@ -161,6 +172,11 @@ export const updateParcelByAdmin = async (req, res) => {
     }
 
     const updatedParcel = await parcel.save();
+
+    // --- NOTIFICATIONS ---
+    sendParcelStatusUpdateEmail(updatedParcel).catch(err => console.error("Parcel Status Email Fail:", err));
+    sendParcelStatusUpdateSms(updatedParcel).catch(err => console.error("Parcel Status SMS Fail:", err));
+    // ---------------------
     res
       .status(200)
       .json({ message: "Parcel updated successfully.", parcel: updatedParcel });

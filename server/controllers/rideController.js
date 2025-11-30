@@ -1,6 +1,6 @@
 import Ride from "../models/ride.js";
 import mongoose from "mongoose";
-import axios from "axios"; 
+import axios from "axios";
 
 // Helper: Geocodes a string location using Nominatim
 const geocode = async (name) => {
@@ -38,7 +38,7 @@ export const createRide = async (req, res) => {
 export const getRideQuote = async (req, res) => {
   // Request body mein ab coordinates bhi aa sakte hain
   const { from, to, fromCoords: reqFromCoords, toCoords: reqToCoords } = req.body;
-  
+
   if (!from || !to) {
     return res.status(400).json({ message: "Origin and destination are required." });
   }
@@ -49,10 +49,10 @@ export const getRideQuote = async (req, res) => {
 
     // Agar frontend ne coords nahi bheje, tabhi geocode karo
     if (!startCoords) {
-        startCoords = await geocode(from);
+      startCoords = await geocode(from);
     }
     if (!endCoords) {
-        endCoords = await geocode(to);
+      endCoords = await geocode(to);
     }
 
     if (!startCoords || !endCoords) {
@@ -62,7 +62,7 @@ export const getRideQuote = async (req, res) => {
     // OSRM expects: Longitude, Latitude. Our arrays are [Lat, Lng].
     // So we pass [1] then [0].
     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startCoords[1]},${startCoords[0]};${endCoords[1]},${endCoords[0]}?overview=full&geometries=geojson`;
-    
+
     const osrmResponse = await axios.get(osrmUrl);
 
     if (!osrmResponse.data || !osrmResponse.data.routes || osrmResponse.data.routes.length === 0) {
@@ -71,18 +71,18 @@ export const getRideQuote = async (req, res) => {
 
     const route = osrmResponse.data.routes[0];
     const distanceInKm = route.distance / 1000;
-    
+
     // Traffic Factor (2x duration)
-    const trafficMultiplier = 2.0; 
+    const trafficMultiplier = 2.0;
     const durationInMin = Math.round((route.duration * trafficMultiplier) / 60);
-    
-    const price = Math.round(distanceInKm * 12); 
+
+    const price = Math.round(distanceInKm * 12);
 
     res.status(200).json({
       distance: `${distanceInKm.toFixed(2)} km`,
       duration: `${durationInMin} min`,
       price: parseFloat(price),
-      coordinates: route.geometry.coordinates 
+      coordinates: route.geometry.coordinates
     });
 
   } catch (error) {

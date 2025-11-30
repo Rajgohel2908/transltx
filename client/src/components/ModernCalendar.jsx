@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalIcon } from 'lucide-react';
 
-const ModernCalendar = ({ selectedDate, onChange, minDate }) => { 
+const ModernCalendar = ({ selectedDate, onChange, minDate }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -41,7 +41,7 @@ const ModernCalendar = ({ selectedDate, onChange, minDate }) => {
     // Normalization for accurate comparison (Time hata rahe hain taaki sirf Date compare ho)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const minimumDate = minDate ? new Date(minDate) : today;
     minimumDate.setHours(0, 0, 0, 0);
 
@@ -54,15 +54,16 @@ const ModernCalendar = ({ selectedDate, onChange, minDate }) => {
       // Current day ka object banao
       const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
       const dateStr = dateObj.toDateString();
-      
+
       const isSelected = selectedDate && new Date(selectedDate).toDateString() === dateStr;
       const isToday = new Date().toDateString() === dateStr;
-      
+
       // 2. Check kar: Agar date purani hai, toh disable kar de
-      const isDisabled = dateObj < minimumDate; 
+      const isDisabled = dateObj < minimumDate;
 
       days.push(
         <button
+          type="button"
           key={day}
           disabled={isDisabled} // Button disable kiya
           onClick={() => !isDisabled && handleDateClick(day)} // Click block kiya
@@ -84,7 +85,7 @@ const ModernCalendar = ({ selectedDate, onChange, minDate }) => {
     <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm border border-gray-100">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+        <button type="button" onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <ChevronLeft className="h-5 w-5 text-gray-600" />
         </button>
         <div className="flex items-center gap-2">
@@ -93,7 +94,7 @@ const ModernCalendar = ({ selectedDate, onChange, minDate }) => {
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </span>
         </div>
-        <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+        <button type="button" onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <ChevronRight className="h-5 w-5 text-gray-600" />
         </button>
       </div>

@@ -66,16 +66,16 @@ const MyTripsPage = () => {
   const handleFeatureChange = (e) => {
     const { value, checked } = e.target;
     if (checked) {
-        setSelectedFeatures([...selectedFeatures, value]);
+      setSelectedFeatures([...selectedFeatures, value]);
     } else {
-        setSelectedFeatures(selectedFeatures.filter(feature => feature !== value));
+      setSelectedFeatures(selectedFeatures.filter(feature => feature !== value));
     }
   };
 
   const formatPrice = (price) => {
     const numPrice = Number(price);
     if (isNaN(numPrice)) {
-        return price;
+      return price;
     }
     return numPrice.toLocaleString('en-IN');
   };
@@ -93,8 +93,8 @@ const MyTripsPage = () => {
         : true
     )
     .sort((a, b) => {
-      const priceA = typeof a.price === 'string' ? parseFloat(a.price.replace(/[^0-9.-]+/g,"")) : a.price;
-      const priceB = typeof b.price === 'string' ? parseFloat(b.price.replace(/[^0-9.-]+/g,"")) : b.price;
+      const priceA = typeof a.price === 'string' ? parseFloat(a.price.replace(/[^0-9.-]+/g, "")) : a.price;
+      const priceB = typeof b.price === 'string' ? parseFloat(b.price.replace(/[^0-9.-]+/g, "")) : b.price;
 
       if (sortOrder === "price-asc") {
         return priceA - priceB;
@@ -129,60 +129,60 @@ const MyTripsPage = () => {
 
           <div className="mb-8 flex justify-center items-center gap-4">
             <div className="relative w-full max-w-lg">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                    type="text"
-                    placeholder="Search for an adventure..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm"
-                />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search for an adventure..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm"
+              />
             </div>
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="p-3 border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-shadow">
-                <Filter className="h-5 w-5 text-gray-600" />
+              <Filter className="h-5 w-5 text-gray-600" />
             </button>
           </div>
 
           {isFilterOpen && (
             <div className="mb-8 p-6 bg-white rounded-2xl shadow-lg">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <h4 className="text-lg font-semibold mb-2">Sort by price</h4>
-                        <select onChange={(e) => setSortOrder(e.target.value)} value={sortOrder} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
-                            <option value="">Select</option>
-                            <option value="price-asc">Price: Low to High</option>
-                            <option value="price-desc">Price: High to Low</option>
-                        </select>
-                    </div>
-                    <div>
-                        <h4 className="text-lg font-semibold mb-2">Filter by duration</h4>
-                        <select onChange={(e) => setSelectedDuration(e.target.value)} value={selectedDuration} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
-                            <option value="">All durations</option>
-                            {uniqueDurations.map(duration => (
-                                <option key={duration} value={duration}>{duration}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <h4 className="text-lg font-semibold mb-2">Filter by features</h4>
-                        <div className="flex flex-wrap gap-4">
-                            {uniqueFeatures.map(feature => (
-                                <label key={feature} className="flex items-center space-x-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        value={feature}
-                                        onChange={handleFeatureChange}
-                                        checked={selectedFeatures.includes(feature)}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <span className="text-gray-700">{feature}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <h4 className="text-lg font-semibold mb-2">Sort by price</h4>
+                  <select onChange={(e) => setSortOrder(e.target.value)} value={sortOrder} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
+                    <option value="">Select</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                  </select>
                 </div>
+                <div>
+                  <h4 className="text-lg font-semibold mb-2">Filter by duration</h4>
+                  <select onChange={(e) => setSelectedDuration(e.target.value)} value={selectedDuration} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
+                    <option value="">All durations</option>
+                    {uniqueDurations.map(duration => (
+                      <option key={duration} value={duration}>{duration}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <h4 className="text-lg font-semibold mb-2">Filter by features</h4>
+                  <div className="flex flex-wrap gap-4">
+                    {uniqueFeatures.map(feature => (
+                      <label key={feature} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          value={feature}
+                          onChange={handleFeatureChange}
+                          checked={selectedFeatures.includes(feature)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700">{feature}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -206,8 +206,8 @@ const MyTripsPage = () => {
                   >
                     <div className="relative h-56 overflow-hidden">
                       <img
-                        src={trip.image.startsWith('http') 
-                          ? trip.image 
+                        src={trip.image.startsWith('http')
+                          ? trip.image
                           : `${API_BASE_URL}${trip.image}`}
                         alt={trip.name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
@@ -219,11 +219,10 @@ const MyTripsPage = () => {
                           className="bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-all transform active:scale-90"
                         >
                           <Heart
-                            className={`h-5 w-5 ${
-                              likedTrips.includes(trip._id)
+                            className={`h-5 w-5 ${likedTrips.includes(trip._id)
                                 ? "text-red-500 fill-red-500"
                                 : "text-gray-600"
-                            }`}
+                              }`}
                           />
                         </button>
                       </div>

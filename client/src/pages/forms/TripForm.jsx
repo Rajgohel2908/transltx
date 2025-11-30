@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../../utils/api.js";;
-import { Plus, Trash2, MapPin, Clock, Calendar, List, CheckCircle, XCircle, Backpack } from "lucide-react";
+import { api } from "../../utils/api.js";
+import { Plus, Trash2, MapPin, Clock, Calendar, List, CheckCircle, XCircle, Backpack, Upload } from "lucide-react";
 
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const TRIPS_API_URL = `${VITE_BACKEND_BASE_URL}/trips`;
@@ -64,6 +64,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
   const [duration, setDuration] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState("");
   const [features, setFeatures] = useState("");
 
   // Complex Fields (Arrays/Objects)
@@ -80,6 +81,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (editingTrip) {
@@ -112,6 +114,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
     setType("Bus"); setFrom(""); setTo("");
     setDepartureTime(""); setArrivalTime(""); setDuration("");
     setPrice(""); setImage(""); setFeatures("");
+    setUploadedFileName("");
     setItinerary([]); setInclusions([]); setExclusions([]); setWhatToCarry([]);
     setLogistics({ meetingPoint: "", reportingTime: "", departureTime: "" });
   };
@@ -128,6 +131,33 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
 
   const removeItineraryItem = (index) => {
     setItinerary(itinerary.filter((_, i) => i !== index));
+  };
+
+  const uploadFileHandler = async (e) => {
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append('image', file);
+    setUploading(true);
+
+    try {
+      // FIX: Explicitly set Content-Type to multipart/form-data to override the default application/json
+      const { data } = await api.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Construct full URL. Assuming backend runs on the same host but different port/path structure.
+      // If VITE_BACKEND_BASE_URL is http://localhost:3000/api, we want http://localhost:3000
+      const ROOT_URL = VITE_BACKEND_BASE_URL.replace('/api', '');
+      setImage(ROOT_URL + data.image);
+      setUploadedFileName(file.name);
+      setUploading(false);
+    } catch (error) {
+      console.error(error);
+      setUploading(false);
+      setError(error.response?.data?.message || "Image upload failed");
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -172,7 +202,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
   return (
     <div className="bg-gray-50 p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
       <h3 className="text-xl font-bold text-gray-800 mb-4">{editingTrip ? "Edit Trip" : "Create New Trip"}</h3>
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* --- Basic Info Section --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -181,16 +211,35 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
             <option>Bus</option><option>Train</option><option>Air</option>
           </select>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input type="text" placeholder="From" value={from} onChange={e => setFrom(e.target.value)} required className="p-3 border rounded-lg w-full" />
           <input type="text" placeholder="To" value={to} onChange={e => setTo(e.target.value)} required className="p-3 border rounded-lg w-full" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-           <input type="text" placeholder="Duration (e.g. 3D/2N)" value={duration} onChange={e => setDuration(e.target.value)} required className="p-3 border rounded-lg w-full" />
-           <input type="number" placeholder="Price (₹)" value={price} onChange={e => setPrice(e.target.value)} required className="p-3 border rounded-lg w-full" />
-           <input type="text" placeholder="Image URL" value={image} onChange={e => setImage(e.target.value)} required className="p-3 border rounded-lg w-full" />
+          <input type="text" placeholder="Duration (e.g. 3D/2N)" value={duration} onChange={e => setDuration(e.target.value)} required className="p-3 border rounded-lg w-full" />
+          <input type="number" placeholder="Price (₹)" value={price} onChange={e => setPrice(e.target.value)} required className="p-3 border rounded-lg w-full" />
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Image URL"
+                value={uploadedFileName || image}
+                onChange={e => {
+                  setUploadedFileName("");
+                  setImage(e.target.value);
+                }}
+                className="p-3 border rounded-lg w-full"
+              />
+              <label className="bg-gray-200 p-3 rounded-lg cursor-pointer hover:bg-gray-300 flex items-center justify-center">
+                <Upload size={20} className="text-gray-600" />
+                <input type="file" onChange={uploadFileHandler} className="hidden" />
+              </label>
+            </div>
+            {uploading && <p className="text-sm text-blue-600">Uploading...</p>}
+          </div>
         </div>
 
         <textarea placeholder="Short Description" value={description} onChange={e => setDescription(e.target.value)} required className="p-3 border rounded-lg w-full" rows="2" />
@@ -201,8 +250,8 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
 
         {/* --- DYNAMIC ITINERARY SECTION --- */}
         <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-sm">
-          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><Calendar size={20} className="text-blue-600"/> Itinerary</h4>
-          
+          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><Calendar size={20} className="text-blue-600" /> Itinerary</h4>
+
           {/* Existing Items */}
           <div className="space-y-3 mb-4">
             {itinerary.map((item, idx) => (
@@ -237,24 +286,24 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
 
         {/* --- LOGISTICS SECTION (Structured) --- */}
         <div className="bg-white p-4 rounded-lg border border-orange-200 shadow-sm">
-          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><MapPin size={20} className="text-orange-600"/> Logistics</h4>
+          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><MapPin size={20} className="text-orange-600" /> Logistics</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase">Meeting Point</label>
-              <input type="text" value={logistics.meetingPoint} onChange={e => setLogistics({...logistics, meetingPoint: e.target.value})} className="w-full p-2 border rounded mt-1" placeholder="e.g. Delhi Station" />
+              <input type="text" value={logistics.meetingPoint} onChange={e => setLogistics({ ...logistics, meetingPoint: e.target.value })} className="w-full p-2 border rounded mt-1" placeholder="e.g. Delhi Station" />
             </div>
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase">Reporting Time</label>
               <div className="relative">
                 <Clock size={16} className="absolute left-2 top-3 text-gray-400" />
-                <input type="text" value={logistics.reportingTime} onChange={e => setLogistics({...logistics, reportingTime: e.target.value})} className="w-full p-2 pl-8 border rounded mt-1" placeholder="e.g. 08:00 AM" />
+                <input type="text" value={logistics.reportingTime} onChange={e => setLogistics({ ...logistics, reportingTime: e.target.value })} className="w-full p-2 pl-8 border rounded mt-1" placeholder="e.g. 08:00 AM" />
               </div>
             </div>
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase">Departure Time</label>
               <div className="relative">
                 <Clock size={16} className="absolute left-2 top-3 text-gray-400" />
-                <input type="text" value={logistics.departureTime} onChange={e => setLogistics({...logistics, departureTime: e.target.value})} className="w-full p-2 pl-8 border rounded mt-1" placeholder="e.g. 09:00 AM" />
+                <input type="text" value={logistics.departureTime} onChange={e => setLogistics({ ...logistics, departureTime: e.target.value })} className="w-full p-2 pl-8 border rounded mt-1" placeholder="e.g. 09:00 AM" />
               </div>
             </div>
           </div>
@@ -269,7 +318,7 @@ const TripForm = ({ onTripSaved, editingTrip, setEditingTrip }) => {
             <button type="button" onClick={() => setEditingTrip(null)} className="px-6 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300">Cancel</button>
           )}
         </div>
-        
+
         {error && <p className="text-red-500 text-center font-semibold">{error}</p>}
       </form>
     </div>

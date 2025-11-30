@@ -1,6 +1,6 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { User, Mail, Phone, Calendar, GitCompareArrows, Plane, Bus, Train } from 'lucide-react';
+import { User, Mail, Phone, Calendar, GitCompareArrows, Plane, Bus, Train, Users, Edit2, Check, Minus, Plus } from 'lucide-react';
 import Footer from '../components/Footer';
 import { DataContext } from '../context/Context';
 import { handlePayment } from '../utils/cashfree';
@@ -35,18 +35,46 @@ const PassengerDetails = () => {
   const { mode } = useParams();
   const { user } = useContext(DataContext);
 
-  const { selectedTicket, searchType, departureDate, classType } = location.state || {};
+  const { selectedTicket, searchType, departureDate, classType, passengers: initialPassengers } = location.state || {};
 
   if (String(searchType || '').toLowerCase() === 'trips') {
     return <TripPassengerForm selectedTicket={selectedTicket} />;
   }
 
-  const [fullName, setFullName] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('Male');
+  // State for counts
+  const [counts, setCounts] = useState(initialPassengers || { adults: 1, children: 0, infants: 0 });
+  const [isEditingCounts, setIsEditingCounts] = useState(false);
+
+  // State for passenger details forms (Adults + Children only)
+  const [passengerList, setPassengerList] = useState([]);
+
+  // Contact Info
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync passengerList with counts
+  useEffect(() => {
+    setPassengerList(prev => {
+      const newList = [];
+      const prevAdults = prev.filter(p => p.type === 'Adult');
+      const prevChildren = prev.filter(p => p.type === 'Child');
+
+      // Rebuild Adults
+      for (let i = 0; i < counts.adults; i++) {
+        if (i < prevAdults.length) newList.push(prevAdults[i]);
+        else newList.push({ fullName: '', age: '', gender: 'Male', type: 'Adult' });
+      }
+
+      // Rebuild Children
+      for (let i = 0; i < counts.children; i++) {
+        if (i < prevChildren.length) newList.push(prevChildren[i]);
+        else newList.push({ fullName: '', age: '', gender: 'Male', type: 'Child' });
+      }
+
+      return newList;
+    });
+  }, [counts]);
 
   if (!selectedTicket) {
     return (
@@ -57,27 +85,28 @@ const PassengerDetails = () => {
     );
   }
 
-  const priceToPay = Number(selectedTicket.price) || 0;
+  // Pricing Logic
+  const basePrice = Number(selectedTicket.price) || 0;
+  // Children get 50% off (Half Ticket)
+  const totalFare = (counts.adults * basePrice) + (counts.children * basePrice * 0.5);
+
+  const handlePassengerChange = (index, field, value) => {
+    const updated = [...passengerList];
+    updated[index][field] = value;
+    setPassengerList(updated);
+  };
 
   const combineDateAndTime = (dateStr, timeStr) => {
     if (!dateStr || !timeStr) return null;
     try {
-      // Handle "HH:MM AM/PM" format
       const [time, modifier] = timeStr.split(' ');
       let [hours, minutes] = time.split(':');
-
-      if (hours === '12') {
-        hours = '00';
-      }
-
-      if (modifier === 'PM') {
-        hours = parseInt(hours, 10) + 12;
-      }
-
+      if (hours === '12') hours = '00';
+      if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
       return new Date(`${dateStr}T${hours}:${minutes}:00`);
     } catch (e) {
       console.error("Error parsing date/time:", e);
-      return new Date(dateStr); // Fallback
+      return new Date(dateStr);
     }
   };
 
@@ -88,13 +117,11 @@ const PassengerDetails = () => {
     const departureDateTime = combineDateAndTime(departureDate, selectedTicket.startTime);
     let arrivalDateTime = combineDateAndTime(departureDate, selectedTicket.estimatedArrivalTime);
 
-    // Handle next day arrival if arrival time is before departure time
     if (arrivalDateTime && departureDateTime && arrivalDateTime < departureDateTime) {
       arrivalDateTime.setDate(arrivalDateTime.getDate() + 1);
     }
 
     try {
-      // 1. Create Booking First (Pending)
       const bookingPayload = {
         userId: user._id,
         bookingType: searchType.charAt(0).toUpperCase() + searchType.slice(1).toLowerCase(),
@@ -107,10 +134,10 @@ const PassengerDetails = () => {
         from: selectedTicket.startPoint || selectedTicket.from,
         to: selectedTicket.endPoint || selectedTicket.to,
         duration: selectedTicket.duration,
-        passengers: [{ fullName, age, gender }],
+        passengers: passengerList, // Send full list
         contactEmail: email,
         contactPhone: phone,
-        fare: priceToPay,
+        fare: totalFare,
         paymentStatus: 'Pending',
         bookingStatus: 'Pending'
       };
@@ -123,12 +150,11 @@ const PassengerDetails = () => {
       const newBooking = res.data;
       console.log("Booking created (Pending):", newBooking._id);
 
-      // 2. Initiate Payment with Booking ID
       await handlePayment({
-        item: { ...selectedTicket, price: priceToPay },
+        item: { ...selectedTicket, price: totalFare },
         user: user,
-        customerDetails: { name: fullName, email, phone },
-        bookingId: newBooking._id // Pass booking ID to link payment
+        customerDetails: { name: passengerList[0].fullName, email, phone }, // Use first passenger as primary contact
+        bookingId: newBooking._id
       });
 
     } catch (err) {
@@ -155,9 +181,62 @@ const PassengerDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Price Breakdown */}
+      <div className="space-y-2 mb-4 text-sm text-gray-600 border-b pb-4">
+        <div className="flex justify-between">
+          <span>Adults ({counts.adults} x ₹{basePrice})</span>
+          <span>₹{counts.adults * basePrice}</span>
+        </div>
+        {counts.children > 0 && (
+          <div className="flex justify-between">
+            <span>Children ({counts.children} x ₹{basePrice * 0.5})</span>
+            <span>₹{counts.children * basePrice * 0.5}</span>
+          </div>
+        )}
+        {counts.infants > 0 && (
+          <div className="flex justify-between">
+            <span>Infants ({counts.infants} x ₹0)</span>
+            <span>Free</span>
+          </div>
+        )}
+      </div>
+
       <div className="flex justify-between font-bold text-lg">
         <span>Total Fare</span>
-        <span className="text-2xl font-bold text-green-600">₹{priceToPay.toLocaleString()}</span>
+        <span className="text-2xl font-bold text-green-600">₹{totalFare.toLocaleString()}</span>
+      </div>
+    </div>
+  );
+
+  const Counter = ({ label, value, field }) => (
+    <div className="flex justify-between items-center py-2">
+      <span className="text-gray-700 font-medium">{label}</span>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            const total = counts.adults + counts.children + counts.infants;
+            if (value > 0) setCounts(prev => ({ ...prev, [field]: prev[field] - 1 }));
+            if (field === 'adults' && value <= 1) return; // Min 1 adult
+          }}
+          className="p-1 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+          disabled={field === 'adults' && value <= 1}
+        >
+          <Minus size={16} />
+        </button>
+        <span className="w-6 text-center font-bold">{value}</span>
+        <button
+          type="button"
+          onClick={() => {
+            const total = counts.adults + counts.children + counts.infants;
+            if (total < 10) setCounts(prev => ({ ...prev, [field]: prev[field] + 1 }));
+          }}
+          className="p-1 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+          disabled={(counts.adults + counts.children + counts.infants) >= 10}
+        >
+          <Plus size={16} />
+        </button>
       </div>
     </div>
   );
@@ -174,45 +253,91 @@ const PassengerDetails = () => {
               <div className="bg-white rounded-xl shadow-lg p-8">
 
                 <form onSubmit={handleProceedToPayment} className="space-y-6">
-                  {/* --- SECTION 1: PASSENGER --- */}
-                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">1</span> Add Passenger Information</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-3">
-                      <InputField
-                        icon={<User className="text-gray-400" />}
-                        id="fullName"
-                        placeholder="Full Name"
-                        value={fullName}
-                        onChange={e => setFullName(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <InputField
-                      icon={<Calendar className="text-gray-400" />}
-                      id="age"
-                      placeholder="Age"
-                      type="number"
-                      value={age}
-                      onChange={e => setAge(e.target.value)}
-                      required
-                    />
-                    <div className="md:col-span-2">
-                      <SelectField
-                        icon={<GitCompareArrows className="text-gray-400" />}
-                        id="gender"
-                        value={gender}
-                        onChange={e => setGender(e.target.value)}
+
+                  {/* --- SECTION 0: PASSENGER COUNTS --- */}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-blue-800 flex items-center gap-2">
+                          <Users size={20} /> Travelers
+                        </h3>
+                        <p className="text-sm text-blue-600 mt-1">
+                          {counts.adults} Adults, {counts.children} Children, {counts.infants} Infants
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingCounts(!isEditingCounts)}
+                        className="text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-center gap-1"
                       >
-                        <option>Male</option>
-                        <option>Female</option>
-                        <option>Other</option>
-                      </SelectField>
+                        {isEditingCounts ? <Check size={16} /> : <Edit2 size={16} />}
+                        {isEditingCounts ? 'Done' : 'Edit'}
+                      </button>
                     </div>
+
+                    {isEditingCounts && (
+                      <div className="mt-4 pt-4 border-t border-blue-200 animate-fade-in">
+                        <Counter label="Adults" value={counts.adults} field="adults" />
+                        <Counter label="Children (3-12 Yrs)" value={counts.children} field="children" />
+                        <Counter label="Infants (0-2 Yrs)" value={counts.infants} field="infants" />
+                        <p className="text-xs text-gray-500 mt-2 text-right">Max 10 passengers total</p>
+                      </div>
+                    )}
+                  </div>
+
+
+                  {/* --- SECTION 1: PASSENGER FORMS --- */}
+                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                    <span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">1</span>
+                    Passenger Information
+                  </h2>
+
+                  <div className="space-y-6">
+                    {passengerList.map((passenger, index) => (
+                      <div key={index} className="p-4 border border-gray-200 rounded-lg relative">
+                        <div className="absolute -top-3 left-4 bg-white px-2 text-sm font-bold text-gray-500">
+                          Passenger {index + 1} ({passenger.type})
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+                          <div className="md:col-span-3">
+                            <InputField
+                              icon={<User className="text-gray-400" />}
+                              id={`name-${index}`}
+                              placeholder="Full Name"
+                              value={passenger.fullName}
+                              onChange={e => handlePassengerChange(index, 'fullName', e.target.value)}
+                              required
+                            />
+                          </div>
+                          <InputField
+                            icon={<Calendar className="text-gray-400" />}
+                            id={`age-${index}`}
+                            placeholder="Age"
+                            type="number"
+                            value={passenger.age}
+                            onChange={e => handlePassengerChange(index, 'age', e.target.value)}
+                            required
+                          />
+                          <div className="md:col-span-2">
+                            <SelectField
+                              icon={<GitCompareArrows className="text-gray-400" />}
+                              id={`gender-${index}`}
+                              value={passenger.gender}
+                              onChange={e => handlePassengerChange(index, 'gender', e.target.value)}
+                            >
+                              <option>Male</option>
+                              <option>Female</option>
+                              <option>Other</option>
+                            </SelectField>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   {/* --- END SECTION 1 --- */}
 
                   {/* --- SECTION 2: CONTACT --- */}
-                  <div className="pt-6 border-t">
+                  <div className="pt-6 border-t mt-8">
                     <h3 className="text-2xl font-bold mb-6 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base">2</span> Contact Information</h3>
                     <p className="text-gray-500 mb-4 -mt-4">Your ticket and booking details will be sent here.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -239,7 +364,7 @@ const PassengerDetails = () => {
                   {/* --- END SECTION 2 --- */}
 
                   <button type="submit" disabled={isSubmitting} className="w-full mt-6 bg-green-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-700 transition-colors text-lg disabled:opacity-50">
-                    {isSubmitting ? 'Processing...' : `Proceed to Pay ₹${priceToPay.toLocaleString()}`}
+                    {isSubmitting ? 'Processing...' : `Proceed to Pay ₹${totalFare.toLocaleString()}`}
                   </button>
                 </form>
 

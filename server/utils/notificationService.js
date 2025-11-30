@@ -71,3 +71,113 @@ export const sendBookingSms = async (bookingDetails) => {
     console.error("SMS bhej ne mein error:", error.message);
   }
 };
+
+// --- 5. Parcel Booking Email ---
+export const sendParcelEmail = async (parcelDetails) => {
+  if (!parcelDetails?.sender?.email) {
+    console.error("Parcel email not sent: Sender email missing.");
+    return;
+  }
+  const receiptHtml = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <h2>Parcel Booking Confirmed!</h2>
+      <p>Hi ${parcelDetails.sender.name},</p>
+      <p>Your parcel booking has been received. Details below:</p>
+      <hr>
+      <p><strong>Tracking ID:</strong> ${parcelDetails._id}</p>
+      <p><strong>From:</strong> ${parcelDetails.sender.address}, ${parcelDetails.sender.city} - ${parcelDetails.sender.postalCode}</p>
+      <p><strong>To:</strong> ${parcelDetails.recipient.name}, ${parcelDetails.recipient.address}, ${parcelDetails.recipient.city} - ${parcelDetails.recipient.postalCode}</p>
+      <p><strong>Weight:</strong> ${parcelDetails.parcel.weight} kg</p>
+      <p><strong>Total Fare:</strong> ₹${parcelDetails.fare}</p>
+      <p><strong>Status:</strong> ${parcelDetails.status}</p>
+      <hr>
+      <p>Thank you for choosing TransItIx!</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"TransItIx" <${process.env.NODEMAILER_EMAIL}>`,
+      to: parcelDetails.sender.email,
+      subject: `Parcel Booking Confirmed! (ID: ${parcelDetails._id})`,
+      html: receiptHtml,
+    });
+    console.log(`Parcel email sent to ${parcelDetails.sender.email}`);
+  } catch (error) {
+    console.error("Parcel email error:", error);
+  }
+};
+
+// --- 6. Parcel Booking SMS ---
+export const sendParcelSms = async (parcelDetails) => {
+  if (!parcelDetails?.sender?.phone) {
+    console.error("Parcel SMS not sent: Sender phone missing.");
+    return;
+  }
+  const userPhone = `+91${parcelDetails.sender.phone.slice(-10)}`;
+  const smsBody = `TransItIx Parcel Booked! ID: ${parcelDetails._id}. From: ${parcelDetails.sender.city} To: ${parcelDetails.recipient.city}. Status: ${parcelDetails.status}.`;
+
+  try {
+    await twilioClient.messages.create({
+      body: smsBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: userPhone,
+    });
+    console.log(`Parcel SMS sent to ${userPhone}`);
+  } catch (error) {
+    console.error("Parcel SMS error:", error.message);
+  }
+};
+
+// --- 7. Parcel Status Update Email ---
+export const sendParcelStatusUpdateEmail = async (parcelDetails) => {
+  if (!parcelDetails?.sender?.email) {
+    console.error("Parcel status email not sent: Sender email missing.");
+    return;
+  }
+  const receiptHtml = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <h2>Parcel Status Update</h2>
+      <p>Hi ${parcelDetails.sender.name},</p>
+      <p>The status of your parcel (ID: <strong>${parcelDetails._id}</strong>) has been updated.</p>
+      <hr>
+      <p><strong>New Status:</strong> <span style="color: blue; font-weight: bold;">${parcelDetails.status.toUpperCase()}</span></p>
+      ${parcelDetails.adminTag ? `<p><strong>Admin Note:</strong> ${parcelDetails.adminTag}</p>` : ''}
+      <hr>
+      <p>Track your parcel on our website for more details.</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"TransItIx" <${process.env.NODEMAILER_EMAIL}>`,
+      to: parcelDetails.sender.email,
+      subject: `Parcel Status Update (ID: ${parcelDetails._id})`,
+      html: receiptHtml,
+    });
+    console.log(`Parcel status email sent to ${parcelDetails.sender.email}`);
+  } catch (error) {
+    console.error("Parcel status email error:", error);
+  }
+};
+
+// --- 8. Parcel Status Update SMS ---
+export const sendParcelStatusUpdateSms = async (parcelDetails) => {
+  if (!parcelDetails?.sender?.phone) {
+    console.error("Parcel status SMS not sent: Sender phone missing.");
+    return;
+  }
+  const userPhone = `+91${parcelDetails.sender.phone.slice(-10)}`;
+  const smsBody = `TransItIx Update: Your parcel (ID: ${parcelDetails._id}) is now ${parcelDetails.status.toUpperCase()}. ${parcelDetails.adminTag ? `Note: ${parcelDetails.adminTag}` : ''}`;
+
+  try {
+    await twilioClient.messages.create({
+      body: smsBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: userPhone,
+    });
+    console.log(`Parcel status SMS sent to ${userPhone}`);
+  } catch (error) {
+    console.error("Parcel status SMS error:", error.message);
+  }
+};

@@ -79,6 +79,24 @@ function ChangeView({ bounds }) {
   return null;
 }
 
+const calculateArrivalTime = (departureDate, departureTime, durationStr) => {
+  if (!departureDate || !departureTime || !durationStr) return null;
+
+  const start = new Date(`${departureDate}T${departureTime}`);
+  let minutesToAdd = 0;
+
+  // Parse duration string (e.g., "45 mins", "2 hours 10 mins")
+  const hoursMatch = durationStr.match(/(\d+)\s*hour/);
+  const minsMatch = durationStr.match(/(\d+)\s*min/);
+
+  if (hoursMatch) minutesToAdd += parseInt(hoursMatch[1]) * 60;
+  if (minsMatch) minutesToAdd += parseInt(minsMatch[1]);
+
+  start.setMinutes(start.getMinutes() + minutesToAdd);
+
+  return start.toISOString();
+};
+
 const BookPrivateRideForm = ({ user, onRideBooked }) => {
   const [from, setFrom] = useState({ name: "", coords: null });
   const [to, setTo] = useState({ name: "", coords: null });
@@ -92,7 +110,33 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
   const [settingPinFor, setSettingPinFor] = useState(null);
   const [routePath, setRoutePath] = useState([]);
 
+  // Passenger State
+  const [passengerCount, setPassengerCount] = useState(1);
+  const [passengers, setPassengers] = useState([{ fullName: user?.name || "", age: "", gender: "Male" }]);
+  const [contactPhone, setContactPhone] = useState("");
+
+
   const defaultCenter = [21.1702, 72.8311];
+
+  useEffect(() => {
+    setPassengers(prev => {
+      const newPassengers = [...prev];
+      if (passengerCount > prev.length) {
+        for (let i = prev.length; i < passengerCount; i++) {
+          newPassengers.push({ fullName: "", age: "", gender: "Male" });
+        }
+      } else {
+        newPassengers.length = passengerCount;
+      }
+      return newPassengers;
+    });
+  }, [passengerCount]);
+
+  const handlePassengerChange = (index, field, value) => {
+    const updated = [...passengers];
+    updated[index][field] = value;
+    setPassengers(updated);
+  };
 
   function MapClickHandler() {
     const map = useMapEvents({
@@ -169,7 +213,18 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
     if (!quote || !selectedDate || !selectedTime) return setError("Get a quote and select date/time first.");
+    if (!contactPhone) return setError("Please enter a contact phone number.");
+
+    // Validate passengers
+    for (let i = 0; i < passengers.length; i++) {
+      if (!passengers[i].fullName || !passengers[i].age) {
+        return setError(`Please enter details for Passenger ${i + 1}`);
+      }
+    }
+
     setError(""); setIsBooking(true);
+
+    const calculatedArrival = calculateArrivalTime(selectedDate, selectedTime, quote.duration);
 
     try {
       // 1. Create Booking First (Pending)
@@ -180,13 +235,14 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
         from: from.name,
         to: to.name,
         departure: `${selectedDate}T${selectedTime}`,
-        arrival: `${selectedDate}T${selectedTime}`, // Approx, can be calculated
-        passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
+        arrival: calculatedArrival || `${selectedDate}T${selectedTime}`, // Use calculated arrival
+        passengers: passengers,
         contactEmail: user.email,
-        contactPhone: "N/A",
+        contactPhone: contactPhone,
         fare: quote.price,
         paymentStatus: "Pending",
         bookingStatus: "Pending", // Start as Pending
+        notes: "Notifications: SMS=true, Email=true" // Compulsory notifications
       };
 
       const res = await api.post(`/bookings`, bookingPayload);
@@ -244,11 +300,66 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
                 </div>
                 <div className="flex justify-between"><span className="text-gray-600">Distance:</span> <span>{quote.distance}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Est. Time:</span> <span>{quote.duration}</span></div>
-                <div className="flex justify-between font-bold text-xl"><span className="text-gray-700">Price:</span> <span className="text-green-600">₹{quote.price.toLocaleString()}</span></div>
+                <div className="flex justify-between font-bold text-xl">
+                  <span className="text-gray-700">Price:</span>
+                  <div className="text-right">
+                    <span className="text-green-600">₹{quote.price.toLocaleString()}</span>
+                    <p className="text-xs text-gray-500 font-normal">(Total for entire vehicle)</p>
+                  </div>
+                </div>
               </div>
             ) : (
               <button type="button" onClick={handleGetQuote} disabled={isLoadingQuote || !from.name || !to.name} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50">{isLoadingQuote ? "Getting Quote..." : "Get Quote"}</button>
             )}
+
+            {/* Passenger Count */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Passengers (Max 7)</label>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setPassengerCount(c => Math.max(1, c - 1))} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300"><Users size={16} /></button>
+                <span className="font-bold text-lg w-8 text-center">{passengerCount}</span>
+                <button type="button" onClick={() => setPassengerCount(c => Math.min(7, c + 1))} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300"><UserPlus size={16} /></button>
+              </div>
+            </div>
+
+            {/* Passenger Details */}
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              {passengers.map((p, idx) => (
+                <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-bold text-gray-500 mb-2">Passenger {idx + 1}</p>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Full Name"
+                      value={p.fullName}
+                      onChange={e => handlePassengerChange(idx, 'fullName', e.target.value)}
+                      className="w-full p-2 text-sm border rounded"
+                      required
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Age"
+                        value={p.age}
+                        onChange={e => handlePassengerChange(idx, 'age', e.target.value)}
+                        className="w-1/3 p-2 text-sm border rounded"
+                        required
+                      />
+                      <select
+                        value={p.gender}
+                        onChange={e => handlePassengerChange(idx, 'gender', e.target.value)}
+                        className="w-2/3 p-2 text-sm border rounded"
+                      >
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
               <div
@@ -290,6 +401,25 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
                 </div>
               )}
             </div>
+
+            {/* Contact Phone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone (for SMS updates)</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  type="tel"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="Enter mobile number"
+                  className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+            </div>
+
+
+
             <button type="submit" disabled={!quote || !selectedDate || !selectedTime || isBooking} className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 disabled:opacity-50">{isBooking ? "Processing..." : "Book Ride & Pay"}</button>
             {error && (<p className="text-red-500 text-sm text-center">{error}</p>)}
           </form>
@@ -423,7 +553,7 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><Users className="h-5 w-5 text-gray-400" /></span>
-            <input type="number" placeholder="Seats" value={seatsAvailable} onChange={(e) => setSeatsAvailable(e.target.value)} min="1" max="8" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg" />
+            <input type="number" placeholder="Seats" value={seatsAvailable} onChange={(e) => setSeatsAvailable(e.target.value)} min="1" max="7" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg" />
           </div>
           <div className="relative">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><DollarSign className="h-5 w-5 text-gray-400" /></span>
