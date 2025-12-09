@@ -601,6 +601,28 @@ const Booking = () => {
     setTo(from);
   };
 
+  const handleCancelBooking = async () => {
+    if (!foundBooking) return;
+
+    // Frontend Time Check (UX ke liye)
+    const tripDate = new Date(foundBooking.departureDateTime || foundBooking.departure);
+    if (tripDate < new Date()) {
+      alert("Trip has already departed. Cannot cancel now.");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+
+    try {
+      const response = await api.put(`/bookings/${foundBooking._id}/cancel`);
+      setFoundBooking(response.data.booking); // Update UI with cancelled status
+      alert("Booking cancelled successfully.");
+    } catch (error) {
+      console.error("Error cancelling:", error);
+      alert(error.response?.data?.message || "Failed to cancel booking.");
+    }
+  };
+
   return (
     <>
       <div className="bg-gray-50 min-h-screen">
@@ -809,6 +831,15 @@ const Booking = () => {
                           <Ticket size={16} /> Download Ticket
                         </button>
 
+                        {/* Cancel Button - Only if active and future date */}
+                        {foundBooking.bookingStatus !== 'Cancelled' && new Date(foundBooking.departureDateTime || foundBooking.departure) > new Date() && (
+                          <button
+                            className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                            onClick={handleCancelBooking}
+                          >
+                            <Minus size={16} /> Cancel Booking
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

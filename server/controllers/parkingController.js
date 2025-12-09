@@ -21,7 +21,11 @@ export const getAllParkingLots = async (req, res) => {
 // @access  Admin
 export const createParkingLot = async (req, res) => {
   try {
-    const newParking = new Parking(req.body);
+    const parkingData = { ...req.body };
+    if (req.user) {
+      parkingData.partner = req.user._id;
+    }
+    const newParking = new Parking(parkingData);
     const savedParking = await newParking.save();
     res.status(201).json(savedParking);
   } catch (error) {
@@ -38,11 +42,11 @@ export const updateParkingLot = async (req, res) => {
   try {
     const { id } = req.params;
     const updatedParking = await Parking.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
-    
+
     if (!updatedParking) {
       return res.status(404).json({ message: "Parking lot not found." });
     }
-    
+
     res.status(200).json(updatedParking);
   } catch (error) {
     console.error("Error updating parking lot:", error);
@@ -58,11 +62,11 @@ export const deleteParkingLot = async (req, res) => {
   try {
     const { id } = req.params;
     const deletedParking = await Parking.findByIdAndDelete(id);
-    
+
     if (!deletedParking) {
       return res.status(404).json({ message: "Parking lot not found." });
     }
-    
+
     res.status(200).json({ message: "Parking lot deleted successfully." });
   } catch (error) {
     console.error("Error deleting parking lot:", error);

@@ -11,12 +11,12 @@ export const createBooking = async (req, res) => {
         await newBooking.save();
 
         if (newBooking.bookingStatus === 'Confirmed') {
-        console.log("Payment Confirmed. Sending Notifications...");
-        sendBookingEmail(newBooking).catch(err => console.error("Email fail:", err));
-        sendBookingSms(newBooking).catch(err => console.error("SMS fail:", err));
-    } else {
-        console.log(`Booking created but status is ${newBooking.bookingStatus}. Skipping notifications.`);
-    }
+            console.log("Payment Confirmed. Sending Notifications...");
+            sendBookingEmail(newBooking).catch(err => console.error("Email fail:", err));
+            sendBookingSms(newBooking).catch(err => console.error("SMS fail:", err));
+        } else {
+            console.log(`Booking created but status is ${newBooking.bookingStatus}. Skipping notifications.`);
+        }
 
 
         res.status(201).json(newBooking);
@@ -75,10 +75,10 @@ export const updateBooking = async (req, res) => {
             return res.status(404).json({ message: "Booking not found." });
         }
         if (req.body.bookingStatus === 'Confirmed') {
-        console.log("Booking Updated to Confirmed. Sending Notifications...");
-        sendBookingEmail(updatedBooking).catch(err => console.error("Email fail:", err));
-        sendBookingSms(updatedBooking).catch(err => console.error("SMS fail:", err));
-    }
+            console.log("Booking Updated to Confirmed. Sending Notifications...");
+            sendBookingEmail(updatedBooking).catch(err => console.error("Email fail:", err));
+            sendBookingSms(updatedBooking).catch(err => console.error("SMS fail:", err));
+        }
         res.status(200).json(updatedBooking);
     } catch (error) {
         console.error("Error updating booking:", error);
@@ -96,5 +96,36 @@ export const getUserBookings = async (req, res) => {
     } catch (error) {
         console.error("Error fetching user bookings:", error);
         res.status(500).json({ message: "Server error while fetching user bookings." });
+    }
+};
+
+// @desc    Cancel a booking (Only if departure is in future)
+// @route   PUT /api/bookings/:id/cancel
+export const cancelBooking = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const booking = await Booking.findById(id);
+
+        if (!booking) {
+            return res.status(404).json({ message: "Booking not found." });
+        }
+
+        // --- TIME CHECK LOGIC ---
+        // Puraane data mein 'departure' ho sakta hai, naye mein 'departureDateTime'
+        const tripDate = new Date(booking.departureDateTime || booking.departure);
+        const currentDate = new Date();
+
+        if (tripDate < currentDate) {
+            return res.status(400).json({ message: "Cannot cancel a past booking. Time travel abhi invent nahi hua hai!" });
+        }
+        // ------------------------
+
+        booking.bookingStatus = 'Cancelled';
+        await booking.save();
+
+        res.status(200).json({ message: "Booking cancelled successfully", booking });
+    } catch (error) {
+        console.error("Error cancelling booking:", error);
+        res.status(500).json({ message: "Server error while cancelling booking." });
     }
 };

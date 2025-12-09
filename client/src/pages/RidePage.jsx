@@ -640,23 +640,39 @@ const RideCard = ({ ride, currentUserId, onCancel, onBookCarpool }) => {
   );
 };
 
-const AcceptedRideCard = ({ ride }) => (
-  <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-    <div className="flex justify-between items-center mb-4">
-      <p className="font-bold text-lg">{ride.from} <ArrowRight className="inline h-4 w-4 mx-1" /> {ride.to}</p>
-      <div className="flex items-center bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full">Ride Accepted!</div>
-    </div>
-    <div className="text-gray-600 space-y-2">
-      <p className="flex items-center"><Clock className="h-4 w-4 mr-2" /> {new Date(ride.departureTime).toLocaleString()}</p>
-      <p className="flex items-center"><CarIcon className="h-4 w-4 mr-2" /> Driver: <span className="font-semibold ml-1">{ride.driver?.name}</span></p>
-      <p className="flex items-center font-semibold text-gray-800"><Phone className="h-4 w-4 mr-2" /> {ride.driverPhone}</p>
-      <p className="flex items-center font-semibold text-green-600"><DollarSign className="h-4 w-4 mr-2" /> Paid: ₹{ride.price.toLocaleString()}</p>
-      {ride.notes && <p className="text-sm pt-2 border-t border-gray-200 mt-2">Notes: "{ride.notes}"</p>}
-    </div>
-  </div>
-);
+const AcceptedRideCard = ({ ride, onCancelSeat }) => {
+  const isPast = new Date(ride.departureTime) < new Date();
 
-const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, currentUserId }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+      <div className="flex justify-between items-center mb-4">
+        <p className="font-bold text-lg">{ride.from} <ArrowRight className="inline h-4 w-4 mx-1" /> {ride.to}</p>
+        <div className="flex items-center bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full">Ride Accepted!</div>
+      </div>
+      <div className="text-gray-600 space-y-2">
+        <p className="flex items-center"><Clock className="h-4 w-4 mr-2" /> {new Date(ride.departureTime).toLocaleString()}</p>
+        <p className="flex items-center"><CarIcon className="h-4 w-4 mr-2" /> Driver: <span className="font-semibold ml-1">{ride.driver?.name}</span></p>
+        <p className="flex items-center font-semibold text-gray-800"><Phone className="h-4 w-4 mr-2" /> {ride.driverPhone}</p>
+        <p className="flex items-center font-semibold text-green-600"><DollarSign className="h-4 w-4 mr-2" /> Paid: ₹{ride.price.toLocaleString()}</p>
+        {ride.notes && <p className="text-sm pt-2 border-t border-gray-200 mt-2">Notes: "{ride.notes}"</p>}
+      </div>
+
+      {/* Cancel Seat Button */}
+      {!isPast && (
+        <div className="mt-4 pt-4 border-t">
+          <button
+            onClick={() => onCancelSeat(ride._id)}
+            className="text-red-600 hover:text-red-800 font-semibold text-sm flex items-center"
+          >
+            Cancel Seat
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, currentUserId, onCancelSeat }) => {
   return (
     <div className="mt-12 bg-white p-8 rounded-xl shadow-lg">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -667,7 +683,7 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
           <h3 className="text-xl font-semibold mb-4">My Booked Seats</h3>
           {acceptedRides.length > 0 ? (
             <div className="space-y-4">
-              {acceptedRides.map(r => <AcceptedRideCard key={r._id} ride={r} />)}
+              {acceptedRides.map(r => <AcceptedRideCard key={r._id} ride={r} onCancelSeat={onCancelSeat} />)}
             </div>
           ) : (
             <p className="text-gray-500">You haven't booked any carpool seats yet.</p>
@@ -745,6 +761,20 @@ const RidePage = () => {
     } catch (err) {
       console.error(err);
       alert("Could not delete ride.");
+    }
+  };
+
+  const handleCancelSeat = async (rideId) => {
+    if (!user?._id) return;
+    if (!window.confirm("Do you want to cancel your seat in this ride?")) return;
+
+    try {
+      await api.put(`/rides/${rideId}/cancel-seat`, { userId: user._id });
+      alert("Seat cancelled successfully.");
+      fetchAllRides(); // Refresh list
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Could not cancel seat.");
     }
   };
 
@@ -833,7 +863,7 @@ const RidePage = () => {
             )}
           </div>
           {user && (acceptedRides.length > 0 || myRideOffers.length > 0) && (
-            <MyRideActivity acceptedRides={acceptedRides} myOffers={myRideOffers} onCancel={handleCancelRide} onBookCarpool={handleBookCarpool} currentUserId={user?._id} />
+            <MyRideActivity acceptedRides={acceptedRides} myOffers={myRideOffers} onCancel={handleCancelRide} onBookCarpool={handleBookCarpool} currentUserId={user?._id} onCancelSeat={handleCancelSeat} />
           )}
         </main>
       </div>

@@ -11,6 +11,13 @@ const rateSchema = new mongoose.Schema(
 
 const parkingSchema = new mongoose.Schema(
   {
+    // --- NEW FIELD ---
+    partner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false
+    },
+    // -----------------
     name: {
       type: String,
       required: [true, "Parking lot name is required."],

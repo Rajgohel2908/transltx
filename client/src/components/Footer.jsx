@@ -1,4 +1,5 @@
-import { MapPin, Facebook, Instagram, Twitter, Phone } from "lucide-react";
+import { MapPin, Facebook, Instagram, Twitter, Phone, Briefcase } from "lucide-react";
+import { Link } from "react-router-dom";
 const Footer = () => {
   const date = new Date();
   const year = date.getFullYear();
@@ -20,6 +21,25 @@ const Footer = () => {
                 Find on Map
               </button>
             </div>
+          </div>
+
+          {/* Partner Section - NEW */}
+          <div>
+            <h4 className="font-semibold text-black mb-4 flex items-center gap-2">
+              <Briefcase className="w-4 h-4" /> Become a Partner
+            </h4>
+            <ul className="space-y-2 text-gray-600">
+              <li><Link to="/partner/signup?type=Bus" className="hover:text-blue-600">Bus Operator</Link></li>
+              <li><Link to="/partner/signup?type=Train" className="hover:text-blue-600">Train Partner</Link></li>
+              <li><Link to="/partner/signup?type=Air" className="hover:text-blue-600">Airline Partner</Link></li>
+              <li><Link to="/partner/signup?type=Ride" className="hover:text-blue-600">Carpool Driver</Link></li>
+              <li><Link to="/partner/signup?type=Parking" className="hover:text-blue-600">Parking Owner</Link></li>
+              <li>
+                <Link to="/partner/login" className="text-blue-600 font-semibold mt-2 inline-block">
+                  Partner Login &rarr;
+                </Link>
+              </li>
+            </ul>
           </div>
 
           <div>

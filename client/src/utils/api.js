@@ -26,13 +26,26 @@ async function fetchCurrentUser() {
   }
 
   try {
-    // MODIFIED: '/api' 'prefix' ki zaroorat nahi, kyuki woh 'baseURL' mein hai
     const res = await api.get(`/users/me`);
     return res.data;
   } catch (err) {
+    // If User not found (404), it might be a Partner
+    if (err.response && err.response.status === 404) {
+      try {
+        const partnerRes = await api.get('/partners/me');
+        return partnerRes.data;
+      } catch (partnerErr) {
+        console.log("Partner fetch failed also:", partnerErr.message);
+      }
+    }
+
     console.log("fetchCurrentUser error:", err.response?.data || err.message);
-    localStorage.removeItem("token");
-    sessionStorage.removeItem("token");
+    // Only clear token if it's an auth error (401/403) to prevent loops on separate network errors
+    if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
+    }
+
     return {
       _id: null,
       name: "Anonymous User",

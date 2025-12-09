@@ -6,7 +6,24 @@ import Booking from "../models/Booking.js";
 // @access  Admin
 export const createRoute = async (req, res) => {
   try {
-    const newRoute = new Route(req.body);
+    const routeData = { ...req.body };
+    // If user is authenticated and is a partner (or admin acting as one), set the partner field
+    // req.userId is set by verifyToken middleware
+    if (req.userId) {
+      // Check if it's a partner (using Partner model since we separated them)
+      // OR check User model. Since we have separated them, we might need to check both or check based on context.
+      // However, `req.userId` comes from the token.
+
+      // Let's rely on the fact that the token was signed with the user's/partner's _id.
+      routeData.partner = req.userId;
+
+      // To get company name, we need to fetch the partner doc
+      const partnerDoc = await import("../models/partnerModel.js").then(m => m.default.findById(req.userId));
+      if (partnerDoc) {
+        routeData.operator = partnerDoc.partnerDetails?.companyName || partnerDoc.name;
+      }
+    }
+    const newRoute = new Route(routeData);
     const savedRoute = await newRoute.save();
     res.status(201).json({ route: savedRoute });
   } catch (error) {

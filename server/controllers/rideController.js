@@ -138,13 +138,58 @@ export const cancelRide = async (req, res) => {
   try {
     const { rideId } = req.params;
     const { userId } = req.body;
+
     const ride = await Ride.findById(rideId);
     if (!ride) return res.status(404).json({ message: "Ride not found." });
+
     if (ride.driver.toString() !== userId) return res.status(403).json({ message: "Not authorized." });
+
+    // --- TIME CHECK ---
+    if (new Date(ride.departureTime) < new Date()) {
+      return res.status(400).json({ message: "Cannot cancel a ride that has already departed." });
+    }
+    // ------------------
+
     await Ride.findByIdAndDelete(rideId);
     res.status(200).json({ message: "Ride offer deleted successfully." });
   } catch (error) {
     console.error("Error deleting ride:", error);
     res.status(500).json({ message: "Server error while deleting ride." });
+  }
+};
+
+// @desc    Passenger cancels their seat
+// @route   PUT /api/rides/:rideId/cancel-seat
+export const cancelSeat = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const { userId } = req.body; // User jo cancel kar raha hai
+
+    const ride = await Ride.findById(rideId);
+    if (!ride) return res.status(404).json({ message: "Ride not found." });
+
+    // --- TIME CHECK ---
+    if (new Date(ride.departureTime) < new Date()) {
+      return res.status(400).json({ message: "Cannot cancel seat. Ride has already departed." });
+    }
+
+    // Check if user is actually in the ride
+    if (!ride.acceptedBy.includes(userId)) {
+      return res.status(400).json({ message: "You have not booked this ride." });
+    }
+
+    // Logic: Remove user, Increase seats, Update status
+    ride.acceptedBy = ride.acceptedBy.filter(id => id.toString() !== userId);
+    ride.seatsAvailable += 1;
+    if (ride.status === 'booked') {
+      ride.status = 'active';
+    }
+
+    await ride.save();
+    res.status(200).json({ message: "Seat cancelled successfully.", ride });
+
+  } catch (error) {
+    console.error("Error cancelling seat:", error);
+    res.status(500).json({ message: "Server error while cancelling seat." });
   }
 };

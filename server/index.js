@@ -17,6 +17,7 @@ app.use(morgan("dev")); // to see all requests in the console
 // Routes
 // import adminRouter from "./routes/adminRoutes.js";
 import userRouter from "./routes/userRoutes.js";
+import partnerRouter from "./routes/partnerRoutes.js"; // Import partner routes
 import parcelRouter from "./routes/parcelRoutes.js";
 import routeRouter from "./routes/routeRoutes.js";
 import rideRouter from "./routes/rideRoutes.js";
@@ -37,6 +38,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // app.use("/api/admins", adminRouter);
 app.use("/api/users", userRouter);
+app.use("/api/partners", partnerRouter); // Register partner routes
 app.use("/api/parcels", parcelRouter);
 app.use("/api/routes", routeRouter);
 app.use("/api/rides", rideRouter);

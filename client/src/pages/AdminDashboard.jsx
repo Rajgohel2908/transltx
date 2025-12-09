@@ -16,12 +16,13 @@ import ParkingTab from "../components/admin/tabs/ParkingTab.jsx";
 import UsersTab from "../components/admin/tabs/UsersTab.jsx";
 import BookingsTab from "../components/admin/tabs/BookingsTab.jsx";
 import LocationsTab from "../components/admin/tabs/LocationsTab.jsx";
+import PartnersTab from "../components/admin/tabs/PartnersTab.jsx"; // New Import
 
 // API Endpoints
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
 // --- FIX 1: Removed '/admin' from alerts URL ---
-const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/alerts`; 
+const ALERTS_API_URL = `${VITE_BACKEND_BASE_URL}/alerts`;
 const TRIPS_API_URL = `${VITE_BACKEND_BASE_URL}/trips`;
 const PARCELS_API_URL = `${VITE_BACKEND_BASE_URL}/parcels`;
 const ROUTES_API_URL = `${VITE_BACKEND_BASE_URL}/routes`;
@@ -29,6 +30,8 @@ const RIDES_API_URL = `${VITE_BACKEND_BASE_URL}/rides`;
 const PARKING_API_URL = `${VITE_BACKEND_BASE_URL}/parking`;
 const USERS_API_URL = `${VITE_BACKEND_BASE_URL}/users/admin/users`;
 const BOOKINGS_API_URL = `${VITE_BACKEND_BASE_URL}/bookings`;
+const PARTNERS_API_URL = `${VITE_BACKEND_BASE_URL}/partners/admin/all`; // Base for fetching
+const PARTNER_ACTION_URL = `${VITE_BACKEND_BASE_URL}/partners/admin`;   // Base for actions
 
 const AdminDashboard = () => {
   const { user, loading: userLoading } = useContext(DataContext);
@@ -39,6 +42,7 @@ const AdminDashboard = () => {
   const [parcels, setParcels] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [allPartners, setAllPartners] = useState([]); // New Partner State
   const [parkingLots, setParkingLots] = useState([]);
   const [editingParking, setEditingParking] = useState(null);
   const [editingRoute, setEditingRoute] = useState(null);
@@ -53,6 +57,8 @@ const AdminDashboard = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [partnerPage, setPartnerPage] = useState(1);
+  const [partnerTotalPages, setPartnerTotalPages] = useState(1);
 
   const [formMode, setFormMode] = useState('none');
   const [routeTypeToCreate, setRouteTypeToCreate] = useState(null);
@@ -73,6 +79,7 @@ const AdminDashboard = () => {
 
   const [activeTab, setActiveTab] = useState('overview');
   const [bookingFilter, setBookingFilter] = useState('All');
+  const [partnerFilter, setPartnerFilter] = useState('All'); // New Filter State
 
   const closeAllForms = () => {
     setFormMode('none');
@@ -104,12 +111,12 @@ const AdminDashboard = () => {
 
     // --- FIX 2: Added safety check for p.createdAt ---
     if (Array.isArray(parcels)) {
-        parcels.forEach(p => {
+      parcels.forEach(p => {
         if (p && p.createdAt) {
-            const day = getDayOfWeek(p.createdAt);
-            if (bookings[day]) bookings[day].parcels += 1;
+          const day = getDayOfWeek(p.createdAt);
+          if (bookings[day]) bookings[day].parcels += 1;
         }
-        });
+      });
     }
 
     return Object.keys(bookings).map(day => ({ date: day, ...bookings[day] }));
@@ -130,21 +137,22 @@ const AdminDashboard = () => {
         api.get(PARKING_API_URL),
         api.get(`${USERS_API_URL}?page=${page}`),
         api.get(BOOKINGS_API_URL),
+        api.get(`${PARTNERS_API_URL}?page=${page}`), // Fetch Partners
       ]);
 
-      const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes, bookingsRes] = results;
+      const [alertsRes, tripsRes, parcelsRes, routesRes, ridesRes, parkingRes, usersRes, bookingsRes, partnersRes] = results;
 
       // Log errors if any request failed
       results.forEach((res, index) => {
-          if (res.status === 'rejected') {
-              console.error(`Request ${index} failed:`, res.reason);
-          }
+        if (res.status === 'rejected') {
+          console.error(`Request ${index} failed:`, res.reason);
+        }
       });
 
       const errors = results
         .filter(r => r.status === 'rejected')
         .map(r => r.reason.message || 'An unknown error occurred during fetch.');
-      
+
       if (errors.length > 0) {
         console.error("Admin Dashboard Fetch Errors:", errors);
         // Optional: Don't show error immediately if partial data is available
@@ -154,10 +162,17 @@ const AdminDashboard = () => {
       setAlerts(alertsRes.status === 'fulfilled' ? (Array.isArray(alertsRes.value.data) ? alertsRes.value.data : []) : []);
       const tripsData = tripsRes.status === 'fulfilled' ? (Array.isArray(tripsRes.value.data) ? tripsRes.value.data : tripsRes.value.data?.data || []) : [];
       setTrips(tripsData);
+
       const usersData = usersRes.status === 'fulfilled' ? usersRes.value.data?.users || [] : [];
       setAllUsers(usersData);
       setCurrentPage(usersRes.status === 'fulfilled' ? usersRes.value.data?.currentPage || 1 : 1);
       setTotalPages(usersRes.status === 'fulfilled' ? usersRes.value.data?.totalPages || 1 : 1);
+
+      const partnersData = partnersRes.status === 'fulfilled' ? partnersRes.value.data?.partners || [] : [];
+      setAllPartners(partnersData);
+      setPartnerPage(partnersRes.status === 'fulfilled' ? partnersRes.value.data?.currentPage || 1 : 1);
+      setPartnerTotalPages(partnersRes.status === 'fulfilled' ? partnersRes.value.data?.totalPages || 1 : 1);
+
       const parcelsData = parcelsRes.status === 'fulfilled' ? (Array.isArray(parcelsRes.value.data) ? parcelsRes.value.data : []) : [];
       setParcels(parcelsData);
       const routesData = routesRes.status === 'fulfilled' ? (Array.isArray(routesRes.value.data) ? routesRes.value.data : []) : [];
@@ -176,6 +191,7 @@ const AdminDashboard = () => {
       setStats({
         totalRevenue: parcelRevenue + tripRevenue,
         totalUsers: usersRes.status === 'fulfilled' ? usersRes.value.data?.totalUsers || 0 : 0,
+        totalPartners: partnersRes.status === 'fulfilled' ? partnersRes.value.data?.totalPartners || 0 : 0, // ADDED
         parcelBookings: parcelsData.length || 0,
         tripBookings: bookingsData.filter(b => b.bookingType !== 'Parcel').length,
         carpoolRides: ridesData?.length || 0,
@@ -365,6 +381,26 @@ const AdminDashboard = () => {
     }
   }, []);
 
+  const handleTogglePartnerStatus = useCallback(async (partner) => {
+    const action = partner.is_frozen ? 'activate' : 'freeze';
+    if (window.confirm(`Are you sure you want to ${action} ${partner.name}?`)) {
+      try {
+        setIsSubmitting(true);
+        setError('');
+        await api.patch(`${PARTNER_ACTION_URL}/${partner._id}/status`);
+        setAllPartners(currentPartners =>
+          currentPartners.map(p => p._id === partner._id ? { ...p, is_frozen: !p.is_frozen } : p)
+        );
+        fetchAllData(currentPage);
+      } catch (error) {
+        console.error("Failed to toggle partner status:", error);
+        setError(error.response?.data?.error || `Failed to ${action} partner.`);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  }, [fetchAllData, currentPage]);
+
   // Revenue Data Calculation
   const parcelRevenue = (allBookings || []).filter(b => b.bookingType === 'Parcel').reduce((s, b) => s + (b.fare || 0), 0);
   const transportRevenue = (allBookings || []).filter(b => ['Bus', 'Train', 'Air', 'bus', 'train', 'air'].includes(b.bookingType)).reduce((s, b) => s + (b.fare || 0), 0);
@@ -382,10 +418,10 @@ const AdminDashboard = () => {
         return (
           <RoutesTab
             routes={routes}
-            formMode={formMode}
-            setFormMode={setFormMode}
-            routeTypeToCreate={routeTypeToCreate}
-            setRouteTypeToCreate={setRouteTypeToCreate}
+            formMode={'none'} // FORCE NONE: Admin cannot add routes anymore
+            setFormMode={() => { }} // No-op
+            routeTypeToCreate={null}
+            setRouteTypeToCreate={() => { }}
             editingRoute={editingRoute}
             setEditingRoute={setEditingRoute}
             closeAllForms={closeAllForms}
@@ -396,6 +432,7 @@ const AdminDashboard = () => {
             setRouteFilter={setRouteFilter}
             handleDeleteRoute={handleDeleteRoute}
             isSubmitting={isSubmitting}
+            readOnly={true}
           />
         );
       case 'trips':
@@ -436,14 +473,15 @@ const AdminDashboard = () => {
         return (
           <ParkingTab
             parkingLots={parkingLots}
-            formMode={formMode}
-            setFormMode={setFormMode}
+            formMode={'none'} // FORCE NONE
+            setFormMode={() => { }}
             editingParking={editingParking}
             setEditingParking={setEditingParking}
             closeAllForms={closeAllForms}
             handleParkingSaved={handleParkingSaved}
             handleDeleteParkingLot={handleDeleteParkingLot}
             isSubmitting={isSubmitting}
+            readOnly={true}
           />
         );
       case 'users':
@@ -456,6 +494,20 @@ const AdminDashboard = () => {
             currentPage={currentPage}
             totalPages={totalPages}
             fetchAllData={fetchAllData}
+          />
+        );
+      case 'partners':
+        return (
+          <PartnersTab
+            allPartners={allPartners}
+            loading={loading}
+            handleTogglePartnerStatus={handleTogglePartnerStatus}
+            isSubmitting={isSubmitting}
+            currentPage={partnerPage}
+            totalPages={partnerTotalPages}
+            fetchAllData={fetchAllData}
+            partnerFilter={partnerFilter}       // Pass Filter
+            setPartnerFilter={setPartnerFilter} // Pass Setter
           />
         );
       case 'bookings':
@@ -478,6 +530,8 @@ const AdminDashboard = () => {
             bookingsData={bookingsData}
             routes={routes}
             trips={trips}
+            parcels={parcels}
+            allBookings={allBookings}
             setActiveTab={setActiveTab}
             setEditingRoute={setEditingRoute}
             setEditingTrip={setEditingTrip}
@@ -522,6 +576,7 @@ const AdminDashboard = () => {
                 <TabButton tabName="locations" label="Locations" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
                 <TabButton tabName="alerts" label="Alerts" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
                 <TabButton tabName="users" label="Users" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                <TabButton tabName="partners" label="Partners" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
               </div>
 
               <div className="mt-8">

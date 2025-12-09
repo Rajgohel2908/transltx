@@ -9,40 +9,55 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 async function userSignup(req, res) {
-  const { name, email, password } = req.body;
+  try {
+    const { name, password, role, partnerDetails } = req.body;
+    const email = req.body.email?.toLowerCase(); // Normalize email
 
-  const existingUser = await User.findOne({ email });
-  if (existingUser)
-    return res.status(400).json({ error: "Email already exists" });
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ error: "Email already exists" });
 
-  // The pre-save hook in userModel.js will automatically hash the password
-  const user = await User.create({ name, email, password });
+    // The pre-save hook in userModel.js will automatically hash the password
+    const user = await User.create({ name, email, password, role, partnerDetails });
 
-  const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "30d" });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "30d" });
 
-  res.status(201).json({ message: "User created", token });
+    res.status(201).json({ message: "User created", token });
+  } catch (error) {
+    console.error("Signup Error:", error);
+    res.status(500).json({ error: "Server error during signup.", details: error.message });
+  }
 }
 
 async function userLogin(req, res) {
-  const { email, password } = req.body;
-  // console.log('Attempting login for email:', email);
+  const { password } = req.body;
+  const email = req.body.email?.toLowerCase(); // Normalize email
+  console.log('Attempting login for:', email);
 
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
-    // console.log('Login failed: User not found for email:', email);
+    console.log('Login failed: User not found for email:', email);
     return res.status(401).json({ error: "Invalid email or password" });
   }
-  // console.log('User found:', user.email);
+
+  // Prevent partners from logging in here
+  if (user.role === 'partner') {
+    console.log('Login failed: Partner attempted user login');
+    return res.status(403).json({ error: "Partners must login via the Partner Portal. Please go to /partner/login" });
+  }
+
+  // console.log('User found:', user.email); // Safe to log email
+  // console.log('Stored Hashed Password:', user.password); // Debugging only - remove in prod
 
   const match = await user.comparePassword(password);
   if (!match) {
-    // console.log('Login failed: Password mismatch for user:', user.email);
+    console.log('Login failed: Password mismatch for user:', user.email);
+    // console.log('Input Password:', password); // Debugging only - remove in prod
     return res.status(401).json({ error: "Invalid email or password" });
   }
-  // console.log('Password matched for user:', user.email);
 
+  console.log('Login successful for:', user.email);
   const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "30d" });
-  // console.log('Token generated for user:', user.email);
 
   res.status(200).json({ token });
 }

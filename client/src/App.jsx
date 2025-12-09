@@ -31,6 +31,10 @@ import TripViewPage from "./pages/TripView.jsx";
 import ParkingPage from "./pages/Parking.jsx";
 // Forgot Password Component Import
 import ResetPassword from "./pages/users/ResetPassword";
+import PartnerSignup from "./pages/partner/PartnerSignup.jsx";
+import PartnerLogin from "./pages/partner/PartnerLogin.jsx";
+import PartnerForgotPassword from "./pages/partner/PartnerForgotPassword.jsx";
+import PartnerDashboard from "./pages/partner/PartnerDashboard.jsx";
 
 function App() {
   useEffect(() => {
@@ -57,7 +61,7 @@ function App() {
 function MainLayout() {
   const location = useLocation();
 
-  const hideNavbarOn = ['/user-login', '/user-signup', '/login', '/signup'];
+  const hideNavbarOn = ['/user-login', '/user-signup', '/login', '/signup', '/partner/signup', '/partner/login', '/partner/dashboard'];
 
   // Logic: Hide navbar if path is in array OR if it starts with /reset-password/
   const shouldShowNavbar =
@@ -203,6 +207,20 @@ function MainLayout() {
             element={
               <PrivateRoute>
                 <TripViewPage />
+              </PrivateRoute>
+            }
+          />
+
+
+          {/* Partner Routes */}
+          <Route path="/partner/signup" element={<PartnerSignup />} />
+          <Route path="/partner/login" element={<PartnerLogin />} />
+          <Route path="/partner/forgot-password" element={<PartnerForgotPassword />} />
+          <Route
+            path="/partner/dashboard"
+            element={
+              <PrivateRoute>
+                <PartnerDashboard />
               </PrivateRoute>
             }
           />

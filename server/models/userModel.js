@@ -22,7 +22,7 @@ const userSchema = new Schema({
     type: String,
     required: true,
     minlength: 6,
-    select: false 
+    select: false
   },
   createdAt: {
     type: Date,
@@ -30,15 +30,29 @@ const userSchema = new Schema({
   },
   is_admin: {
     type: Boolean,
-    default: false 
+    default: false
   },
   // --- YE 2 FIELDS MISSING THE, AB ADD KAR DIYE ---
   resetPasswordToken: String,
-  resetPasswordExpire: Date
+  resetPasswordExpire: Date,
+
+  // --- NEW FIELDS ---
+  role: {
+    type: String,
+    enum: ['user', 'admin', 'partner'],
+    default: 'user'
+  },
+  partnerDetails: {
+    companyName: { type: String },
+    contactNumber: { type: String },
+    licenseNumber: { type: String },
+    serviceType: { type: String, enum: ['Bus', 'Train', 'Air', 'Ride', 'Parking', 'All', 'bus', 'train', 'air', 'ride', 'parking', 'all'] }
+  }
+  // ------------------
 });
 
 // Mongoose middleware to hash password before saving
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
   }
@@ -47,7 +61,7 @@ userSchema.pre('save', async function(next) {
 });
 
 // Method to compare candidate password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 

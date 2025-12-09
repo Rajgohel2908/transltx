@@ -16,8 +16,8 @@ router.get("/search", searchRoutes); // <-- Add this new line
 router.get("/", getAllRoutes);
 
 // --- ADMIN ROUTES (Add verifyToken and isAdmin) ---
-router.post("/", verifyToken, isAdmin, createRoute);
-router.put("/:routeId", verifyToken, isAdmin, updateRoute);
-router.delete("/:routeId", verifyToken, isAdmin, deleteRoute);
+router.post("/", verifyToken, createRoute);
+router.put("/:routeId", verifyToken, updateRoute);
+router.delete("/:routeId", verifyToken, deleteRoute);
 
 export default router;

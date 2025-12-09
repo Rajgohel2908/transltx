@@ -18,7 +18,8 @@ const RoutesTab = ({
     routeFilter,
     setRouteFilter,
     handleDeleteRoute,
-    isSubmitting
+    isSubmitting,
+    readOnly = false // Default to false
 }) => {
 
     const filteredRoutes = routes.filter(route => {
@@ -33,9 +34,11 @@ const RoutesTab = ({
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Manage Transport Routes</h2>
-                <button onClick={() => setFormMode('selectType')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                    Add New Transport Route
-                </button>
+                {!readOnly && (
+                    <button onClick={() => setFormMode('selectType')} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                        Add New Transport Route
+                    </button>
+                )}
             </div>
 
             {formMode === 'selectType' && (
@@ -81,9 +84,11 @@ const RoutesTab = ({
                             )}
                         </div>
                         <div className="flex gap-2 flex-shrink-0" style={{ minWidth: '150px' }}>
-                            <button onClick={() => { setEditingRoute(route); setFormMode('showRouteForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
-                                Edit
-                            </button>
+                            {!readOnly && (
+                                <button onClick={() => { setEditingRoute(route); setFormMode('showRouteForm'); }} disabled={isSubmitting} className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">
+                                    Edit
+                                </button>
+                            )}
                             <button onClick={() => handleDeleteRoute(route._id)} disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm disabled:opacity-50">{isSubmitting ? '...' : 'Delete'}</button>
                         </div>
                     </div>
