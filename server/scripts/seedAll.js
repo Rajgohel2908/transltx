@@ -1,109 +1,49 @@
-// server/scripts/seedAll.js
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import Route from '../models/route.js'; // Tera model path check kar lena
+import generateRoutes from './data/routes.js'; // Maine pichli baar function diya tha, usko import kar rahe hain
 
-// Import Models
-import Trip from '../models/trip.js';
-import Route from '../models/route.js';
-import Parking from '../models/parking.js';
-import Location from '../models/location.js';
-
-// Import Location Data
-import { gujaratData } from './data/gujaratLocations.js';
-import { maharashtraData } from './data/maharashtraLocations.js';
-import { rajasthanData } from './data/rajasthanLocations.js';
-import { madhyaPradeshData } from './data/madhyaPradeshLocations.js';
-import { delhiData } from './data/delhiLocations.js';
-import { punjabData } from './data/punjabLocations.js';
-import { karnatakaData } from './data/karnatakaLocations.js';
-
-// Import Other Data
-import { tripsData } from './data/trips.js';
-import { routesData } from './data/routes.js';
-import { parkingData } from './data/parking.js';
-
-// --- FIX: Path hata diya, ab ye current folder se .env uthayega ---
+// --- Config Load ---
 dotenv.config(); 
-
 const DB = process.env.MONGODB_URL;
 
-// --- Helper Functions ---
-const pickRandom = (arr) => {
-  if (!arr || arr.length === 0) return 'N/A';
-  return arr[Math.floor(Math.random() * arr.length)];
-};
-
-const pickRandomPair = (arr) => {
-  if (!arr || arr.length < 2) return ['A', 'B'];
-  let a = pickRandom(arr);
-  let b = pickRandom(arr);
-  // Ensure start and end are different
-  while (a === b) {
-    b = pickRandom(arr);
-  }
-  return [a, b];
-};
-// -------------------------
-
-const seedDB = async () => {
+const seedRoutesOnly = async () => {
   if (!DB) {
-    console.error('❌ MONGODB_URL not found in .env. Config missing.');
-    console.error('👉 Tip: Make sure you are running this from the "server" directory where .env exists.');
+    console.error('❌ Syntax Error: .env file missing ya MONGODB_URL set nahi hai!');
     process.exit(1);
   }
 
   try {
-    await mongoose.connect(DB, {});
-    console.log('✅ DB Connection successful.');
+    // 1. Connection
+    await mongoose.connect(DB);
+    console.log('✅ DB Connection Successful (Hackerman mode on).');
 
-    // 1. CLEAR OLD DATA
-    console.log('\n🧹 Cleaning up old data...');
-    await Location.deleteMany({});
-    await Trip.deleteMany({});
-    await Route.deleteMany({});
-    await Parking.deleteMany({});
-    console.log('✨ All collections cleared.');
+    // 2. Data Preparation
+    // Note: Agar tune meri pichli script use ki hai toh wo function export kar rahi thi.
+    // Hum usse call karke fresh data generate kar rahe hain.
+    console.log('🔄 Generating Route Data...');
+    const routesData = generateRoutes(); 
 
-    // 2. SEED LOCATIONS
-    console.log('\n📍 Seeding Locations...');
-    const statesToSeed = [gujaratData, maharashtraData, rajasthanData, madhyaPradeshData, delhiData, punjabData, karnatakaData];
-    const locationDocs = [];
+    // 3. Seeding (NO DELETE)
+    // Yahan maine deleteMany() hata diya hai as per your request.
+    console.log(`\n🛣️  Appending ${routesData.length} Routes to existing data...`);
     
-    for (const stateData of statesToSeed) {
-      if (!stateData) continue;
-      stateData.cities.forEach(name => locationDocs.push({ name, state: stateData.state, type: 'city' }));
-      stateData.trainStations.forEach(name => locationDocs.push({ name, state: stateData.state, type: 'train_station' }));
-      stateData.airports.forEach(name => locationDocs.push({ name, state: stateData.state, type: 'airport' }));
-    }
-
-    if (locationDocs.length > 0) {
-      await Location.insertMany(locationDocs);
-      console.log(`✅ ${locationDocs.length} Locations seeded.`);
-    }
-
-    // 3. SEED TRIPS
-    console.log('\n🎒 Seeding Trips...');
-    await Trip.insertMany(tripsData);
-    console.log(`✅ ${tripsData.length} Trips seeded.`);
-
-    // 4. SEED ROUTES
-    console.log('\n🛣️  Seeding Routes...');
-    await Route.insertMany(routesData);
-    console.log(`✅ ${routesData.length} Routes seeded.`);
-
-    // 5. SEED PARKING
-    console.log('\n🅿️  Seeding Parking...');
-    await Parking.insertMany(parkingData);
-    console.log(`✅ ${parkingData.length} Parking lots seeded.`);
-
-    console.log('\n🎉 --- REAL DATABASE SEEDING COMPLETE --- 🎉');
+    // Ordered: false ka matlab agar ek data fail ho (duplicate ID), toh baaki rukenge nahi, insert hote rahenge.
+    await Route.insertMany(routesData, { ordered: false });
+    
+    console.log(`✅ Routes Added Successfully!`);
 
   } catch (error) {
-    console.error('❌ Error seeding database:', error.message);
+    if (error.code === 11000) {
+      console.warn('⚠️  Warning: Kuch routes skip ho gaye kyunki wo IDs already exist karti thi (Duplicate Key).');
+      console.log('✅ Baaki unique routes add ho gaye hain.');
+    } else {
+      console.error('❌ Error seeding routes:', error.message);
+    }
   } finally {
     await mongoose.disconnect();
-    console.log('👋 DB Disconnected.');
+    console.log('👋 DB Disconnected. Kaam khatam.');
   }
 };
 
-seedDB();
+seedRoutesOnly();

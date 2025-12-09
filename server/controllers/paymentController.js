@@ -2,7 +2,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import Booking from "../models/Booking.js";
 import Parcel from '../models/Parcel.js';
-import { sendBookingEmail, sendBookingSms } from '../utils/notificationService.js';
+import { sendBookingEmail, sendBookingSms, sendParcelEmail, sendParcelSms } from '../utils/notificationService.js';
 
 dotenv.config();
 
@@ -169,6 +169,17 @@ export const verifyPayment = async (req, res) => {
       }
 
       console.log("Booking/Parcel Updated Successfully:", updatedBooking._id);
+
+      console.log("Payment Verified. Sending Notifications...");
+      if (updatedBooking.bookingType) {
+        // Regular Booking
+        sendBookingEmail(updatedBooking).catch(err => console.error("Email fail:", err));
+        sendBookingSms(updatedBooking).catch(err => console.error("SMS fail:", err));
+      } else {
+        // Parcel Booking
+        sendParcelEmail(updatedBooking).catch(err => console.error("Parcel Email fail:", err));
+        sendParcelSms(updatedBooking).catch(err => console.error("Parcel SMS fail:", err));
+      }
 
       return res.status(200).json({
         message: "Payment verified successfully",

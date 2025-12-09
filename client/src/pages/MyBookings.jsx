@@ -93,7 +93,7 @@ const BookingCard = ({ booking }) => {
                         <p className="text-xs text-gray-500">Travel Date</p>
                         <p className="text-sm font-medium text-gray-700 flex items-center mt-1">
                             <Calendar className="h-4 w-4 mr-2 text-blue-500" />
-                            {new Date(booking.travelDate || booking.departureDateTime).toLocaleDateString("en-US", {
+                            {new Date(booking.travelDate || booking.departureDateTime || booking.departure).toLocaleDateString("en-US", {
                                 weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
                             })}
                         </p>

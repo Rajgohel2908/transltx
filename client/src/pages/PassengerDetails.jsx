@@ -138,6 +138,8 @@ const PassengerDetails = () => {
         contactEmail: email,
         contactPhone: phone,
         fare: totalFare,
+        // paymentId: paymentResult.cf_payment_id || paymentResult.payment_id,
+        // orderId: paymentResult.order_id,
         paymentStatus: 'Pending',
         bookingStatus: 'Pending'
       };

@@ -10,12 +10,14 @@ export const createBooking = async (req, res) => {
         const newBooking = new Booking(req.body);
         await newBooking.save();
 
-        console.log("Booking saved successfully:", newBooking._id);
-
-        // --- DONO KO CALL KAR ---
+        if (newBooking.bookingStatus === 'Confirmed') {
+        console.log("Payment Confirmed. Sending Notifications...");
         sendBookingEmail(newBooking).catch(err => console.error("Email fail:", err));
         sendBookingSms(newBooking).catch(err => console.error("SMS fail:", err));
-        // -------------------------
+    } else {
+        console.log(`Booking created but status is ${newBooking.bookingStatus}. Skipping notifications.`);
+    }
+
 
         res.status(201).json(newBooking);
     } catch (error) {
@@ -72,6 +74,11 @@ export const updateBooking = async (req, res) => {
         if (!updatedBooking) {
             return res.status(404).json({ message: "Booking not found." });
         }
+        if (req.body.bookingStatus === 'Confirmed') {
+        console.log("Booking Updated to Confirmed. Sending Notifications...");
+        sendBookingEmail(updatedBooking).catch(err => console.error("Email fail:", err));
+        sendBookingSms(updatedBooking).catch(err => console.error("SMS fail:", err));
+    }
         res.status(200).json(updatedBooking);
     } catch (error) {
         console.error("Error updating booking:", error);

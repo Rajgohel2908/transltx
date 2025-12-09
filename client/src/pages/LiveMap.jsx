@@ -236,7 +236,7 @@ const RouteMap = () => {
               {matchedRoute ? (
                 <div className="bg-gray-50 rounded-xl p-5 border border-gray-200 shadow-inner">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-900">Trip Details</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Route Details</h3>
                     <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Fastest</span>
                   </div>
                   <div className="space-y-3">

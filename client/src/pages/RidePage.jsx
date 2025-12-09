@@ -235,7 +235,10 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
         from: from.name,
         to: to.name,
         departure: `${selectedDate}T${selectedTime}`,
+        departureDateTime: new Date(`${selectedDate}T${selectedTime}`),
+        travelDate: new Date(selectedDate),
         arrival: calculatedArrival || `${selectedDate}T${selectedTime}`, // Use calculated arrival
+        arrivalDateTime: calculatedArrival ? new Date(calculatedArrival) : new Date(`${selectedDate}T${selectedTime}`),
         passengers: passengers,
         contactEmail: user.email,
         contactPhone: contactPhone,
@@ -771,7 +774,10 @@ const RidePage = () => {
         from: ride.from,
         to: ride.to,
         departure: ride.departureTime,
+        departureDateTime: new Date(ride.departureTime),
+        travelDate: new Date(ride.departureTime),
         arrival: ride.departureTime, // Approx
+        arrivalDateTime: new Date(ride.departureTime),
         passengers: [{ fullName: user.name, age: 0, gender: "Unknown" }],
         contactEmail: user.email,
         contactPhone: "N/A",

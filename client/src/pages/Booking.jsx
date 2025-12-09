@@ -697,6 +697,7 @@ const Booking = () => {
                             </p>
                             <p className="text-sm text-gray-400">
                               {foundBooking.departureDateTime && !isNaN(new Date(foundBooking.departureDateTime))
+
                                 ? new Date(foundBooking.departureDateTime).toDateString()
                                 : (foundBooking.departure && !isNaN(new Date(foundBooking.departure))
                                   ? new Date(foundBooking.departure).toDateString()

@@ -27,19 +27,92 @@ const InputField = ({ icon, id, placeholder, value, onChange, type = "text", req
 const VITE_BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 const PARCEL_API_URL = `${VITE_BACKEND_BASE_URL}/parcels`;
 
-// --- Stepper Navigation ---
-const Stepper = ({ currentStep }) => (
-  <div className="flex justify-center items-center mb-10">
-    <div className="flex items-center">
-      <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
-      <div className={`flex-1 h-1 w-20 ${currentStep > 1 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+// --- Modern Stepper ---
+const Stepper = ({ currentStep }) => {
+  const steps = [
+    { num: 1, label: "Sender" },
+    { num: 2, label: "Recipient" },
+    { num: 3, label: "Parcel" }
+  ];
+
+  return (
+    <div className="flex justify-between items-center mb-8 relative">
+      <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10 transform -translate-y-1/2 rounded-full"></div>
+      <div className="absolute top-1/2 left-0 h-1 bg-blue-600 -z-10 transform -translate-y-1/2 rounded-full transition-all duration-500 ease-in-out"
+        style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+      ></div>
+
+      {steps.map((step) => (
+        <div key={step.num} className="flex flex-col items-center bg-white px-2">
+          <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border-2 ${currentStep >= step.num
+            ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-110'
+            : 'bg-white text-gray-400 border-gray-300'
+            }`}>
+            {currentStep > step.num ? <CheckCircle size={20} /> : step.num}
+          </div>
+          <span className={`mt-2 text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${currentStep >= step.num ? 'text-blue-600' : 'text-gray-400'
+            }`}>
+            {step.label}
+          </span>
+        </div>
+      ))}
     </div>
-    <div className="flex items-center">
-      <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</div>
-      <div className={`flex-1 h-1 w-20 ${currentStep > 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+  );
+};
+
+// --- Summary Card Component ---
+const SummaryCard = ({ sender, recipient, parcel, fare, step }) => (
+  <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-24 border border-gray-100 h-fit">
+    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+      <Package className="mr-2 text-blue-600" /> Shipment Summary
+    </h3>
+
+    {/* Timeline Visual */}
+    <div className="relative pl-4 border-l-2 border-dashed border-gray-300 space-y-8 my-6">
+      {/* From */}
+      <div className="relative">
+        <div className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 ${sender.city ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}></div>
+        <p className="text-xs text-gray-400 uppercase font-bold">From</p>
+        <p className="font-semibold text-gray-800">{sender.city || "---"}</p>
+        <p className="text-xs text-gray-500">{sender.name}</p>
+      </div>
+
+      {/* To */}
+      <div className="relative">
+        <div className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 ${recipient.city ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300'}`}></div>
+        <p className="text-xs text-gray-400 uppercase font-bold">To</p>
+        <p className="font-semibold text-gray-800">{recipient.city || "---"}</p>
+        <p className="text-xs text-gray-500">{recipient.name}</p>
+      </div>
     </div>
-    <div className="flex items-center">
-      <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>3</div>
+
+    {/* Parcel Details */}
+    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs text-gray-500">Weight</span>
+        <span className="font-medium text-gray-800">{parcel.weight ? `${parcel.weight} kg` : "--"}</span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-gray-500">Dimensions</span>
+        <span className="font-medium text-gray-800">
+          {parcel.length && parcel.width && parcel.height
+            ? `${parcel.length}x${parcel.width}x${parcel.height} cm`
+            : "--"}
+        </span>
+      </div>
+    </div>
+
+    {/* Fare Estimate */}
+    <div className="border-t pt-4">
+      <div className="flex justify-between items-end">
+        <span className="text-gray-600 font-medium">Total Estimate</span>
+        <span className="text-2xl font-bold text-blue-600">
+          {fare ? `₹${Number(fare).toFixed(0)}` : "--"}
+        </span>
+      </div>
+      {step === 3 && !fare && (
+        <p className="text-xs text-orange-500 mt-2 text-right">Calculate fare to see total</p>
+      )}
     </div>
   </div>
 );
@@ -250,130 +323,201 @@ const Parcel = () => {
 
   return (
     <>
-      <main className="bg-gray-50 min-h-screen py-16 px-4">
-        <div className="max-w-3xl mx-auto">
+      <main className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+
+          {/* Header Section */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
+              Send a Parcel
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Fast, secure, and reliable delivery service. Track your shipment every step of the way.
+            </p>
+          </div>
+
           {isBooked ? (
             // --- Success Screen ---
-            <div className="bg-white p-8 md:p-12 rounded-2xl shadow-2xl text-center animate-fade-in">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-green-600 mb-2">Shipment Booked!</h2>
-              <p className="text-gray-600 mb-6">Your parcel from <span className="font-semibold">{bookedOrderDetails?.sender?.city || senderCity}</span> to <span className="font-semibold">{bookedOrderDetails?.recipient?.city || recipientCity}</span> is scheduled.</p>
-              <div className="space-y-4">
-                <Link to="/orders" className="w-full block bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+            <div className="max-w-2xl mx-auto bg-white p-8 md:p-12 rounded-3xl shadow-2xl text-center animate-fade-in border border-green-100">
+              <div className="bg-green-100 h-24 w-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="h-12 w-12 text-green-600" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Shipment Booked!</h2>
+              <p className="text-gray-600 mb-8 text-lg">
+                Your parcel from <span className="font-semibold text-gray-900">{bookedOrderDetails?.sender?.city || senderCity}</span> to <span className="font-semibold text-gray-900">{bookedOrderDetails?.recipient?.city || recipientCity}</span> has been scheduled successfully.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Link to="/orders" className="flex items-center justify-center w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg shadow-blue-200">
                   View My Orders
                 </Link>
-                <button onClick={handleNewBooking} className="w-full bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg hover:bg-gray-300 transition-colors">
-                  Book Another Parcel
+                <button onClick={handleNewBooking} className="flex items-center justify-center w-full bg-white text-gray-700 border-2 border-gray-200 font-bold py-4 px-6 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all">
+                  Book Another
                 </button>
               </div>
             </div>
           ) : (
-            // --- Stepper Form ---
-            <div className="bg-white p-8 md:p-12 rounded-2xl shadow-2xl w-full">
-              <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">Send a Parcel</h2>
-              <p className="text-lg text-gray-500 mb-8">Ship your items securely and quickly.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
-              <Stepper currentStep={step} />
+              {/* --- Left Column: Form --- */}
+              <div className="lg:col-span-2">
+                <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-xl border border-gray-100">
+                  <Stepper currentStep={step} />
 
-              <form onSubmit={fare ? handleRequestBooking : handleShowFare} className="space-y-6">
+                  <form onSubmit={fare ? handleRequestBooking : handleShowFare} className="space-y-8">
 
-                {/* --- Step 1: Sender --- */}
-                <div className={step === 1 ? 'animate-fade-in' : 'hidden'}>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-6">Sender Information (From)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InputField icon={<User />} id="senderName" placeholder="Full Name" value={senderName} onChange={e => setSenderName(e.target.value)} required autoComplete="name" />
-                    <InputField icon={<Phone />} id="senderPhone" placeholder="Phone Number" value={senderPhone} onChange={e => setSenderPhone(e.target.value)} type="tel" required autoComplete="tel" />
-                    <InputField icon={<Mail />} id="senderEmail" placeholder="Email Address" value={senderEmail} onChange={e => setSenderEmail(e.target.value)} type="email" required autoComplete="email" />
-                    <InputField icon={<MapPin />} id="senderStreet" placeholder="Street Address" value={senderStreet} onChange={e => setSenderStreet(e.target.value)} required autoComplete="street-address" />
-                    <InputField icon={<MapPin />} id="senderCity" placeholder="City" value={senderCity} onChange={e => setSenderCity(e.target.value)} required autoComplete="address-level2" />
-                    <InputField icon={<MapPin />} id="senderState" placeholder="State / Province" value={senderState} onChange={e => setSenderState(e.target.value)} required autoComplete="address-level1" />
-                    <InputField icon={<Hash />} id="senderPostalCode" placeholder="Postal Code" value={senderPostalCode} onChange={e => setSenderPostalCode(e.target.value)} required autoComplete="postal-code" />
-                    <InputField icon={<Globe />} id="senderCountry" placeholder="Country" value={senderCountry} onChange={e => setSenderCountry(e.target.value)} required autoComplete="country-name" />
-                  </div>
+                    {/* --- Step 1: Sender --- */}
+                    <div className={step === 1 ? 'animate-fade-in' : 'hidden'}>
+                      <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span className="bg-blue-100 text-blue-600 h-8 w-8 rounded-full flex items-center justify-center mr-3 text-sm">1</span>
+                        Sender Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <InputField icon={<User className="text-gray-400" />} id="senderName" placeholder="Full Name" value={senderName} onChange={e => setSenderName(e.target.value)} required autoComplete="name" />
+                        <InputField icon={<Phone className="text-gray-400" />} id="senderPhone" placeholder="Phone Number" value={senderPhone} onChange={e => setSenderPhone(e.target.value)} type="tel" required autoComplete="tel" />
+                        <div className="md:col-span-2">
+                          <InputField icon={<Mail className="text-gray-400" />} id="senderEmail" placeholder="Email Address" value={senderEmail} onChange={e => setSenderEmail(e.target.value)} type="email" required autoComplete="email" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <InputField icon={<MapPin className="text-gray-400" />} id="senderStreet" placeholder="Street Address" value={senderStreet} onChange={e => setSenderStreet(e.target.value)} required autoComplete="street-address" />
+                        </div>
+                        <InputField icon={<Building className="text-gray-400" />} id="senderCity" placeholder="City" value={senderCity} onChange={e => setSenderCity(e.target.value)} required autoComplete="address-level2" />
+                        <InputField icon={<MapPin className="text-gray-400" />} id="senderState" placeholder="State" value={senderState} onChange={e => setSenderState(e.target.value)} required autoComplete="address-level1" />
+                        <InputField icon={<Hash className="text-gray-400" />} id="senderPostalCode" placeholder="Postal Code" value={senderPostalCode} onChange={e => setSenderPostalCode(e.target.value)} required autoComplete="postal-code" />
+                        <InputField icon={<Globe className="text-gray-400" />} id="senderCountry" placeholder="Country" value={senderCountry} onChange={e => setSenderCountry(e.target.value)} required autoComplete="country-name" />
+                      </div>
+                    </div>
+
+                    {/* --- Step 2: Recipient --- */}
+                    <div className={step === 2 ? 'animate-fade-in' : 'hidden'}>
+                      <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span className="bg-blue-100 text-blue-600 h-8 w-8 rounded-full flex items-center justify-center mr-3 text-sm">2</span>
+                        Recipient Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <InputField icon={<User className="text-gray-400" />} id="recipientName" placeholder="Full Name" value={recipientName} onChange={e => setRecipientName(e.target.value)} required />
+                        <InputField icon={<Phone className="text-gray-400" />} id="recipientPhone" placeholder="Phone Number" value={recipientPhone} onChange={e => setRecipientPhone(e.target.value)} type="tel" required />
+                        <div className="md:col-span-2">
+                          <InputField icon={<Mail className="text-gray-400" />} id="recipientEmail" placeholder="Email Address (Optional)" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)} type="email" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <InputField icon={<MapPin className="text-gray-400" />} id="recipientStreet" placeholder="Street Address" value={recipientStreet} onChange={e => setRecipientStreet(e.target.value)} required />
+                        </div>
+                        <InputField icon={<Building className="text-gray-400" />} id="recipientCity" placeholder="City" value={recipientCity} onChange={e => setRecipientCity(e.target.value)} required />
+                        <InputField icon={<MapPin className="text-gray-400" />} id="recipientState" placeholder="State" value={recipientState} onChange={e => setRecipientState(e.target.value)} required />
+                        <InputField icon={<Hash className="text-gray-400" />} id="recipientPostalCode" placeholder="Postal Code" value={recipientPostalCode} onChange={e => setRecipientPostalCode(e.target.value)} required />
+                        <InputField icon={<Globe className="text-gray-400" />} id="recipientCountry" placeholder="Country" value={recipientCountry} onChange={e => setRecipientCountry(e.target.value)} required />
+                      </div>
+                    </div>
+
+                    {/* --- Step 3: Parcel --- */}
+                    <div className={step === 3 ? 'animate-fade-in' : 'hidden'}>
+                      <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span className="bg-blue-100 text-blue-600 h-8 w-8 rounded-full flex items-center justify-center mr-3 text-sm">3</span>
+                        Parcel Information
+                      </h3>
+
+                      <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 mb-6">
+                        <h4 className="font-semibold text-blue-900 mb-4">Dimensions & Weight</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="col-span-2 md:col-span-1">
+                            <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Weight</label>
+                            <InputField icon={<Weight className="text-blue-400" />} id="weight" placeholder="kg" value={weight} onChange={e => setWeight(e.target.value)} type="number" step="0.1" required />
+                          </div>
+                          <div className="col-span-2 md:col-span-1">
+                            <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Length</label>
+                            <InputField icon={<Box className="text-blue-400" />} id="length" placeholder="cm" value={length} onChange={e => setLength(e.target.value)} type="number" />
+                          </div>
+                          <div className="col-span-2 md:col-span-1">
+                            <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Width</label>
+                            <InputField icon={<Box className="text-blue-400" />} id="width" placeholder="cm" value={width} onChange={e => setWidth(e.target.value)} type="number" />
+                          </div>
+                          <div className="col-span-2 md:col-span-1">
+                            <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Height</label>
+                            <InputField icon={<Box className="text-blue-400" />} id="height" placeholder="cm" value={height} onChange={e => setHeight(e.target.value)} type="number" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="text-sm font-bold text-gray-700 mb-2 block">Content Description</label>
+                        <InputField icon={<Package className="text-gray-400" />} id="description" placeholder="e.g. Books, Clothes, Electronics" value={description} onChange={e => setDescription(e.target.value)} required />
+                      </div>
+
+                      {fare && (
+                        <div className="mt-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-lg animate-fade-in flex justify-between items-center">
+                          <div>
+                            <p className="text-blue-100 text-sm font-medium">Total Shipping Cost</p>
+                            <p className="text-3xl font-bold">₹{Number(fare).toFixed(2)}</p>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-full">
+                            <DollarSign className="h-8 w-8 text-white" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {error && (
+                      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                        <p className="text-red-700 text-sm">{error}</p>
+                      </div>
+                    )}
+
+                    {/* --- Navigation --- */}
+                    <div className="flex items-center justify-between pt-6 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={handlePrevStep}
+                        disabled={step === 1 || isLoading}
+                        className={`flex items-center px-6 py-3 rounded-xl font-bold transition-all ${step === 1
+                          ? 'text-gray-300 cursor-not-allowed'
+                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
+                      >
+                        <ArrowLeft size={20} className="mr-2" /> Back
+                      </button>
+
+                      {step < 3 ? (
+                        <button
+                          type="button"
+                          onClick={handleNextStep}
+                          className="bg-blue-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center"
+                        >
+                          Next Step <ArrowRight size={20} className="ml-2" />
+                        </button>
+                      ) : (
+                        !fare ? (
+                          <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="bg-blue-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center disabled:opacity-70"
+                          >
+                            {isLoading ? "Calculating..." : "Calculate Fare"} <DollarSign size={20} className="ml-2" />
+                          </button>
+                        ) : (
+                          <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="bg-green-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-200 flex items-center disabled:opacity-70"
+                          >
+                            {isLoading ? "Processing..." : "Pay & Book"} <Shield size={20} className="ml-2" />
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </form>
                 </div>
+              </div>
 
-                {/* --- Step 2: Recipient --- */}
-                <div className={step === 2 ? 'animate-fade-in' : 'hidden'}>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-6">Recipient Information (To)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InputField icon={<User />} id="recipientName" placeholder="Full Name" value={recipientName} onChange={e => setRecipientName(e.target.value)} required />
-                    <InputField icon={<Phone />} id="recipientPhone" placeholder="Phone Number" value={recipientPhone} onChange={e => setRecipientPhone(e.target.value)} type="tel" required />
-                    <InputField icon={<Mail />} id="recipientEmail" placeholder="Email Address (for tracking)" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)} type="email" />
-                    <InputField icon={<MapPin />} id="recipientStreet" placeholder="Street Address" value={recipientStreet} onChange={e => setRecipientStreet(e.target.value)} required />
-                    <InputField icon={<MapPin />} id="recipientCity" placeholder="City" value={recipientCity} onChange={e => setRecipientCity(e.target.value)} required />
-                    <InputField icon={<MapPin />} id="recipientState" placeholder="State / Province" value={recipientState} onChange={e => setRecipientState(e.target.value)} required />
-                    <InputField icon={<Hash />} id="recipientPostalCode" placeholder="Postal Code" value={recipientPostalCode} onChange={e => setRecipientPostalCode(e.target.value)} required />
-                    <InputField icon={<Globe />} id="recipientCountry" placeholder="Country" value={recipientCountry} onChange={e => setRecipientCountry(e.target.value)} required />
-                  </div>
-                </div>
+              {/* --- Right Column: Summary --- */}
+              <div className="lg:col-span-1 hidden lg:block">
+                <SummaryCard
+                  sender={{ name: senderName, city: senderCity }}
+                  recipient={{ name: recipientName, city: recipientCity }}
+                  parcel={{ weight, length, width, height }}
+                  fare={fare}
+                  step={step}
+                />
+              </div>
 
-                {/* --- Step 3: Parcel & Fare --- */}
-                <div className={step === 3 ? 'animate-fade-in' : 'hidden'}>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-6">Parcel Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-1">
-                      <InputField icon={<Weight />} id="weight" placeholder="Weight (kg)" value={weight} onChange={e => setWeight(e.target.value)} type="number" step="0.1" required />
-                    </div>
-                    <div className="md:col-span-1">
-                      <InputField icon={<Box />} id="length" placeholder="Length (cm)" value={length} onChange={e => setLength(e.target.value)} type="number" />
-                    </div>
-                    <div className="md:col-span-1">
-                      <InputField icon={<Box />} id="width" placeholder="Width (cm)" value={width} onChange={e => setWidth(e.target.value)} type="number" />
-                    </div>
-                    <div className="md:col-span-1">
-                      <InputField icon={<Box />} id="height" placeholder="Height (cm)" value={height} onChange={e => setHeight(e.target.value)} type="number" />
-                    </div>
-                  </div>
-                  <InputField icon={<Package />} id="description" placeholder="Description of Contents" value={description} onChange={e => setDescription(e.target.value)} required />
-
-                  {fare && (
-                    <div className="mt-6 bg-blue-50 border-l-4 border-blue-500 text-blue-900 p-4 rounded-r-lg flex justify-between items-center shadow-sm animate-fade-in">
-                      <p className="font-semibold text-lg">Estimated Fare:</p>
-                      <p className="text-3xl font-bold">₹{Number(fare).toFixed(2)}</p>
-                    </div>
-                  )}
-                </div>
-
-                {error && <p className="text-red-500 text-sm text-center py-2">{error}</p>}
-
-                {/* --- Navigation Buttons --- */}
-                <div className="pt-6 flex justify-between items-center">
-                  <button
-                    type="button"
-                    onClick={handlePrevStep}
-                    disabled={step === 1 || isLoading}
-                    className="bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
-
-                  {step === 1 && (
-                    <button type="button" onClick={handleNextStep} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-                      Next: Recipient <ArrowRight size={20} />
-                    </button>
-                  )}
-
-                  {step === 2 && (
-                    <button type="button" onClick={handleNextStep} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-                      Next: Parcel Details <ArrowRight size={20} />
-                    </button>
-                  )}
-
-                  {step === 3 && !fare && (
-                    <button type="submit" disabled={isLoading} className="w-1/2 bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      <DollarSign className="h-5 w-5" />
-                      {isLoading ? "Calculating..." : "Calculate Fare"}
-                    </button>
-                  )}
-
-                  {step === 3 && fare && (
-                    <button type="submit" disabled={isLoading} className="w-1/2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      <Shield className="h-5 w-5" />
-                      {isLoading ? "Processing..." : "Confirm & Pay"}
-                    </button>
-                  )}
-                </div>
-              </form>
             </div>
           )}
         </div>

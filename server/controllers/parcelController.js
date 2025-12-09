@@ -100,9 +100,9 @@ export const createBooking = async (req, res) => {
     const savedParcel = await newParcel.save();
     console.log("Parcel saved successfully:", savedParcel);
 
-    // --- NOTIFICATIONS ---
-    sendParcelEmail(savedParcel).catch(err => console.error("Parcel Email Fail:", err));
-    sendParcelSms(savedParcel).catch(err => console.error("Parcel SMS Fail:", err));
+    // --- NOTIFICATIONS REMOVED (Moved to Payment Verification) ---
+    // sendParcelEmail(savedParcel).catch(err => console.error("Parcel Email Fail:", err));
+    // sendParcelSms(savedParcel).catch(err => console.error("Parcel SMS Fail:", err));
     // ---------------------
     res
       .status(201)

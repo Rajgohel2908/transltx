@@ -19,6 +19,7 @@ const MyTripsPage = () => {
   const [uniqueDurations, setUniqueDurations] = useState([]);
   const [uniqueFeatures, setUniqueFeatures] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
 
   // --- YEH NAYA STATE ADD KAR ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -63,12 +64,11 @@ const MyTripsPage = () => {
     );
   };
 
-  const handleFeatureChange = (e) => {
-    const { value, checked } = e.target;
-    if (checked) {
-      setSelectedFeatures([...selectedFeatures, value]);
+  const toggleFeature = (feature) => {
+    if (selectedFeatures.includes(feature)) {
+      setSelectedFeatures(selectedFeatures.filter(f => f !== feature));
     } else {
-      setSelectedFeatures(selectedFeatures.filter(feature => feature !== value));
+      setSelectedFeatures([...selectedFeatures, feature]);
     }
   };
 
@@ -150,37 +150,77 @@ const MyTripsPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <h4 className="text-lg font-semibold mb-2">Sort by price</h4>
-                  <select onChange={(e) => setSortOrder(e.target.value)} value={sortOrder} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
-                    <option value="">Select</option>
-                    <option value="price-asc">Price: Low to High</option>
-                    <option value="price-desc">Price: High to Low</option>
-                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "Low to High", value: "price-asc" },
+                      { label: "High to Low", value: "price-desc" }
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setSortOrder(sortOrder === option.value ? "" : option.value)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${sortOrder === option.value
+                            ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                            : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                          }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <h4 className="text-lg font-semibold mb-2">Filter by duration</h4>
-                  <select onChange={(e) => setSelectedDuration(e.target.value)} value={selectedDuration} className="w-full border border-gray-300 rounded-full px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow shadow-sm">
-                    <option value="">All durations</option>
-                    {uniqueDurations.map(duration => (
-                      <option key={duration} value={duration}>{duration}</option>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedDuration("")}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border ${selectedDuration === ""
+                          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                        }`}
+                    >
+                      All
+                    </button>
+                    {uniqueDurations.map((duration) => (
+                      <button
+                        key={duration}
+                        onClick={() => setSelectedDuration(selectedDuration === duration ? "" : duration)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border ${selectedDuration === duration
+                            ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                            : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                          }`}
+                      >
+                        {duration}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
                 <div>
                   <h4 className="text-lg font-semibold mb-2">Filter by features</h4>
-                  <div className="flex flex-wrap gap-4">
-                    {uniqueFeatures.map(feature => (
-                      <label key={feature} className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          value={feature}
-                          onChange={handleFeatureChange}
-                          checked={selectedFeatures.includes(feature)}
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-gray-700">{feature}</span>
-                      </label>
-                    ))}
+                  <div className="flex flex-wrap gap-2">
+                    {(showAllFeatures ? uniqueFeatures : uniqueFeatures.slice(0, 5)).map(feature => {
+                      const isSelected = selectedFeatures.includes(feature);
+                      return (
+                        <button
+                          key={feature}
+                          onClick={() => toggleFeature(feature)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 border ${isSelected
+                            ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                            : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                            }`}
+                        >
+                          {feature}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {uniqueFeatures.length > 5 && (
+                    <button
+                      onClick={() => setShowAllFeatures(!showAllFeatures)}
+                      className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors focus:outline-none"
+                    >
+                      {showAllFeatures ? "Show Less" : `+${uniqueFeatures.length - 5} More`}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -220,8 +260,8 @@ const MyTripsPage = () => {
                         >
                           <Heart
                             className={`h-5 w-5 ${likedTrips.includes(trip._id)
-                                ? "text-red-500 fill-red-500"
-                                : "text-gray-600"
+                              ? "text-red-500 fill-red-500"
+                              : "text-gray-600"
                               }`}
                           />
                         </button>
