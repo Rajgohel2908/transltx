@@ -1,6 +1,6 @@
 import express from 'express';
 const router = express.Router();
-import { createBooking, getAllBookings, getBookingByPnr, updateBooking, getUserBookings, cancelBooking } from '../controllers/bookingController.js';
+import { createBooking, getAllBookings, getBookingByPnr, updateBooking, getUserBookings, cancelBooking, getAvailableJobRequests, acceptJob } from '../controllers/bookingController.js';
 import { verifyToken } from '../middlewares/userMiddleware.js';
 
 // POST /api/bookings - Create a new booking
@@ -20,5 +20,9 @@ router.put('/:id/cancel', cancelBooking);
 
 // GET /api/bookings/user/:userId - Get all bookings for a specific user
 router.get('/user/:userId', verifyToken, getUserBookings);
+
+// --- Driver Job Routes ---
+router.get('/jobs/available', verifyToken, getAvailableJobRequests);
+router.patch('/:id/accept-job', verifyToken, acceptJob);
 
 export default router;

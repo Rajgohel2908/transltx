@@ -13,11 +13,14 @@ const rideSchema = new mongoose.Schema(
       required: [true, "A contact number is required for the driver."],
       trim: true,
     },
-    acceptedBy: {
+    acceptedBy: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      default: null,
-    },
+    }],
+    requests: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
     from: {
       type: String,
       required: [true, "A starting location is required."],
@@ -51,8 +54,8 @@ const rideSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "booked", "completed", "cancelled"],
-      default: "active",
+      enum: ["scheduled", "active", "booked", "completed", "cancelled"],
+      default: "scheduled",
     },
   },
   {

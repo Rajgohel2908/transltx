@@ -5,6 +5,7 @@ import Footer from '../../components/Footer';
 import TabButton from "../../components/admin/TabButton.jsx";
 import PartnerRoutesTab from "../../components/partner/tabs/PartnerRoutesTab.jsx";
 import ParkingTab from "../../components/admin/tabs/ParkingTab.jsx";
+import DriverTab from "../../components/partner/tabs/DriverTab.jsx"; // Import DriverTab
 import { Briefcase, DollarSign, Activity } from 'lucide-react';
 
 import RevenueGraph from "../../components/partner/RevenueGraph.jsx";
@@ -151,6 +152,12 @@ const PartnerDashboard = () => {
                     {/* Tabs */}
                     <div className="bg-white rounded-lg shadow px-2 pt-2 mb-8 flex space-x-2 overflow-x-auto">
                         <TabButton tabName="overview" label="Overview" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+
+                        {/* Driver Console Tab - Only for Ride/Taxi partners or All */}
+                        {(user.partnerDetails?.serviceType === 'All' || ['Ride', 'Taxi', 'Car'].includes(user.partnerDetails?.serviceType)) && (
+                            <TabButton tabName="driver" label="Driver Console" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
+                        )}
+
                         {(user.partnerDetails?.serviceType === 'All' || ['Bus', 'Train', 'Air', 'Ride'].includes(user.partnerDetails?.serviceType)) && (
                             <TabButton tabName="routes" label="My Routes" currentTab={activeTab} setTab={setActiveTab} onClick={closeAllForms} />
                         )}
@@ -205,6 +212,10 @@ const PartnerDashboard = () => {
                                     </div>
                                 </div>
                             </div>
+                        )}
+
+                        {activeTab === 'driver' && (
+                            <DriverTab />
                         )}
 
                         {activeTab === 'bookings' && (

@@ -129,3 +129,46 @@ export const cancelBooking = async (req, res) => {
         res.status(500).json({ message: "Server error while cancelling booking." });
     }
 };
+
+// --- NEW: Get Available Private Ride Requests for Drivers ---
+export const getAvailableJobRequests = async (req, res) => {
+    try {
+        // Find bookings where service is 'Private Ride', status is 'Pending', and no driver assigned
+        const jobs = await Booking.find({
+            service: 'Private Ride',
+            bookingStatus: 'Pending',
+            driver: { $exists: false } // Or null
+        }).sort({ createdAt: -1 });
+        res.status(200).json(jobs);
+    } catch (error) {
+        console.error("Error fetching job requests:", error);
+        res.status(500).json({ message: "Server error fetching jobs." });
+    }
+};
+
+// --- NEW: Driver Accepts a Job ---
+export const acceptJob = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { driverId } = req.body;
+
+        const booking = await Booking.findById(id);
+        if (!booking) return res.status(404).json({ message: "Booking not found." });
+
+        if (booking.bookingStatus !== 'Pending') {
+            return res.status(400).json({ message: "This job is no longer available." });
+        }
+
+        booking.driver = driverId;
+        booking.bookingStatus = 'Confirmed';
+        await booking.save();
+
+        // Notify Passenger
+        sendBookingSms(booking).catch(err => console.error("SMS fail:", err));
+
+        res.status(200).json({ message: "Job accepted successfully!", booking });
+    } catch (error) {
+        console.error("Error accepting job:", error);
+        res.status(500).json({ message: "Server error accepting job." });
+    }
+};

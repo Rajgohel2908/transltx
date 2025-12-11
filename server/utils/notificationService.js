@@ -181,3 +181,57 @@ export const sendParcelStatusUpdateSms = async (parcelDetails) => {
     console.error("Parcel status SMS error:", error.message);
   }
 };
+
+// --- 9. Ride Started SMS (To Passenger) ---
+export const sendRideStartedSms = async (passengerPhone, driverName) => {
+  if (!passengerPhone) return;
+  const userPhone = `+91${passengerPhone.slice(-10)}`;
+  const smsBody = `Your ride has started! Driver ${driverName} is on the way/moving. Track them or get ready!`;
+
+  try {
+    await twilioClient.messages.create({
+      body: smsBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: userPhone,
+    });
+    console.log(`Ride Started SMS sent to ${userPhone}`);
+  } catch (error) {
+    console.error("Ride Started SMS error:", error.message);
+  }
+};
+
+// --- 10. Ride Booked SMS (To Driver) ---
+export const sendDriverNewBookingSms = async (driverPhone, routeFrom, routeTo, time) => {
+  if (!driverPhone) return;
+  const dPhone = `+91${driverPhone.slice(-10)}`;
+  const smsBody = `New Booking Alert! Route: ${routeFrom} -> ${routeTo} at ${new Date(time).toLocaleTimeString()}. Check Dashboard.`;
+
+  try {
+    await twilioClient.messages.create({
+      body: smsBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: dPhone,
+    });
+    console.log(`Driver Booking Alert SMS sent to ${dPhone}`);
+  } catch (error) {
+    console.error("Driver Booking Alert SMS error:", error.message);
+  }
+};
+
+// --- 11. Booking Confirmed SMS (To Passenger with Driver Details) ---
+export const sendPassengerBookingConfirmationSms = async (passengerPhone, driverName, driverPhone, carModel = "Vehicle") => {
+  if (!passengerPhone) return;
+  const pPhone = `+91${passengerPhone.slice(-10)}`;
+  const smsBody = `Booking Confirmed! Driver: ${driverName}, Phone: ${driverPhone}, Car: ${carModel}. See you soon!`;
+
+  try {
+    await twilioClient.messages.create({
+      body: smsBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: pPhone,
+    });
+    console.log(`Passenger Booking Confirmation SMS sent to ${pPhone}`);
+  } catch (error) {
+    console.error("Passenger Booking Confirmation SMS error:", error.message);
+  }
+};

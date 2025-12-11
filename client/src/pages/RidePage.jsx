@@ -201,7 +201,7 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
     try {
       // Booking is already created, just notify user
       onRideBooked(booking); // Use the passed booking object
-      alert("Ride booked successfully!");
+      alert("Ride requested! Waiting for a driver to accept.");
     } catch (err) {
       console.error(err);
       setError("Payment successful, but failed to update UI.");
@@ -244,8 +244,8 @@ const BookPrivateRideForm = ({ user, onRideBooked }) => {
         contactPhone: contactPhone,
         fare: quote.price,
         paymentStatus: "Pending",
-        bookingStatus: "Pending", // Start as Pending
-        notes: "Notifications: SMS=true, Email=true" // Compulsory notifications
+        bookingStatus: "Pending", // Start as Pending (Waiting for Driver)
+        notes: "Notifications: SMS=true, Email=true. Waiting for Driver."
       };
 
       const res = await api.post(`/bookings`, bookingPayload);
@@ -780,11 +780,11 @@ const RidePage = () => {
 
   const onCarpoolPaymentSuccess = async (rideId, paymentResult) => {
     try {
-      // 1. Update Ride Seat Count (Accept Ride)
-      await api.patch(`${API_URL}/${rideId}/accept`, { userId: user._id });
+      // 1. Update Ride Seat Count (Request Ride)
+      await api.patch(`${API_URL}/${rideId}/request`, { userId: user._id });
 
       // 2. Notify User
-      alert("Carpool seat booked successfully!");
+      alert("Carpool request sent! Waiting for driver approval.");
       fetchAllRides();
     } catch (err) {
       console.error(err);

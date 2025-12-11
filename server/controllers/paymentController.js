@@ -1,7 +1,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
 import Booking from "../models/Booking.js";
-import Parcel from '../models/Parcel.js';
+import Parcel from '../models/parcel.js';
 import { sendBookingEmail, sendBookingSms, sendParcelEmail, sendParcelSms } from '../utils/notificationService.js';
 
 dotenv.config();

@@ -9,6 +9,7 @@ const passengerSchema = new mongoose.Schema({
 const bookingSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   bookingType: { type: String, required: true, enum: ['Bus', 'Train', 'Air', 'Ride', 'Trips', 'Carpool'] },
+  driver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // For Private Ride assignment
 
   // --- YEH HAI NAYA DATA ---
   routeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' }, // Route se direct link
