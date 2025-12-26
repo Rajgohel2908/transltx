@@ -35,6 +35,8 @@ import PartnerSignup from "./pages/partner/PartnerSignup.jsx";
 import PartnerLogin from "./pages/partner/PartnerLogin.jsx";
 import PartnerForgotPassword from "./pages/partner/PartnerForgotPassword.jsx";
 import PartnerDashboard from "./pages/partner/PartnerDashboard.jsx";
+import DriverDashboard from "./pages/DriverDashboard.jsx";
+import ParkingDashboard from "./pages/partner/ParkingDashboard.jsx";
 
 function App() {
   useEffect(() => {
@@ -61,7 +63,7 @@ function App() {
 function MainLayout() {
   const location = useLocation();
 
-  const hideNavbarOn = ['/user-login', '/user-signup', '/login', '/signup', '/partner/signup', '/partner/login', '/partner/dashboard'];
+  const hideNavbarOn = ['/user-login', '/user-signup', '/login', '/signup', '/partner/signup', '/partner/login', '/partner/dashboard', '/driver-dashboard', '/parking-dashboard'];
 
   // Logic: Hide navbar if path is in array OR if it starts with /reset-password/
   const shouldShowNavbar =
@@ -221,6 +223,25 @@ function MainLayout() {
             element={
               <PrivateRoute>
                 <PartnerDashboard />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Driver Dashboard Route */}
+          <Route
+            path="/driver-dashboard"
+            element={
+              <PrivateRoute>
+                <DriverDashboard />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/parking-dashboard"
+            element={
+              <PrivateRoute>
+                <ParkingDashboard />
               </PrivateRoute>
             }
           />

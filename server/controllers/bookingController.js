@@ -1,6 +1,6 @@
 // server/controllers/bookingController.js
 import Booking from '../models/Booking.js';
-import { sendBookingEmail, sendBookingSms } from '../utils/notificationService.js';
+import { sendBookingEmail, sendBookingSms, sendCancellationEmail, sendCancellationSms } from '../utils/notificationService.js';
 
 export const createBooking = async (req, res) => {
     try {
@@ -122,6 +122,11 @@ export const cancelBooking = async (req, res) => {
 
         booking.bookingStatus = 'Cancelled';
         await booking.save();
+
+        // Send cancellation notifications (Email & SMS)
+        console.log("📧 Sending cancellation notifications...");
+        sendCancellationEmail(booking).catch(err => console.error("Cancellation Email fail:", err));
+        sendCancellationSms(booking).catch(err => console.error("Cancellation SMS fail:", err));
 
         res.status(200).json({ message: "Booking cancelled successfully", booking });
     } catch (error) {

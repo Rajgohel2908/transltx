@@ -24,6 +24,24 @@ const partnerSchema = new Schema({
     is_active: { type: Boolean, default: true },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+
+    // Parking Owner-specific fields
+    parkingDetails: {
+        parkingName: { type: String },
+        address: { type: String },
+        location: {
+            type: { type: String, enum: ['Point'], default: 'Point' },
+            coordinates: { type: [Number], default: [0, 0] }
+        },
+        totalSlots: { type: Number },
+        availableSlots: { type: Number },
+        pricing: {
+            twoWheeler: { type: Number },
+            fourWheeler: { type: Number },
+            bus: { type: Number }
+        },
+        isOpen: { type: Boolean, default: true }
+    }
 });
 
 // Reuse password hashing middleware

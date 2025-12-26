@@ -36,17 +36,54 @@ const userSchema = new Schema({
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 
-  // --- NEW FIELDS ---
+  // --- PARTNER SYSTEM FIELDS ---
   role: {
     type: String,
-    enum: ['user', 'admin', 'partner'],
+    enum: ['user', 'admin', 'operator', 'driver', 'parking_owner'],
     default: 'user'
   },
-  partnerDetails: {
+  phone: { type: String },
+
+  // Operator-specific fields (Bus, Train, Airline operators)
+  operatorDetails: {
     companyName: { type: String },
-    contactNumber: { type: String },
+    serviceType: { type: String, enum: ['bus', 'train', 'airline'] },
     licenseNumber: { type: String },
-    serviceType: { type: String, enum: ['Bus', 'Train', 'Air', 'Ride', 'Parking', 'All', 'bus', 'train', 'air', 'ride', 'parking', 'all'] }
+    gstNumber: { type: String },
+    contactNumber: { type: String }
+  },
+
+  // Driver-specific fields (Ride-hailing)
+  driverDetails: {
+    vehicle_type: {
+      type: String,
+      enum: ['bike', 'car', 'van', 'auto']
+    },
+    vehicle_number: { type: String },
+    license_number: { type: String },
+    isOnline: { type: Boolean, default: false },
+    currentLocation: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: [0, 0] }
+    }
+  },
+
+  // Parking Owner-specific fields
+  parkingDetails: {
+    parkingName: { type: String },
+    address: { type: String },
+    location: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: [0, 0] }
+    },
+    totalSlots: { type: Number },
+    availableSlots: { type: Number },
+    pricing: {
+      twoWheeler: { type: Number },
+      fourWheeler: { type: Number },
+      bus: { type: Number }
+    },
+    isOpen: { type: Boolean, default: true }
   }
   // ------------------
 });

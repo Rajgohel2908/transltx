@@ -295,7 +295,7 @@ const Parcel = () => {
     } catch (err) {
       console.error(err);
       if (err.response?.status === 401) {
-        alert("Session expired. Please login again.");
+        alert("Session expired. in again.");
         navigate('/login');
         return;
       }

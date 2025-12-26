@@ -5,7 +5,9 @@ import axios from "axios";
 import {
   sendRideStartedSms,
   sendDriverNewBookingSms,
-  sendPassengerBookingConfirmationSms
+  sendPassengerBookingConfirmationSms,
+  sendRideCancellationEmail,
+  sendRideCancellationSms
 } from "../utils/notificationService.js";
 
 // Helper: Geocodes a string location using Nominatim
@@ -348,6 +350,9 @@ export const cancelSeat = async (req, res) => {
       return res.status(400).json({ message: "You have not booked this ride." });
     }
 
+    // Get user details for notification
+    const user = await User.findById(userId);
+
     // Logic: Remove user, Increase seats, Update status
     ride.acceptedBy = ride.acceptedBy.filter(id => id.toString() !== userId);
     ride.seatsAvailable += 1;
@@ -356,6 +361,27 @@ export const cancelSeat = async (req, res) => {
     }
 
     await ride.save();
+
+    // Send cancellation notifications
+    if (user) {
+      console.log("📧 Sending ride cancellation notifications...");
+      if (user.email) {
+        sendRideCancellationEmail(user.email, user.name, {
+          from: ride.from,
+          to: ride.to,
+          departureTime: ride.departureTime,
+          price: ride.price
+        }).catch(err => console.error("Ride cancellation email fail:", err));
+      }
+      if (user.phone) {
+        sendRideCancellationSms(user.phone, {
+          from: ride.from,
+          to: ride.to,
+          price: ride.price
+        }).catch(err => console.error("Ride cancellation SMS fail:", err));
+      }
+    }
+
     res.status(200).json({ message: "Seat cancelled successfully.", ride });
 
   } catch (error) {

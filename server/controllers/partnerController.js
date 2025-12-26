@@ -14,21 +14,51 @@ const JWT_SECRET = process.env.JWT_SECRET;
 async function partnerSignup(req, res) {
     console.log("Partner Signup Request (Separate Collection):", JSON.stringify(req.body, null, 2));
     try {
-        const { name, password, partnerDetails } = req.body;
+        const { name, password, partnerDetails, parkingDetails, operatorDetails, driverDetails, phone } = req.body;
         const email = req.body.email?.toLowerCase();
 
-        // Check if email exists in either User or Partner collection to enforce unique emails across system
+        // Check if email exists in either User or Partner collection
         const existingUser = await User.findOne({ email });
         const existingPartner = await Partner.findOne({ email });
-
 
         if (existingUser || existingPartner) {
             console.log("Signup Failed: Email already exists:", email);
             return res.status(400).json({ error: "Email already exists" });
         }
 
+        // Construct partnerDetails based on legitimate input types (Operator, Driver, Parking, or Direct)
+        let finalPartnerDetails = partnerDetails || {};
+
+        if (operatorDetails) {
+            finalPartnerDetails = {
+                companyName: operatorDetails.companyName,
+                contactNumber: operatorDetails.contactNumber || phone,
+                serviceType: operatorDetails.serviceType,
+                licenseNumber: operatorDetails.licenseNumber
+            };
+        } else if (driverDetails) {
+            finalPartnerDetails = {
+                companyName: name + " (Driver)", // Drivers are individuals
+                contactNumber: phone,
+                serviceType: 'Ride',
+                licenseNumber: driverDetails.license_number
+            };
+        } else if (parkingDetails) {
+            finalPartnerDetails = {
+                companyName: parkingDetails.parkingName,
+                contactNumber: phone,
+                serviceType: 'Parking',
+                licenseNumber: 'N/A'
+            };
+        }
+
+        // Validate required fields for Schema
+        if (!finalPartnerDetails.companyName || !finalPartnerDetails.serviceType) {
+            return res.status(400).json({ error: "Missing required partner details (Company Name or Service Type)" });
+        }
+
         // Check SINGLETON constraint for Train operators (IRCTC only)
-        if (partnerDetails?.serviceType === 'Train') {
+        if (finalPartnerDetails.serviceType === 'Train') {
             const existingTrainOperator = await Partner.findOne({ "partnerDetails.serviceType": "Train" });
             if (existingTrainOperator) {
                 return res.status(403).json({
@@ -39,18 +69,29 @@ async function partnerSignup(req, res) {
 
         // Create new Partner
         console.log("Creating Partner in 'partners' collection...");
+
         const partner = await Partner.create({
             name,
             email,
             password,
-            partnerDetails
+            partnerDetails: finalPartnerDetails,
+            parkingDetails // Only relevant for parking owners, will be undefined for others
         });
 
         console.log("Partner Created Successfully:", partner._id);
 
         const token = jwt.sign({ id: partner._id, role: 'partner' }, JWT_SECRET, { expiresIn: "30d" });
 
-        res.status(201).json({ message: "Partner account created", token });
+        // Determine effective role for frontend redirection
+        let effectiveRole = 'operator';
+        const sType = finalPartnerDetails.serviceType?.toLowerCase();
+        if (sType === 'parking') {
+            effectiveRole = 'parking_owner';
+        } else if (sType === 'ride') {
+            effectiveRole = 'driver';
+        }
+
+        res.status(201).json({ message: "Partner account created", token, role: effectiveRole });
     } catch (error) {
         console.error("Partner Signup Error TRACE:", error);
         res.status(500).json({ error: "Server error during partner signup.", details: error.message });
@@ -80,14 +121,24 @@ async function partnerLogin(req, res) {
     console.log('Partner login successful');
     const token = jwt.sign({ id: partner._id, role: 'partner' }, JWT_SECRET, { expiresIn: "30d" });
 
-    res.status(200).json({ token });
+    // Determine effective role based on serviceType
+    let effectiveRole = 'operator';
+    const sType = partner.partnerDetails?.serviceType?.toLowerCase();
+
+    if (sType === 'parking') {
+        effectiveRole = 'parking_owner';
+    } else if (sType === 'ride') {
+        effectiveRole = 'driver';
+    }
+
+    res.status(200).json({ token, role: effectiveRole });
 }
 
 async function getPartnerProfile(req, res) {
     try {
         const partner = await Partner.findById(req.userId);
         if (!partner) return res.status(404).json({ error: "Partner not found" });
-        res.json(partner);
+        res.json({ user: partner });
     } catch (error) {
         res.status(500).json({ error: "Server Error" });
     }
@@ -275,5 +326,51 @@ async function togglePartnerStatus(req, res) {
     }
 }
 
-export { partnerSignup, partnerLogin, getPartnerProfile, getPartnerStats, getPartnerBookings, getAllPartners, togglePartnerStatus };
+// --- Update Profile ---
+async function updatePartnerProfile(req, res) {
+    try {
+        const { name, parkingDetails } = req.body;
+        console.log("Update Partner Request:", req.body);
+
+        const partner = await Partner.findById(req.userId);
+        if (!partner) return res.status(404).json({ error: "Partner not found" });
+
+        if (name) partner.name = name;
+
+        // Update Parking Details
+        if (parkingDetails) {
+            // Ensure parkingDetails object exists
+            if (!partner.parkingDetails) partner.parkingDetails = {};
+
+            if (parkingDetails.totalSlots !== undefined) partner.parkingDetails.totalSlots = parkingDetails.totalSlots;
+            if (parkingDetails.availableSlots !== undefined) partner.parkingDetails.availableSlots = parkingDetails.availableSlots;
+            if (parkingDetails.isOpen !== undefined) partner.parkingDetails.isOpen = parkingDetails.isOpen;
+
+            // Pricing update
+            if (parkingDetails.pricing) {
+                if (!partner.parkingDetails.pricing) partner.parkingDetails.pricing = {};
+                if (parkingDetails.pricing.twoWheeler !== undefined) partner.parkingDetails.pricing.twoWheeler = parkingDetails.pricing.twoWheeler;
+                if (parkingDetails.pricing.fourWheeler !== undefined) partner.parkingDetails.pricing.fourWheeler = parkingDetails.pricing.fourWheeler;
+                if (parkingDetails.pricing.bus !== undefined) partner.parkingDetails.pricing.bus = parkingDetails.pricing.bus;
+            }
+
+            // Note: We are not updating parkingName or address here to prevent accidental erasure if not sent.
+            // If the dashboard sends them, we can update them.
+            // ParkingDashboard sends: totalSlots, availableSlots, isOpen, pricing. It does NOT seem to send name/address in the payload constructed in handleSave.
+        }
+
+        await partner.save();
+
+        res.json({
+            message: "Profile updated successfully",
+            user: partner
+        });
+
+    } catch (error) {
+        console.error("Update Partner Profile Error:", error);
+        res.status(500).json({ error: "Server error updating profile" });
+    }
+}
+
+export { partnerSignup, partnerLogin, getPartnerProfile, getPartnerStats, getPartnerBookings, getAllPartners, togglePartnerStatus, updatePartnerProfile };
 

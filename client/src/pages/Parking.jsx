@@ -98,6 +98,8 @@ const ParkingPage = () => {
       try {
         const response = await axios.get(API_URL);
         // Ensure parkingLots is always an array
+        // If the API returns users, we need to map them if controller didn't map them perfectly
+        // But my controller map looks good.
         setParkingLots(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         setError(
@@ -140,14 +142,14 @@ const ParkingPage = () => {
             {loading
               ? [...Array(3)].map((_, i) => <SkeletonCard key={i} />)
               : paginatedLots.length > 0 // <-- 'parkingLots' ko 'paginatedLots' se replace kar
-              ? paginatedLots.map((lot) => ( // <-- 'parkingLots' ko 'paginatedLots' se replace kar
+                ? paginatedLots.map((lot) => ( // <-- 'parkingLots' ko 'paginatedLots' se replace kar
                   <ParkingCard key={lot._id} lot={lot} />
                 ))
-              : (
-                <p className="text-center text-gray-500 col-span-full">
-                  No parking lots found.
-                </p>
-              )}
+                : (
+                  <p className="text-center text-gray-500 col-span-full">
+                    No parking lots found.
+                  </p>
+                )}
           </div>
 
           {/* --- YEH POORA BLOCK ADD KAR (div ke andar) --- */}

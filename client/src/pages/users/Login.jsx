@@ -30,17 +30,27 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    console.log("🔐 Login attempt for:", email);
     try {
       const data = await loginUser({ email, password });
+      console.log("✅ Login API response:", data);
+
       if (data?.token) {
+        console.log("💾 Saving token to", rememberMe ? "localStorage" : "sessionStorage");
         if (rememberMe) {
           localStorage.setItem("token", data.token);
         } else {
           sessionStorage.setItem("token", data.token);
         }
-        window.location.replace("/"); // Use replace to avoid adding to history
+
+        console.log("🔄 Redirecting to home...");
+        // Full page reload will trigger Context to load user with new token
+        window.location.href = "/";
+      } else {
+        console.error("❌ No token in response:", data);
       }
     } catch (err) {
+      console.error("❌ Login error:", err);
       const errors = err.errors || [];
       setAlertTitle("Login Failed");
       setAlertMessage(errors.length ? errors.map((e) => e.msg).join(", ") : err.message || "An unknown error occurred.");
@@ -66,7 +76,8 @@ const Login = () => {
       const data = await signupUser({ name, email: signupEmail, password: signupPassword });
       if (data?.token) {
         localStorage.setItem("token", data.token);
-        window.location.replace("/"); // Use replace to avoid adding to history
+        // Full page reload will trigger Context to load user with new token
+        window.location.href = "/";
       }
     } catch (err) {
       const errors = err.errors || [];
@@ -84,10 +95,10 @@ const Login = () => {
     <>
       <div className={`min-h-screen flex items-center justify-center bg-gray-100 transition-filter duration-300 ${isAlertVisible || showForgotPassword ? "blur-sm" : ""}`}>
         <div className={`auth-container ${isRightPanelActive ? "right-panel-active" : ""}`}>
-          
+
           {/* Sign Up Form */}
           <div className="form-container sign-up-container">
-            <Signup 
+            <Signup
               handleRegister={handleRegister}
               name={name}
               setName={setName}
@@ -106,62 +117,62 @@ const Login = () => {
             <div className="h-full flex flex-col items-center justify-center px-10 text-center">
               <h1 className="text-3xl font-bold mb-4" data-aos="fade-up">Login</h1>
               <form onSubmit={handleLogin} className="w-full">
-                  <div className="form-group" data-aos="fade-up" data-aos-delay="100">
-                    <input
-                      type="text"
-                      id="login-email"
-                      placeholder=" "
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="form-input"
-                      required
-                    />
-                    <label htmlFor="login-email" className="form-label">Email</label>
-                  </div>
-                  <div className="form-group relative" data-aos="fade-up" data-aos-delay="200">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      id="login-password"
-                      placeholder=" "
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="form-input"
-                      required
-                    />
-                    <label htmlFor="login-password" className="form-label">Password</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500"
-                    >
-                      {showPassword ? <EyeOff /> : <Eye />}
-                    </button>
-                  </div>
-                  <div className="flex justify-between items-center mt-4" data-aos="fade-up" data-aos-delay="225">
-                    <label className="flex items-center text-sm text-gray-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                      />
-                      <span className="ml-2">Remember Me</span>
-                    </label>
-                  </div>
-
-                  <div className="text-right mt-2" data-aos="fade-up" data-aos-delay="250">
-                    <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm font-medium text-blue-600 hover:underline focus:outline-none">
-                      Forgot your password?
-                    </button>
-                  </div>
+                <div className="form-group" data-aos="fade-up" data-aos-delay="100">
+                  <input
+                    type="text"
+                    id="login-email"
+                    placeholder=" "
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="form-input"
+                    required
+                  />
+                  <label htmlFor="login-email" className="form-label">Email</label>
+                </div>
+                <div className="form-group relative" data-aos="fade-up" data-aos-delay="200">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="login-password"
+                    placeholder=" "
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="form-input"
+                    required
+                  />
+                  <label htmlFor="login-password" className="form-label">Password</label>
                   <button
-                    type="submit"
-                    className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-md font-semibold uppercase tracking-wider transform hover:scale-105 transition-transform"
-                    data-aos="fade-up"
-                    data-aos-delay="300"
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500"
                   >
-                    Login
+                    {showPassword ? <EyeOff /> : <Eye />}
                   </button>
+                </div>
+                <div className="flex justify-between items-center mt-4" data-aos="fade-up" data-aos-delay="225">
+                  <label className="flex items-center text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                    />
+                    <span className="ml-2">Remember Me</span>
+                  </label>
+                </div>
+
+                <div className="text-right mt-2" data-aos="fade-up" data-aos-delay="250">
+                  <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm font-medium text-blue-600 hover:underline focus:outline-none">
+                    Forgot your password?
+                  </button>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-md font-semibold uppercase tracking-wider transform hover:scale-105 transition-transform"
+                  data-aos="fade-up"
+                  data-aos-delay="300"
+                >
+                  Login
+                </button>
               </form>
               <p className="text-sm text-center mt-6" data-aos="fade-up" data-aos-delay="400">
                 Don't have an account?{" "}
@@ -202,8 +213,8 @@ const Login = () => {
             </div>
             <h3 className="text-lg leading-6 font-medium text-gray-900 mt-4">{alertTitle}</h3>
             <p className="text-sm text-red-600 mt-2">{alertMessage}</p>
-            <button 
-              className="mt-6 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none" 
+            <button
+              className="mt-6 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none"
               onClick={() => setIsAlertVisible(false)}
             >
               Close

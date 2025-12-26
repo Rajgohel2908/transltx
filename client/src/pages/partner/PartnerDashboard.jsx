@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
+ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { api } from "../../utils/api.js";
 import { DataContext } from "../../context/Context.jsx";
 import Footer from '../../components/Footer';

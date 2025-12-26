@@ -1,195 +1,257 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { api } from '../../utils/api';
-import { DataContext } from '../../context/Context';
-import Footer from '../../components/Footer';
-import { Briefcase, ArrowRight, Lock, Mail, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2, Lock, Mail, Truck, Sparkles, ArrowRight } from 'lucide-react';
+import { loginPartner } from '../../utils/api.js';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
 
 const PartnerLogin = () => {
     const navigate = useNavigate();
-    const { setUser } = useContext(DataContext);
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
     const [formData, setFormData] = useState({
         email: '',
         password: ''
     });
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        AOS.init({ duration: 600, once: true, easing: 'ease-out-cubic' });
+    }, []);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        setError('');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsLoading(true);
         setError('');
+        setLoading(true);
 
         try {
-            const response = await api.post('/partners/login', formData);
-            const { token } = response.data;
+            const response = await loginPartner(formData);
 
-            localStorage.setItem('token', token);
+            if (response.token) {
+                localStorage.setItem('token', response.token);
 
-            // Fetch profile and update context immediately
-            try {
-                const userRes = await api.get('/partners/me');
-                setUser(userRes.data);
-                navigate('/partner/dashboard');
-            } catch (fetchErr) {
-                console.error("Failed to fetch profile:", fetchErr);
-                // Fallback: reload page or navigate anyway (auth check might fail but refresh will fix)
-                navigate('/partner/dashboard');
-                window.location.reload();
+                // Full page reload will trigger Context to load user with new token
+                if (response.role === 'driver') {
+                    window.location.href = '/driver-dashboard';
+                } else if (response.role === 'fleet_owner' || response.role === 'partner' || response.role === 'operator') {
+                    window.location.href = '/partner/dashboard';
+                } else if (response.role === 'parking_owner') {
+                    window.location.href = '/parking-dashboard';
+                } else {
+                    setError('Invalid account type for partner login');
+                }
             }
-
         } catch (err) {
-            console.error("Login Error:", err);
-            setError(err.response?.data?.error || "Invalid email or password. Please try again.");
+            setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col justify-between">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 relative overflow-hidden">
+            {/* Animated Background Elements */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '6s' }} />
 
-            <div className="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-                <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-0 bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
+            {/* Header */}
+            <div className="relative bg-white/80 backdrop-blur-sm border-b border-gray-200">
+                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                            TransltIx Partner Portal
+                        </h1>
+                    </div>
+                    <button
+                        onClick={() => navigate('/partner/signup')}
+                        className="px-4 py-2 text-blue-600 hover:text-blue-700 font-semibold hover:bg-blue-50 rounded-lg transition-all"
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            </div>
 
-                    {/* Left Side - Visuals */}
-                    <div className="hidden md:flex flex-col justify-center items-center p-10 bg-blue-600 text-white relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] animate-pulse-slow"></div>
-                        <div className="relative z-10 text-center">
-                            <div className="bg-white/20 p-4 rounded-full inline-block mb-6 backdrop-blur-sm">
-                                <Briefcase size={48} className="text-white" />
-                            </div>
-                            <h2 className="text-3xl font-extrabold mb-4">Partner Portal</h2>
-                            <p className="text-blue-100 text-lg mb-8 leading-relaxed">
-                                Manage your fleet, track earnings, and grow your business with TransItIx.
-                            </p>
-                            <div className="flex items-center gap-2 text-sm font-medium bg-blue-700/50 py-2 px-4 rounded-full">
-                                <span>Trusted by 500+ Operators</span>
+            {/* Main Content */}
+            <div className="relative max-w-6xl mx-auto px-4 py-16">
+                <div className="grid md:grid-cols-2 gap-12 items-center">
+                    {/* Left Side - Branding */}
+                    <div className="hidden md:block" data-aos="fade-right">
+                        <div className="relative">
+                            {/* Decorative card stack */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-3xl transform rotate-6 opacity-20" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl transform -rotate-6 opacity-20" />
+
+                            <div className="relative bg-white rounded-3xl shadow-2xl p-12">
+                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center mb-6 shadow-lg">
+                                    <Lock className="w-10 h-10 text-white" />
+                                </div>
+                                <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                                    Welcome Back,
+                                    <br />
+                                    <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                                        Partner!
+                                    </span>
+                                </h2>
+                                <p className="text-gray-600 text-lg mb-8">
+                                    Continue your journey with India's most trusted logistics platform.
+                                </p>
+
+                                {/* Stats */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    {[
+                                        { value: '10K+', label: 'Partners' },
+                                        { value: '₹50Cr+', label: 'Paid Out' },
+                                        { value: '4.8★', label: 'Rating' }
+                                    ].map((stat, i) => (
+                                        <div key={i} className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl">
+                                            <div className="text-2xl font-bold text-blue-600">{stat.value}</div>
+                                            <div className="text-xs text-gray-600">{stat.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                        {/* Decorative Circles */}
-                        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-500 rounded-full opacity-50 blur-2xl"></div>
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500 rounded-full opacity-50 blur-2xl"></div>
                     </div>
 
-                    {/* Right Side - Form */}
-                    <div className="p-10 md:p-12 flex flex-col justify-center">
-                        <div className="mb-8">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back!</h1>
-                            <p className="text-gray-500">Please login to access your partner dashboard.</p>
-                        </div>
+                    {/* Right Side - Login Form */}
+                    <div data-aos="fade-left">
+                        <div className="relative">
+                            {/* Gradient border effect */}
+                            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl opacity-75 blur" />
 
-                        {error && (
-                            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r flex items-start gap-3 animate-shake">
-                                <AlertCircle className="text-red-500 w-5 h-5 flex-shrink-0 mt-0.5" />
-                                <p className="text-red-700 text-sm">{error}</p>
-                            </div>
-                        )}
-
-                        <form className="space-y-6" onSubmit={handleSubmit}>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-gray-400" />
+                            <div className="relative bg-white rounded-2xl shadow-xl p-8">
+                                <div className="text-center mb-8">
+                                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full text-blue-700 text-sm font-semibold mb-4">
+                                        <Sparkles className="w-4 h-4" />
+                                        <span>Secure Login</span>
                                     </div>
-                                    <input
-                                        name="email"
-                                        type="email"
-                                        required
-                                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                                        placeholder="partner@company.com"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                    />
+                                    <h3 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h3>
+                                    <p className="text-gray-600">Access your partner dashboard</p>
                                 </div>
-                            </div>
 
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-sm font-medium text-gray-700">Password</label>
-                                    <Link to="/partner/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-500">Forgot password?</Link>
-                                </div>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-gray-400" />
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                                        <div className="relative group">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors">
+                                                <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-blue-600" />
+                                            </div>
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleChange}
+                                                required
+                                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                                                placeholder="you@example.com"
+                                            />
+                                        </div>
                                     </div>
-                                    <input
-                                        name="password"
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                                        placeholder="••••••••"
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                    />
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                                        <div className="relative group">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors">
+                                                <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-blue-600" />
+                                            </div>
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                name="password"
+                                                value={formData.password}
+                                                onChange={handleChange}
+                                                required
+                                                className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                                                placeholder="Enter your password"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <label className="flex items-center cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-600 group-hover:text-gray-900">Remember me</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/partner/forgot-password')}
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+                                        >
+                                            Forgot password?
+                                        </button>
+                                    </div>
+
+                                    {error && (
+                                        <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 text-sm">
+                                            {error}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                <span>Signing in...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Sign In</span>
+                                                <ArrowRight className="w-5 h-5" />
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <div className="relative my-6">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t-2 border-gray-200" />
+                                        </div>
+                                        <div className="relative flex justify-center">
+                                            <span className="px-4 bg-white text-sm text-gray-500 font-medium">New to TransltIx?</span>
+                                        </div>
+                                    </div>
+
                                     <button
                                         type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                                        onClick={() => navigate('/partner/signup')}
+                                        className="w-full py-4 border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 text-gray-700 hover:text-blue-700 font-semibold rounded-xl transition-all"
                                     >
-                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        Create Partner Account
                                     </button>
-                                </div>
+
+                                    <p className="text-center text-sm text-gray-600 mt-6">
+                                        Not a partner?{' '}
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/user-login')}
+                                            className="text-blue-600 hover:text-blue-700 font-semibold"
+                                        >
+                                            User Login
+                                        </button>
+                                    </p>
+                                </form>
                             </div>
-
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {isLoading ? (
-                                    <Loader className="w-5 h-5 animate-spin" />
-                                ) : (
-                                    <span className="flex items-center gap-2">Sign In <ArrowRight className="w-4 h-4" /></span>
-                                )}
-                            </button>
-                        </form>
-
-                        <div className="mt-8 text-center">
-                            <p className="text-sm text-gray-600">
-                                Don't have a partner account?{' '}
-                                <Link to="/partner/signup" className="font-medium text-blue-600 hover:text-blue-500 hover:underline transition-colors pb-1">
-                                    Register your business
-                                </Link>
-                            </p>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <Footer />
-
-            <style>{`
-        @keyframes fade-in-up {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-            animation: fade-in-up 0.6s ease-out forwards;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-            20%, 40%, 60%, 80% { transform: translateX(4px); }
-        }
-        .animate-shake {
-            animation: shake 0.4s ease-in-out;
-        }
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 0.1; }
-            50% { opacity: 0.2; }
-        }
-        .animate-pulse-slow {
-            animation: pulse-slow 4s infinite;
-        }
-      `}</style>
         </div>
     );
 };

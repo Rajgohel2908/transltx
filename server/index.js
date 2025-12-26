@@ -6,7 +6,7 @@ const app = express();
 import cors from "cors";
 import morgan from "morgan";
 app.use(cors({
-  origin: "http://localhost:5173", // Sirf tere client ko allow kar
+  origin: ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"], // Allow common dev ports
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // Saare methods allow kar
   credentials: true
 }));
