@@ -55,7 +55,7 @@ const rideSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["scheduled", "active", "booked", "completed", "cancelled"],
-      default: "scheduled",
+      default: "active",
     },
   },
   {

@@ -6,7 +6,7 @@ import { handlePayment } from "../utils/cashfree.js";
 import CarpoolOfferModal from "../components/CarpoolOfferModal.jsx";
 import ModernCalendar from "../components/ModernCalendar";
 import ModernTimer from "../components/ModernTimer";
-import { Users, Phone, Clock, Car as CarIcon, MapPin, DollarSign, Calendar, Search, CheckCircle, Briefcase, UserPlus, ArrowRight, List } from "lucide-react";
+import { Users, Phone, Clock, Car as CarIcon, MapPin, IndianRupee, Calendar, Search, CheckCircle, Briefcase, UserPlus, ArrowRight, List } from "lucide-react";
 import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from "react-leaflet";
 import L from "leaflet";
@@ -559,7 +559,7 @@ const OfferCarpoolForm = ({ user, onRidePosted }) => {
             <input type="number" placeholder="Seats" value={seatsAvailable} onChange={(e) => setSeatsAvailable(e.target.value)} min="1" max="7" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg" />
           </div>
           <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><DollarSign className="h-5 w-5 text-gray-400" /></span>
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><IndianRupee className="h-5 w-5 text-gray-400" /></span>
             <input type="number" placeholder="Price per Seat (₹)" value={price} onChange={(e) => setPrice(e.target.value)} min="0" required className="w-full p-3 pl-10 border border-gray-300 rounded-lg" />
           </div>
         </div>
@@ -653,7 +653,7 @@ const AcceptedRideCard = ({ ride, onCancelSeat }) => {
         <p className="flex items-center"><Clock className="h-4 w-4 mr-2" /> {new Date(ride.departureTime).toLocaleString()}</p>
         <p className="flex items-center"><CarIcon className="h-4 w-4 mr-2" /> Driver: <span className="font-semibold ml-1">{ride.driver?.name}</span></p>
         <p className="flex items-center font-semibold text-gray-800"><Phone className="h-4 w-4 mr-2" /> {ride.driverPhone}</p>
-        <p className="flex items-center font-semibold text-green-600"><DollarSign className="h-4 w-4 mr-2" /> Paid: ₹{ride.price.toLocaleString()}</p>
+        <p className="flex items-center font-semibold text-green-600"><IndianRupee className="h-4 w-4 mr-2" /> Paid: ₹{ride.price.toLocaleString()}</p>
         {ride.notes && <p className="text-sm pt-2 border-t border-gray-200 mt-2">Notes: "{ride.notes}"</p>}
       </div>
 
@@ -682,7 +682,7 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
         <div>
           <h3 className="text-xl font-semibold mb-4">My Booked Seats</h3>
           {acceptedRides.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
               {acceptedRides.map(r => <AcceptedRideCard key={r._id} ride={r} onCancelSeat={onCancelSeat} />)}
             </div>
           ) : (
@@ -692,7 +692,7 @@ const MyRideActivity = ({ acceptedRides, myOffers, onCancel, onBookCarpool, curr
         <div>
           <h3 className="text-xl font-semibold mb-4">My Active Offers</h3>
           {myOffers.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
               {myOffers.map(r => (
                 <RideCard key={r._id} ride={r} currentUserId={currentUserId} onCancel={onCancel} onBookCarpool={onBookCarpool} />
               ))}
